@@ -1,0 +1,22 @@
+{
+	"name": "diff-dirs",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/rektide/diff-dirs.git"
+	},
+	"keywords": [],
+	"author": "rektide de la faye",
+	"license": "MIT",
+	"type": "module",
+	"bugs": {
+		"url": "https://github.com/rektide/diff-dirs/issues"
+	},
+	"homepage": "https://github.com/rektide/diff-dirs#readme",
+	"module": "diff-dirs.js"
+}
