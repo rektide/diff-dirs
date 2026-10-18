@@ -89,6 +89,10 @@ impl Case {
 }
 
 pub fn prepare(fixture: &Fixture, root: &Path, scenario: Scenario, destinations: usize) -> Result<Case> {
+    prepare_scoped(fixture, root, scenario, destinations, &[PathBuf::new()])
+}
+
+pub fn prepare_scoped(fixture: &Fixture, root: &Path, scenario: Scenario, destinations: usize, scopes: &[PathBuf]) -> Result<Case> {
     if destinations == 0 {
         return Err("destinations must be positive".into());
     }
@@ -119,19 +123,19 @@ pub fn prepare(fixture: &Fixture, root: &Path, scenario: Scenario, destinations:
         fixture::clone_tree(&case.source(), &target)?;
         match scenario {
             Scenario::Sparse => {
-                let file = select(&target, false)?.ok_or("sparse fixture needs a regular file")?;
+                let (scope, file) = select_scoped(&target, scopes, false)?.ok_or("sparse fixture needs a regular payload file")?;
                 // Size differs; no dependency on timestamp granularity or byte comparison.
                 OpenOptions::new().append(true).open(&file)?.write_all(b"sparse target delta\n")?;
                 File::open(&file)?.set_times(FileTimes::new().set_modified(UNIX_EPOCH + Duration::from_secs(1)))?;
-                let stale = target.join("__perf_stale");
+                let stale = scope.join("__perf_stale");
                 OpenOptions::new().write(true).create_new(true).open(&stale)?.write_all(b"stale\n")?;
                 File::open(stale)?.set_times(FileTimes::new().set_modified(UNIX_EPOCH + Duration::from_secs(1)))?;
                 normalize_dirs(&target)?;
             }
             Scenario::Subtree => {
-                let removed = select(&target, true)?.ok_or("subtree fixture needs a real child directory")?;
+                let (scope, removed) = select_scoped(&target, scopes, true)?.ok_or("subtree fixture needs a real payload child directory")?;
                 fs::rename(removed, case.root.join(format!("removed-{index}")))?;
-                let obsolete = target.join("__perf_obsolete");
+                let obsolete = scope.join("__perf_obsolete");
                 fs::create_dir(&obsolete)?;
                 fs::write(obsolete.join("leaf"), b"obsolete\n")?;
                 File::open(obsolete.join("leaf"))?.set_times(FileTimes::new().set_modified(UNIX_EPOCH + Duration::from_secs(1)))?;
@@ -145,6 +149,22 @@ pub fn prepare(fixture: &Fixture, root: &Path, scenario: Scenario, destinations:
     case.source_identity = fixture::tree(&case.source(), false, true)?;
     write_json(&case.root.join("case.json"), &case)?;
     Ok(case)
+}
+
+fn select_scoped(target: &Path, scopes: &[PathBuf], directory: bool) -> Result<Option<(PathBuf, PathBuf)>> {
+    for relative in scopes {
+        if relative.is_absolute() || relative.components().any(|p| !matches!(p, std::path::Component::Normal(_))) {
+            return Err("unsafe scenario scope".into());
+        }
+        let scope = target.join(relative);
+        if !fs::symlink_metadata(&scope)?.is_dir() {
+            return Err("scenario scope must be a real directory".into());
+        }
+        if let Some(path) = select(&scope, directory)? {
+            return Ok(Some((scope, path)));
+        }
+    }
+    Ok(None)
 }
 
 fn select(root: &Path, directory: bool) -> Result<Option<PathBuf>> {

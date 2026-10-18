@@ -29,6 +29,10 @@ pub struct Outcome {
 }
 
 pub fn run(command: &mut Command, stem: &Path, timeout: Duration) -> Result<Outcome> {
+    run_input(command, stem, timeout, None)
+}
+
+pub fn run_input(command: &mut Command, stem: &Path, timeout: Duration, input: Option<&Path>) -> Result<Outcome> {
     let stdout = OpenOptions::new().write(true).create_new(true).open(stem.with_extension("stdout"))?;
     let stderr = OpenOptions::new().write(true).create_new(true).open(stem.with_extension("stderr"))?;
     let argv = std::iter::once(command.get_program())
@@ -36,7 +40,12 @@ pub fn run(command: &mut Command, stem: &Path, timeout: Duration) -> Result<Outc
         .map(|s| s.to_string_lossy().into_owned())
         .collect();
     let cwd = command.get_current_dir().unwrap_or(&std::env::current_dir()?).display().to_string();
-    command.stdin(Stdio::null()).stdout(stdout).stderr(stderr).process_group(0);
+    let stdin = if let Some(input) = input {
+        Stdio::from(std::fs::File::open(input)?)
+    } else {
+        Stdio::null()
+    };
+    command.stdin(stdin).stdout(stdout).stderr(stderr).process_group(0);
     let started_unix_ns = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
     let start = Instant::now();
     let child = command.spawn()?;

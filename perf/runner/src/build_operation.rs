@@ -101,7 +101,7 @@ path = "operation.rs"
     // Use one common lock seed for baseline/candidate, then retain the actual resolved lock.
     fs::copy(tool.join("../../Cargo.lock"), output.join("Cargo.lock"))?;
     let compiler = command(
-        Command::new("rustc").args(["--version", "--verbose"]).current_dir(&output),
+        Command::new(std::env::var_os("RUSTC").unwrap_or_else(||"rustc".into())).args(["--version", "--verbose"]).current_dir(&output),
         &output.join("compiler"),
     )?;
     let mut cargo = Command::new("cargo");
