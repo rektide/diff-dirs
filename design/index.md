@@ -6,6 +6,8 @@ resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: "opencode://ses_eb24f98a3ffewdVqa9lao6tXQu"
+    title: Connected implemented static checks, recursive guarded execution, full read-only audit and selected-root transitions to the earlier proposals and controlled performance evidence
   - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
     title: Linked the independent shared-inspection-gate design and its jj-waltz integration map, with explicit recursive coverage and refusal-timing alternatives
   - resource: "opencode://ses_eb2c07f5cffe2uTLIC7b1rrD99"
@@ -56,7 +58,9 @@ The [root specification](../README.md) owns the current public contract.
   pre-admission parallel placement, batch mount-topology front guards, frozen/batched ignore
   proofs in jw, and alternatives for strict preflight, caller-owned cursors,
   uniform tree execution, and source-to-many streaming. Includes a linked
-  jj-waltz call-site map; proposed, not an amendment to the active specification.
+   jj-waltz call-site map; proposed, not an amendment to the active specification.
+  The narrower accept/refuse implementation is linked below; the proposal's
+  preserve/editable-view and broader alternatives were not implemented.
 - [I/O assessment](fit/io0.glm53m.md): std, async wrappers, filesystem libraries,
   and the concrete sequential jj-waltz execution path. Jujutsu itself is a
   subprocess, not an embedded runtime dependency.
@@ -128,7 +132,15 @@ The [root specification](../README.md) owns the current public contract.
   unchanged/cleanup/descriptor/staging/handoff controls, separate staging-only
   and final-build confirmations, syscall attribution, raw observations and
   single-leaf/large-file/P4 descriptor negatives. Qualifies which mechanisms
-  actually helped rather than promoting the entire opportunity inventory.
+   actually helped rather than promoting the entire opportunity inventory.
+- [Static checked streaming execution](sync/checked0.sol61x.md): implemented
+  generic/closure accept/refuse checks on every visited entry, including equality,
+  recursive copy/removal, absent roots and staged selected-root leaf transitions;
+  explicit full read-only audit, unchanged frontier admission/order guarantees,
+  directory-local metadata reuse and JW API/limitations handoff.
+- [Checked execution controls](performance/checked0.sol61x.md): same-compiler
+  baseline versus default/no-op/concrete-check owned-fixture controls, including
+  clean, sparse, full and one-sided subtree work; not a JW speedup claim.
 
 ## Benchmark tooling
 

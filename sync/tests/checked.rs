@@ -212,6 +212,46 @@ fn root_transition_is_explicit_staged_checked_and_never_follows_destination_link
     assert_eq!(applier.mirror().unwrap().completed, Progress::default());
 }
 
+#[test]
+fn explicit_file_root_transition_and_absent_root_audit_work_with_borrowed_pools() {
+    for parallel in modes() {
+        let f = Fixture::new();
+        file(f.source.join("deep/leaf"), b"prepared directory");
+        fs::remove_dir(&f.target).unwrap();
+        let absent = f.applier().audit().unwrap();
+        assert_eq!(absent.target, diff_dirs::Audit::default());
+        assert_eq!(absent.original.files, 1);
+        file(&f.target, b"old root file");
+        let applier = Applier::new_replacing_checked(&f.source, &f.target, CopyPolicy::Copy, refuse_admin).unwrap();
+        let audit = applier.audit().unwrap();
+        assert_eq!(audit.target.files, 1);
+        assert_eq!(audit.target.directories, 0);
+        let report = mirror(&applier, *parallel).unwrap();
+        assert_eq!(report.completed.files_removed, 1);
+        assert_eq!(report.completed.files_copied, 1);
+        assert_eq!(fs::read(f.target.join("deep/leaf")).unwrap(), b"prepared directory");
+        assert_eq!(mirror(&applier, *parallel).unwrap().completed, Progress::default());
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn checked_real_cross_filesystem_reflink_failure_preserves_old_leaf_without_probe() {
+    let f = Fixture::new();
+    file(f.source.join("leaf"), b"new actual nonempty source");
+    let external = tempfile::tempdir_in("/tmp/opencode").unwrap();
+    let target = external.path().join("target");
+    fs::create_dir(&target).unwrap();
+    file(target.join("leaf"), b"old target survives");
+    let applier = Applier::new_checked(&f.source, &target, CopyPolicy::ReflinkRequired, refuse_admin).unwrap();
+    let failure = applier.mirror().unwrap_err();
+    assert_eq!(failure.primary.operation, "prepare reflink");
+    assert_eq!(failure.primary.path, target.join("leaf"));
+    assert_eq!(failure.completed, Progress::default());
+    assert_eq!(fs::read(target.join("leaf")).unwrap(), b"old target survives");
+    assert_eq!(fs::read_dir(&target).unwrap().count(), 1);
+}
+
 #[cfg(unix)]
 #[test]
 fn special_entries_reach_same_check_in_copy_removal_and_audit() {

@@ -1,0 +1,15 @@
+[package]
+name = "checked-control-after"
+version = "0.0.0"
+edition = "2024"
+[workspace]
+[dependencies]
+diff-dirs = { path = "../../..", features = ["parallel"] }
+diff-dirs-sync = { path = "../../../sync", features = ["parallel"] }
+rayon = "1.12.0"
+tempfile = "3"
+[features]
+checks = []
+[[bin]]
+name = "checked-bench"
+path = "../bench.rs"

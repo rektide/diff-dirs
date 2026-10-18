@@ -1,0 +1,10 @@
+{
+  "baseline": "fd277144c51700ca70d068fc88f3ff72a0d64293",
+  "candidate": "8658b6da",
+  "fixture": "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+  "compiler": "rustc 1.101.0-nightly (822182db4 2026-10-13)\nbinary: rustc\ncommit-hash: 822182db4c4a1827256881d8c7aa685f0bcf2b11\ncommit-date: 2026-10-13\nhost: x86_64-unknown-linux-gnu\nrelease: 1.101.0-nightly\nLLVM version: 23.1.3\n",
+  "binary_sha256": {
+    "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench": "0165161b54785f5622a869b5b136ec6eb40c1fea3ccd2312cd800e05bae56760",
+    "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench": "ef0ee960246475608c013a4b4aa90d863b196822cf66920ea1a974c0b64c7ee7"
+  }
+}

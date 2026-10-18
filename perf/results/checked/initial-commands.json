@@ -1,0 +1,1634 @@
+[
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2855586089,
+    "user_seconds": 0.13450399999999998,
+    "system_seconds": 2.448764,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2716820349,
+    "user_seconds": 0.12071899999999999,
+    "system_seconds": 2.4667019999999997,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2199743163,
+    "user_seconds": 0.15282400000000002,
+    "system_seconds": 3.703957999999999,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2161182982,
+    "user_seconds": 0.19671199999999994,
+    "system_seconds": 3.655576,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2643906981,
+    "user_seconds": 0.156111,
+    "system_seconds": 2.3868560000000016,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2453676104,
+    "user_seconds": 0.115174,
+    "system_seconds": 2.274671999999999,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2053686140,
+    "user_seconds": 0.20664500000000008,
+    "system_seconds": 3.492705000000001,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2105064388,
+    "user_seconds": 0.13680800000000004,
+    "system_seconds": 3.6039220000000007,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2589056638,
+    "user_seconds": 0.195735,
+    "system_seconds": 2.274436999999999,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2480893070,
+    "user_seconds": 0.23886299999999983,
+    "system_seconds": 2.130189999999999,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 1885067767,
+    "user_seconds": 0.19146300000000016,
+    "system_seconds": 3.403351999999998,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1976146149,
+    "user_seconds": 0.18871400000000005,
+    "system_seconds": 3.4315110000000004,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2329690724,
+    "user_seconds": 0.18911599999999984,
+    "system_seconds": 2.080276000000005,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2419795517,
+    "user_seconds": 0.1748400000000001,
+    "system_seconds": 2.152483999999994,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2293295802,
+    "user_seconds": 0.2994749999999997,
+    "system_seconds": 3.4785150000000016,
+    "stderr": ""
+  },
+  {
+    "round": 0,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1897576004,
+    "user_seconds": 0.22995900000000002,
+    "system_seconds": 3.4136960000000016,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2404035126,
+    "user_seconds": 0.12988200000000028,
+    "system_seconds": 2.1961900000000014,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2202606047,
+    "user_seconds": 0.1599879999999998,
+    "system_seconds": 3.8637179999999987,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2417491616,
+    "user_seconds": 0.16984400000000033,
+    "system_seconds": 3.817625999999997,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2453727695,
+    "user_seconds": 0.16368199999999966,
+    "system_seconds": 2.147344000000004,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2498059734,
+    "user_seconds": 0.10298200000000035,
+    "system_seconds": 2.2814630000000022,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2045583680,
+    "user_seconds": 0.17835699999999965,
+    "system_seconds": 3.441481000000003,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2182185301,
+    "user_seconds": 0.19622500000000054,
+    "system_seconds": 3.5961250000000007,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2509018399,
+    "user_seconds": 0.19087999999999994,
+    "system_seconds": 2.1911349999999885,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2579991991,
+    "user_seconds": 0.1712309999999997,
+    "system_seconds": 2.265827999999999,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2220176089,
+    "user_seconds": 0.22956399999999988,
+    "system_seconds": 3.5859530000000035,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2048457294,
+    "user_seconds": 0.2213799999999999,
+    "system_seconds": 3.505172999999999,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2698659205,
+    "user_seconds": 0.19754499999999986,
+    "system_seconds": 2.3463580000000093,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2589889656,
+    "user_seconds": 0.17208100000000037,
+    "system_seconds": 2.3067059999999913,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2142362420,
+    "user_seconds": 0.2791220000000001,
+    "system_seconds": 3.4303680000000014,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2197385431,
+    "user_seconds": 0.25126699999999946,
+    "system_seconds": 3.5637940000000015,
+    "stderr": ""
+  },
+  {
+    "round": 1,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2593432043,
+    "user_seconds": 0.16929000000000016,
+    "system_seconds": 2.2998699999999985,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2199872377,
+    "user_seconds": 0.19255600000000062,
+    "system_seconds": 3.593008999999995,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2270643305,
+    "user_seconds": 0.15945300000000007,
+    "system_seconds": 3.764645999999999,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 3334498204,
+    "user_seconds": 0.14835899999999924,
+    "system_seconds": 2.5884820000000133,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2673112423,
+    "user_seconds": 0.1753600000000004,
+    "system_seconds": 2.2679899999999975,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 3350218755,
+    "user_seconds": 0.2370000000000001,
+    "system_seconds": 3.7761939999999896,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2711120072,
+    "user_seconds": 0.16077600000000025,
+    "system_seconds": 3.9028550000000024,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2859072076,
+    "user_seconds": 0.11680499999999938,
+    "system_seconds": 2.561913000000004,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2884245849,
+    "user_seconds": 0.20793499999999998,
+    "system_seconds": 2.4324469999999963,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2616835428,
+    "user_seconds": 0.3198850000000002,
+    "system_seconds": 3.942581000000004,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2494909923,
+    "user_seconds": 0.25055400000000017,
+    "system_seconds": 3.7781990000000008,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2506549484,
+    "user_seconds": 0.2277129999999996,
+    "system_seconds": 2.202529999999996,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2541658968,
+    "user_seconds": 0.20049799999999962,
+    "system_seconds": 2.111130000000003,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 1936025694,
+    "user_seconds": 0.20536000000000065,
+    "system_seconds": 3.439775999999995,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1790653537,
+    "user_seconds": 0.2162860000000002,
+    "system_seconds": 3.2594679999999983,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2888508553,
+    "user_seconds": 0.14622400000000013,
+    "system_seconds": 2.1587320000000148,
+    "stderr": ""
+  },
+  {
+    "round": 2,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2477073606,
+    "user_seconds": 0.15334999999999965,
+    "system_seconds": 2.2294709999999895,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1810582062,
+    "user_seconds": 0.1571189999999998,
+    "system_seconds": 3.480177999999995,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2465487968,
+    "user_seconds": 0.1546050000000001,
+    "system_seconds": 2.2477250000000026,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2509597933,
+    "user_seconds": 0.11214099999999938,
+    "system_seconds": 2.358959999999996,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 1909211314,
+    "user_seconds": 0.158493,
+    "system_seconds": 3.6161590000000103,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1811432041,
+    "user_seconds": 0.13137000000000043,
+    "system_seconds": 3.519115999999997,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2650674983,
+    "user_seconds": 0.1828820000000011,
+    "system_seconds": 2.328688999999997,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2293916045,
+    "user_seconds": 0.15528299999999895,
+    "system_seconds": 2.1167640000000176,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 1891278525,
+    "user_seconds": 0.2239400000000007,
+    "system_seconds": 3.4503369999999904,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1831649782,
+    "user_seconds": 0.17528199999999927,
+    "system_seconds": 3.4777540000000045,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2479350017,
+    "user_seconds": 0.1782319999999995,
+    "system_seconds": 2.264345999999989,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2357089246,
+    "user_seconds": 0.161308,
+    "system_seconds": 2.1520869999999945,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2015304815,
+    "user_seconds": 0.22755500000000062,
+    "system_seconds": 3.7154890000000194,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1842825572,
+    "user_seconds": 0.19626500000000036,
+    "system_seconds": 3.4988019999999835,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2635405692,
+    "user_seconds": 0.19436600000000048,
+    "system_seconds": 2.340167000000008,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2553640255,
+    "user_seconds": 0.16366799999999948,
+    "system_seconds": 2.3069419999999923,
+    "stderr": ""
+  },
+  {
+    "round": 3,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 1843722363,
+    "user_seconds": 0.1501999999999999,
+    "system_seconds": 3.6047920000000033,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2485968115,
+    "user_seconds": 0.16556499999999907,
+    "system_seconds": 2.2666639999999916,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2433762329,
+    "user_seconds": 0.0787140000000015,
+    "system_seconds": 2.3141999999999996,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2308386920,
+    "user_seconds": 0.14770799999999973,
+    "system_seconds": 3.8598530000000153,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1848027808,
+    "user_seconds": 0.16226499999999966,
+    "system_seconds": 3.5234669999999824,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2497928671,
+    "user_seconds": 0.1748150000000006,
+    "system_seconds": 2.228884000000022,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2475075702,
+    "user_seconds": 0.16615000000000002,
+    "system_seconds": 2.2430249999999887,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 1888387730,
+    "user_seconds": 0.21320399999999928,
+    "system_seconds": 3.4231049999999925,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1875527932,
+    "user_seconds": 0.185492,
+    "system_seconds": 3.466389000000021,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2433293328,
+    "user_seconds": 0.17282200000000003,
+    "system_seconds": 2.1602809999999977,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2352041315,
+    "user_seconds": 0.15881300000000032,
+    "system_seconds": 2.120143999999982,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 1790272098,
+    "user_seconds": 0.1980190000000004,
+    "system_seconds": 3.4178050000000155,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1878125241,
+    "user_seconds": 0.24744600000000005,
+    "system_seconds": 3.3637190000000032,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2363647214,
+    "user_seconds": 0.12011199999999889,
+    "system_seconds": 2.158153999999996,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2507722890,
+    "user_seconds": 0.1341789999999996,
+    "system_seconds": 2.213942000000003,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 1818774476,
+    "user_seconds": 0.19415900000000086,
+    "system_seconds": 3.354410999999999,
+    "stderr": ""
+  },
+  {
+    "round": 4,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1740038316,
+    "user_seconds": 0.16483000000000025,
+    "system_seconds": 3.389059000000003,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2577218323,
+    "user_seconds": 0.12417699999999954,
+    "system_seconds": 2.351366999999982,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 1711203553,
+    "user_seconds": 0.1844020000000004,
+    "system_seconds": 3.334932000000009,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1651154942,
+    "user_seconds": 0.20747699999999902,
+    "system_seconds": 3.201646000000011,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2369834081,
+    "user_seconds": 0.14672200000000046,
+    "system_seconds": 2.1672949999999958,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2324203192,
+    "user_seconds": 0.16073899999999952,
+    "system_seconds": 2.1338059999999928,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 1965206706,
+    "user_seconds": 0.26082300000000025,
+    "system_seconds": 3.515276,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "noop",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1940449512,
+    "user_seconds": 0.190944,
+    "system_seconds": 3.6785999999999888,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2985048040,
+    "user_seconds": 0.19360999999999962,
+    "system_seconds": 2.5050720000000126,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2747406133,
+    "user_seconds": 0.18400000000000105,
+    "system_seconds": 2.3058710000000247,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 1777831981,
+    "user_seconds": 0.20655999999999963,
+    "system_seconds": 3.4042649999999526,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "admin",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1813694201,
+    "user_seconds": 0.20315199999999933,
+    "system_seconds": 3.410613000000012,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2425051145,
+    "user_seconds": 0.14160500000000198,
+    "system_seconds": 2.238148000000024,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "0",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 2500595321,
+    "user_seconds": 0.170418999999999,
+    "system_seconds": 2.29470699999996,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "4",
+      "copy",
+      "1"
+    ],
+    "process_ns": 1786622667,
+    "user_seconds": 0.1502510000000008,
+    "system_seconds": 3.467341000000033,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "before",
+      "none",
+      "4",
+      "reflink",
+      "1"
+    ],
+    "process_ns": 1889210759,
+    "user_seconds": 0.12227499999999836,
+    "system_seconds": 3.5933089999999765,
+    "stderr": ""
+  },
+  {
+    "round": 5,
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-bench",
+      "run",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/fixture-10k",
+      "after",
+      "none",
+      "0",
+      "copy",
+      "1"
+    ],
+    "process_ns": 2412104054,
+    "user_seconds": 0.1149210000000025,
+    "system_seconds": 2.2627520000000345,
+    "stderr": ""
+  }
+]

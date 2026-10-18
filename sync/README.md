@@ -285,3 +285,5 @@ Implementation/verification evidence: [builder account](/design/sync/implementat
 Owned-fixture method and observations: [measurements](/design/performance/sync0.sol61x.md).
 Current leaf ownership/staging: [implementation](/design/sync/leaf0.sol61x.md) and
 [controlled measurements](/design/performance/leaf0.sol61x.md).
+Checked execution and JW handoff: [implementation](/design/sync/checked0.sol61x.md)
+and [controlled measurements](/design/performance/checked0.sol61x.md).

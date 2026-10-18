@@ -40,6 +40,8 @@ pub struct Entry<'a> {
 /// speculatively, concurrently, more than once, and outside committed DFS order.
 /// Do not mutate files, print diagnostics, launch processes, or depend on call
 /// order. Returning a refusal prevents descent/mutation of that entry.
+/// A thread-safe diagnostic collector may deduplicate encountered observations,
+/// but must not affect decisions or mistake speculation for committed progress.
 ///
 /// Closures returning `Result<(), CheckError>` implement this trait. An error's
 /// path is supplied by the library; a checker cannot accidentally blame another

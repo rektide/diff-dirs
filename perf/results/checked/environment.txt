@@ -1,0 +1,2 @@
+Linux workhorse.hosts.voodoowarez.com 7.1.0-debplus.1 #1 SMP PREEMPT_DYNAMIC 2026-08-09T02:25:04-04:00 x86_64 GNU/Linux
+btrfs

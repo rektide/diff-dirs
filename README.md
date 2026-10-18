@@ -523,6 +523,8 @@ cargo test --workspace --all-targets --all-features
 
 The [implementation account](/design/implementation/implementation0.sol61x.md)
 explains the state machine, summary distinction, and verified trust boundaries.
+The [checked-execution account](/design/sync/checked0.sol61x.md) explains the
+subsequent static checker, recursive coverage, root transitions and JW handoff.
 The [performance method](/perf/README.md) and
 [measured run](/design/performance/performance0.sol61x.md) separate synthetic
 metadata fixtures from the supplied live checkout and node_modules tests.

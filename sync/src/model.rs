@@ -50,7 +50,8 @@ impl AddAssign for Progress {
 #[derive(Debug)]
 pub struct Report {
     pub completed: Progress,
-    /// None for absent-root initialization (there was no both-sided walk).
+    /// None for absent-root initialization or explicit leaf-root replacement
+    /// (there was no both-sided walk).
     pub observed: Option<diff_dirs::Summary>,
 }
 
