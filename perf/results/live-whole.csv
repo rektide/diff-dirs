@@ -1,0 +1,6 @@
+scenario,iteration,elapsed_ns,records,examined_directories,files_changed,files_added,files_removed,dirs_added,dirs_removed,pruned
+read-only,0,1078270008,49,25203,6,11,2,69,0,0
+read-only,1,914679858,49,25203,6,11,2,69,0,0
+read-only,2,1353230869,49,25203,6,11,2,69,0,0
+read-only,3,1064973293,49,25203,6,11,2,69,0,0
+read-only,4,1112603805,49,25203,6,11,2,69,0,0

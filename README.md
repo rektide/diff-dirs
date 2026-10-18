@@ -7,7 +7,7 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
-    title: Implemented generic std-only comparison core and lossless thin CLI, resolved record and summary contracts, and verified consumer-driven application
+    title: Implemented generic std-only comparison and lossless CLI, verified contracts, and measured reproducible synthetic plus read-only live comparisons
   - resource: /design/fit/fit0.glm53m.md
     title: Initial fit research and contract contradictions, subsequently resolved by parent direction
 ---
@@ -321,3 +321,6 @@ cargo +1.88.0 test --workspace
 
 The [implementation account](/design/implementation/implementation0.sol61x.md)
 explains the state machine, summary distinction, and verified trust boundaries.
+The [performance method](/perf/README.md) and
+[measured run](/design/performance/performance0.sol61x.md) separate synthetic
+metadata fixtures from the supplied live checkout and node_modules tests.
