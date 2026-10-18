@@ -1,3 +1,17 @@
+---
+type: Specification
+title: diff-dirs
+description: Generic deterministic directory comparison, consumer-driven reconciliation, and explicit scan coverage.
+resource: /README.md
+status: implemented-core
+generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
+sources:
+  - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
+    title: Implemented generic std-only comparison core, resolved record and summary contracts, and verified consumer-driven application
+  - resource: /design/fit/fit0.glm53m.md
+    title: Initial fit research and contract contradictions, subsequently resolved by parent direction
+---
+
 # diff-dirs
 
 A general tree-reconciliation library: compare an **original** tree (source of
@@ -11,26 +25,33 @@ and code disagree, the README wins until deliberately revised.
 
 ## Positioning
 
-- A **library first**: embedded by tools (first consumer: jj-waltz's payload
-  sync) that drive the walk in their own loop and apply per-entry policy.
+- A **generic library first**: embedded by tools that drive the walk in their
+  own loop and apply per-entry policy. jj-waltz payload sync is the primary
+  motivating use case, not a special case in the API.
 - A **thin CLI** wraps the same walk for standalone/human use (JSONL or text).
 - It does not reconcile by itself. It produces precise, ordered, deterministic
   differences; the caller's loop applies policy.
+- Actual copy/sync procedures belong in a **separate optional crate**, not the
+  diff core. That component is authorized but not yet implemented; no sync API
+  is promised here.
 
-Measured context (Linux/btrfs, warm cache, 192k-entry `node_modules`): raw
-enumeration of one tree is ~0.24s; an in-process two-sided stat comparison is
-~1–2s. `rsync -n` costs 13.8s wall locally (3.4s CPU — protocol overhead), so
-an embedded walk beats shelling out. The expensive mistake this tool exists to
-prevent is not detection cost but **blind delete-and-recopy reconciliation**.
+Historical motivation inherited with the original spec (Linux/btrfs, warm
+cache, 192k-entry `node_modules`): ~0.24s single-tree enumeration, ~1–2s
+two-sided stat comparison, and 13.8s wall / 3.4s CPU for `rsync -n`. The method
+and fixture behind those numbers were not recovered; **they are not results
+measured by this implementation**. Avoiding blind delete-and-recopy is the
+motivation, not a claim of measured end-to-end sync speedup.
 
 ## Model
 
-- **Direction:** compare `original` against `target`. "Removed" = present in
-  original, missing in target (target lacks it → a copier would put it back).
-  "Added" = target-only (stale relative to original → a pruner would remove
-  it). The library never mutates either tree.
-- **Comparison keys:** files: `(type, size, mtime_ns)`; symlinks compare
-  their readlink target. Directories are structure, never stat-compared —
+- **Direction:** compare `original` against `target`. "Added" = original-only
+  (copy to target); "removed" = target-only (delete from target). The library
+  never mutates either tree.
+- **Comparison keys:** regular files: `(type, size, SystemTime mtime)` with
+  exact available precision, including pre-epoch times; symlinks compare their
+  literal native readlink target, not normalized path components. Regular-file
+  ↔ symlink is `files.changed`. Directory ↔ leaf produces paired added/removed
+  categories in one record. Directories are structure, never stat-compared —
   a both-sided subdir is always descended and its contents compared
   entry-by-entry.
 - **Trust model (stated plainly):** file-level stat equality is the same
@@ -38,9 +59,18 @@ prevent is not detection cost but **blind delete-and-recopy reconciliation**.
   that preserves size and mtime. No subtree-level shortcut is taken:
   directory mtimes are a name-change log (create/remove/rename of direct
   children), not a content fingerprint — pruning on them would silently
-  miss divergences below unchanged dir mtimes, and the measured full walk
-  (~1–2s for 192k entries) makes the shortcut pointless. Hashing is not
-  offered (its cost is the thing modern consumers are deleting).
+  miss divergences below unchanged dir mtimes. Mode-only changes (including
+  executable bits), ownership, ACLs, and other metadata are outside this
+  comparison contract. Hashing is not offered.
+- **Roots:** both must exist as real directories; missing roots, files, and
+  symlink roots are errors. A consumer handles absent or non-directory selected
+  roots using whole-root policy before calling `walk`.
+- **Safety:** symlink leaves are not followed. Unsupported special-file entries
+  in examined listings fail with their path; one-sided directories are opaque
+  units, so their descendants are not validated. This is not a sandbox or an
+  atomic snapshot: callers retain quiescence and confinement, including checks
+  against ancestor symlinks and concurrent path replacement. No special `.git`,
+  `.jj`, mount, or ignore-rule policy is built in.
 
 ## The walk
 
@@ -49,7 +79,10 @@ One mode. The walk compares both trees together, deterministically:
 - Entries compared in bytewise-sorted name order; the walk is **depth-first
   pre-order** (a directory's record is immediately followed by its
   subdirectories' records, so each divergent subtree streams as a contiguous
-  block). Memory is bounded by tree depth, not level width.
+  block). Sorting uses `OsStr::as_encoded_bytes()` (raw bytes on Unix).
+  Memory includes the current two sorted listings and pending paired child
+  directory names on the active descent, **not depth alone**. Wide directories
+  cost memory. No whole-tree record list is retained; the summary can grow.
 - Each directory pair lists both sides (sorted) and diffs **immediate
   children only** — records never describe descendants of other records.
 - Files present on both sides are stat-compared (`type, size, mtime_ns`;
@@ -65,8 +98,8 @@ One record per examined directory that has at least one difference:
 ```rust
 struct DirDiff {
     dir: PathBuf,                    // relative; "" is the root pair
-    files: ChangedAddedRemoved<Vec<String>>,
-    dirs:   AddedRemoved<Vec<String>>,
+    files: ChangedAddedRemoved<Vec<OsString>>,
+    dirs:   AddedRemoved<Vec<OsString>>,
 }
 ```
 
@@ -76,43 +109,71 @@ struct DirDiff {
 - A both-sided dir's "changed" status is an aggregate, known only bottom-up,
   so it lives in the post-walk **summary**, not in streamed records.
 - Clean directories emit nothing; a fully clean comparison emits no records.
+- Each category is independently bytewise sorted. Both immediate listings are
+  fully materialized before a record is returned: consumers may safely replace
+  its classified immediate children. Paired child directories are opened later;
+  replacing one requires `prune_here()` or stopping, not arbitrary mutation of
+  pending descent paths.
 
 ## Summary
 
-After the walk, `into_summary()` returns an aggregate (computed naturally
-during post-order unwinding):
+`into_summary()` consumes the walker **without doing further IO**. It describes
+only fully examined immediate listings, even after a break or error:
 
-- **topmost divergent subtrees**: the minimal set of both-sided directories
-  whose subtree contains any difference (coarse answer to "what moved");
-- per-category counts (files/dirs × changed/added/removed);
-- the exit-code basis (clean vs differences vs error).
+- `counts.files.{changed,added,removed}` and `counts.dirs.{added,removed}` count
+  immediate entries. A one-sided subtree counts as one, never all descendants.
+- `topmost_divergent`: directly divergent directories with **no directly
+  divergent ancestor**, in DFS pre-order. A clean root with changes below it
+  does not collapse the answer to the root.
+- `changed_dirs`: both-sided directories whose examined subtree contains a
+  difference, including ancestors and the root, in DFS post-order. This is the
+  aggregate directory-change answer, separate from immediate entry counts.
+- `examined_directories`: successfully compared directory pairs.
+- `state`: `Incomplete` before normal exhaustion, `Complete` after `next()`
+  returns `None`, or `Failed` after the terminal error.
+- `pruned`: paths explicitly skipped by the caller. Normal iterator completion
+  with pruning is **not** full coverage. `is_complete()` requires normal
+  exhaustion and no pruning; `is_clean()` additionally requires zero differences.
+
+After the last record, call `next()` until `None` to establish completion.
+Consuming an unstarted walk or breaking early never claims a clean scan.
 
 ## Driving the walk
 
 No callbacks, no traits: the walker is a pull iterator running inside the
 consumer's loop.
 
-```rust
+```rust,no_run
+fn compare(original: &std::path::Path, target: &std::path::Path)
+    -> Result<diff_dirs::Summary, diff_dirs::Error>
+{
 let mut walk = diff_dirs::walk(original, target)?;
-for diff in walk.by_ref() {
+while let Some(diff) = walk.next() {
+    let diff = diff?;
     // apply policy per record, in your own loop
-    if take_whole_subtree(&diff) {
-        walk.prune_here();          // do not descend into this directory
+    let take_whole_subtree = false; // consumer policy, not a library heuristic
+    if take_whole_subtree {
+        assert!(walk.prune_here()); // do not descend into this directory
         continue;
     }
     // ...reflink/unlink/report per entry...
 }
-let summary = walk.into_summary();  // topmost divergent subtrees, counts
+Ok(walk.into_summary())             // topmost divergent subtrees, counts
+}
 ```
 
 - Records arrive depth-first pre-order; each divergent subtree is a
   contiguous run of records.
-- `prune_here()` — legal immediately after a record is yielded — abandons
+- `prune_here()` — legal immediately after an `Ok` record is yielded — abandons
   descent into that record's directory (wholesale-subtree handling by
-  consumer choice, never by stat guess).
+  consumer choice, never by stat guess). It returns `true` once; before a record,
+  after another `next()`, after an error, or when repeated it returns `false`
+  without action. Even an explicit leaf prune is recorded conservatively.
 - `break` stops the walk entirely. Errors surface as `Result` items/`next()`
-  and abort naming the offending path.
-- `into_summary()` consumes the finished walk and returns the aggregate.
+  and abort naming the offending path. The terminal `Err` is followed by fused
+  `None`; summaries retain `Failed`, never `Complete`.
+- A directory failing midway emits no partial record and contributes no counts.
+- `into_summary()` consumes any walk and returns the examined aggregate.
 
 Both consumption styles below run over this same walk — the library makes no
 distinction between them. See [Use cases](#use-cases).
@@ -133,7 +194,7 @@ re-sync: ~15–18s of pure syscall churn even when nothing diverged, inside
 re-seeds measured at 38s wall.
 
 **Desire.** Re-sync cost proportional to actual divergence. An unchanged
-payload should cost the walk (~1–2s measured at this scale) and nothing else;
+payload should cost the walk and nothing else;
 a rebuilt payload should cost the delta, not the whole tree.
 
 **Application.** jw drives the walk over each selected root pair and applies
@@ -179,8 +240,8 @@ candidate lists, then act:
 - one-shot subtree copies (`cp -a --reflink=always`) for each `dirs.added`;
 - exact deletions of everything in the `removed` lists, `rm -rf` for dirs.
 
-This is also the CLI's own shape: collect records, render JSONL or text,
-exit 0/1/2.
+The thin CLI streams records as JSONL or text, then emits the summary, and
+exits 0/1/2. Batch consumers may collect them instead.
 
 **Standing rules for this style.** Deletions run before copies within a
 record, so file→dir type transitions apply cleanly. Deletions are exactly
@@ -197,13 +258,18 @@ Exit codes: `0` no differences, `1` differences found, `2` usage/IO error
 
 ## Embedding
 
-Rust crate; jj-waltz consumes it for payload sync, applying each record with
-primitives it already owns — reflink per changed/added file, chmod + mtime
-restore (keeping jj's stat cache valid), unlink per removed file, existing
-subtree clone/remove for one-sided dirs, with `prune_here()` available for
-wholesale-subtree replacement. This replaces unconditional rm+recopy of
-selected roots with walk-compare-apply of the delta. Open: path dependency
-vs vendoring vs publishing — decided at integration time, not by the library.
+The root `diff-dirs` package is std-only, edition 2024, Rust 1.88 minimum;
+embedding does not require a runtime, CLI dependencies, or sync component.
+The separate `cli/` workspace member owns standalone rendering dependencies.
+Path dependency vs vendoring vs publishing remains an integration decision.
+
+jj-waltz is a prospective consumer, not changed by this library implementation.
+Its integration must preserve selected payload roots through earlier cleanup
+before an incremental final payload loop can help; changing only that final
+loop does not establish end-to-end benefit. Missing target roots still need
+whole-root handling. Copy/create-new APIs may require unlinking a changed leaf
+first; deletions precede copies, and copying preserves mtimes. Confinement,
+mode policy, reflinks, and final verification remain the consumer's concerns.
 
 ## Non-goals
 
@@ -216,3 +282,16 @@ drives the walk as a pull iterator in its own loop (`prune_here()` for
 wholesale subtrees, `break` to stop, `into_summary()` for the aggregate);
 records carry names and classification only, never stats; `dirs.changed`
 lives in the summary, not streamed records; clean comparisons are silent.
+
+## Development and evidence
+
+```sh
+cargo nextest run --workspace
+cargo test --workspace --doc
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all --check
+cargo +1.88.0 test --workspace
+```
+
+The [implementation account](/design/implementation/implementation0.sol61x.md)
+explains the state machine, summary distinction, and verified trust boundaries.
