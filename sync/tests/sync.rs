@@ -478,6 +478,45 @@ fn strict_cross_filesystem_failure_preserves_old_leaf_and_fallback_reports_copy(
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn unreadable_source_never_falls_back_or_disturbs_old_hardlinked_leaf() {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    for &parallel in modes() {
+        for policy in [CopyPolicy::Copy, CopyPolicy::ReflinkRequired, CopyPolicy::ReflinkOrCopy] {
+            let f = Fixture::new();
+            file(f.source.join("payload"), b"new nonempty data");
+            file(f.target.join("payload"), b"old hardlinked leaf");
+            let alias = f.temporary.path().join("alias");
+            fs::hard_link(f.target.join("payload"), &alias).unwrap();
+            let before = fs::metadata(&alias).unwrap();
+            fs::set_permissions(f.source.join("payload"), fs::Permissions::from_mode(0o000)).unwrap();
+            if File::open(f.source.join("payload")).is_ok() {
+                // Root/capability-bearing runs exercise readable mode-000
+                // through the real public clone/copy path too.
+                sync(&f, policy, parallel).unwrap();
+                assert_eq!(fs::metadata(f.target.join("payload")).unwrap().mode() & 0o777, 0);
+            } else {
+                let failure = sync(&f, policy, parallel).unwrap_err();
+                assert_eq!(
+                    failure.primary.cause.downcast_ref::<std::io::Error>().unwrap().kind(),
+                    std::io::ErrorKind::PermissionDenied
+                );
+                assert_eq!(failure.completed, Progress::default());
+                assert_eq!(fs::read(f.target.join("payload")).unwrap(), b"old hardlinked leaf");
+            }
+            assert_eq!(fs::read_dir(&f.target).unwrap().count(), 1);
+            let after = fs::metadata(&alias).unwrap();
+            assert_eq!(
+                (after.ino(), after.mode(), after.modified().unwrap()),
+                (before.ino(), before.mode(), before.modified().unwrap())
+            );
+            assert_eq!(fs::read(alias).unwrap(), b"old hardlinked leaf");
+            fs::set_permissions(f.source.join("payload"), fs::Permissions::from_mode(0o444)).unwrap();
+        }
+    }
+}
+
 #[cfg(target_os = "linux")]
 #[test]
 fn failed_directory_transition_preparation_does_not_destroy_old_leaf() {

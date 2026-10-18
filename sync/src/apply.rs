@@ -2,8 +2,7 @@ use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fs::{self, File, Metadata, OpenOptions, Permissions};
 use std::io;
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -194,8 +193,8 @@ impl Context {
                 tests::observe(&to);
                 let metadata = fs::symlink_metadata(&from).map_err(|error| Failure::io("inspect source entry", &from, error))?;
                 match metadata_kind(&from, &metadata)? {
-                    Kind::Directory => self.copy_directory(&from, &to),
-                    _ => self.copy_leaf(&from, &to, false, &arena.entry(index, &to)?),
+                    Kind::Directory => self.copy_directory_with(&from, &to, &metadata),
+                    _ => self.copy_leaf_with(&from, &to, false, &metadata, &arena.entry(index, &to)?),
                 }
             });
             arena.finish(result, self)
@@ -213,7 +212,7 @@ impl Context {
             Ok(progress) if !self.stopped.load(Ordering::Acquire) => {
                 let removed = self.remove(to);
                 match removed {
-                    Ok(mut removed) => match fs::rename(&staged, to) {
+                    Ok(mut removed) => match fs::rename(staged, to) {
                         Ok(()) => {
                             removed += progress;
                             Ok(removed)
@@ -248,7 +247,7 @@ impl Context {
         }
         let prepared = if kind == Kind::Symlink {
             let link = fs::read_link(from).map_err(|error| Failure::io("read symlink", from, error))?;
-            platform::symlink(&link, &staged, &metadata).map_err(|error| Failure::io("prepare symlink", to, error))?;
+            platform::symlink(&link, staged, metadata).map_err(|error| Failure::io("prepare symlink", to, error))?;
             PreparedLeaf {
                 progress: Progress {
                     symlinks_created: 1,
@@ -258,10 +257,10 @@ impl Context {
                 _output: None,
             }
         } else {
-            self.prepare_file(from, &staged, to, &metadata)?
+            self.prepare_file(from, staged, to, metadata)?
         };
         let removed = if remove_directory { self.remove(to)? } else { Progress::default() };
-        if let Err(error) = fs::rename(&staged, to) {
+        if let Err(error) = fs::rename(staged, to) {
             let mut failure = Failure::io("install leaf", to, error);
             failure.completed = removed;
             return Err(failure);
@@ -457,7 +456,14 @@ impl<'a> Staging<'a> {
         // unmentioned names are protected by tempfile's exclusive creation.
         let reserved: HashSet<usize> = names
             .filter_map(|name| {
-                let suffix = name.as_encoded_bytes().strip_prefix(b".diff-dirs-sync-")?;
+                let bytes = name.as_encoded_bytes();
+                let base = b".diff-dirs-sync-";
+                // Also protect case-insensitive target filesystems. The chosen
+                // prefix consists only of ASCII plus decimal digits.
+                if !bytes.get(..base.len())?.eq_ignore_ascii_case(base) {
+                    return None;
+                }
+                let suffix = &bytes[base.len()..];
                 let end = suffix.iter().position(|byte| *byte == b'-')?;
                 std::str::from_utf8(&suffix[..end]).ok()?.parse().ok()
             })
@@ -645,10 +651,10 @@ mod staging_tests {
     #[test]
     fn arena_excludes_planned_names_before_creation_and_slots_are_exclusive() {
         let owned = scratch();
-        let names = [".diff-dirs-sync-0-source", ".diff-dirs-sync-1-source", ".diff-dirs-sync-2-source"];
+        let names = [".diff-dirs-sync-0-source", ".DIFF-DIRS-SYNC-1-SOURCE", ".diff-dirs-sync-2-source"];
         let arena = Staging::new(owned.path(), names.iter().map(OsStr::new));
         for name in names {
-            assert!(!name.starts_with(&arena.prefix));
+            assert!(!name.to_ascii_lowercase().starts_with(&arena.prefix));
         }
         std::thread::scope(|scope| {
             for index in 0..8 {
@@ -688,6 +694,28 @@ mod staging_tests {
         assert_eq!(output.metadata().unwrap().mode() & 0o777, 0);
         assert_eq!(output.metadata().unwrap().modified().unwrap(), metadata.modified().unwrap());
         output.set_modified(metadata.modified().unwrap()).unwrap(); // still usable
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn descriptor_preparation_does_not_clobber_existing_slots_or_fallback_on_missing_source() {
+        let owned = scratch();
+        let source = owned.path().join("source");
+        fs::write(&source, vec![b'x'; 4097]).unwrap();
+        let metadata = fs::metadata(&source).unwrap();
+        for policy in [CopyPolicy::Copy, CopyPolicy::ReflinkRequired, CopyPolicy::ReflinkOrCopy] {
+            let context = Context::new(policy, false);
+            let staged = owned.path().join("existing");
+            fs::write(&staged, b"owned sentinel").unwrap();
+            let failure = context.prepare_file(&source, &staged, &staged, &metadata).err().unwrap();
+            assert_eq!(failure.primary.cause.downcast_ref::<io::Error>().unwrap().kind(), io::ErrorKind::AlreadyExists);
+            assert_eq!(fs::read(&staged).unwrap(), b"owned sentinel");
+            fs::remove_file(&staged).unwrap();
+            let failure = context.prepare_file(&owned.path().join("missing"), &staged, &staged, &metadata).err().unwrap();
+            assert_eq!(failure.primary.cause.downcast_ref::<io::Error>().unwrap().kind(), io::ErrorKind::NotFound);
+            assert!(!staged.exists());
+            assert_eq!(failure.completed, Progress::default());
+        }
     }
 
     #[cfg(all(target_os = "linux", feature = "parallel"))]
@@ -826,6 +854,11 @@ mod tests {
             state: Mutex::new(State::default()),
             changed: Condvar::new(),
         });
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&target, Permissions::from_mode(0o555)).unwrap();
+        }
         *HOOK.lock().unwrap() = Some(hook.clone());
         std::thread::scope(|scope| {
             let (sender, receiver) = std::sync::mpsc::channel();
@@ -848,6 +881,13 @@ mod tests {
             assert!(failure.primary.path.ends_with("a-fail"));
             assert_eq!(failure.completed.files_copied, 1);
             assert_eq!(fs::read(target.join("b-work")).unwrap(), b"changed larger source payload");
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                assert_eq!(fs::metadata(target).unwrap().permissions().mode() & 0o777, 0o555);
+                assert_eq!(failure.completed.directory_permissions_set, 2);
+                fs::set_permissions(target, Permissions::from_mode(0o700)).unwrap();
+            }
         });
         *HOOK.lock().unwrap() = None;
         crate::mirror(&source, &target, CopyPolicy::Copy).unwrap();
