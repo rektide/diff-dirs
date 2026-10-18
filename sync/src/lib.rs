@@ -106,6 +106,11 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
         &self.check
     }
 
+    /// Borrow this binding's exact scope for a caller-owned comparison loop.
+    pub fn scope_policy(&self) -> &S {
+        &self.scope
+    }
+
     /// Apply only this record. Both roots must now exist. Validates the entire
     /// record and its immediate entry types before any mutation. Does not prune,
     /// advance, or retain the caller's iterator.

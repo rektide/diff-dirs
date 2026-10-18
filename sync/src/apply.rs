@@ -24,31 +24,33 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
     pub(crate) fn apply_reported(&self, diff: &diff_dirs::DirDiff, parallel: bool) -> Result<Report, Failure> {
         let mut names = paths::names(diff)?;
         let context = Context::checked(self.policy, parallel, &self.original, &self.target, &self.check, &self.scope, &self.absence);
-        // Even fabricated public records cannot reopen a preserved ancestor.
-        // Root identity/type is still validated before honoring root scope.
-        let source = paths::directory(&self.original)?;
-        context.observe(&self.original, Side::Original, Purpose::Copy, &source, None)?;
-        let target = paths::directory(&self.target)?;
-        context.observe(&self.target, Side::Target, Purpose::Remove, &target, None)?;
-        if !context.included(&diff.dir) {
-            return context.finish(Ok(Progress::default()));
-        }
-        names.retain(|(name, _)| context.included(&diff.dir.join(name)));
-        let from = context.relative(&self.original, &diff.dir, Side::Original, Purpose::Copy)?;
-        let to = context.relative(&self.target, &diff.dir, Side::Target, Purpose::Remove)?;
-        // Validate actual immediate types before any chmod, staging or removal.
-        let mut validated = Vec::with_capacity(names.len());
-        for (name, mask) in &names {
-            validated.push(validate_entry(&context, &from.join(name), &to.join(name), *mask)?);
-        }
-        if names.is_empty() {
-            return context.finish(Ok(Progress::default()));
-        }
-        let arena = Staging::new(&to, names.iter().map(|(name, _)| name.as_os_str()));
-        let result = context.batch(&names, |index, (name, mask)| {
-            context.named_with(&from.join(name), &to.join(name), *mask, &arena, index, &validated[index])
-        });
-        let result = arena.finish(result, &context);
+        let result = (|| {
+            // Even fabricated public records cannot reopen a preserved ancestor.
+            // Root identity/type is still validated before honoring root scope.
+            let source = paths::directory(&self.original)?;
+            context.observe(&self.original, Side::Original, Purpose::Copy, &source, None)?;
+            let target = paths::directory(&self.target)?;
+            context.observe(&self.target, Side::Target, Purpose::Remove, &target, None)?;
+            if !context.included(&diff.dir) {
+                return Ok(Progress::default());
+            }
+            names.retain(|(name, _)| context.included(&diff.dir.join(name)));
+            let from = context.relative(&self.original, &diff.dir, Side::Original, Purpose::Copy)?;
+            let to = context.relative(&self.target, &diff.dir, Side::Target, Purpose::Remove)?;
+            // Validate actual immediate types before any chmod, staging or removal.
+            let mut validated = Vec::with_capacity(names.len());
+            for (name, mask) in &names {
+                validated.push(validate_entry(&context, &from.join(name), &to.join(name), *mask)?);
+            }
+            if names.is_empty() {
+                return Ok(Progress::default());
+            }
+            let arena = Staging::new(&to, names.iter().map(|(name, _)| name.as_os_str()));
+            let result = context.batch(&names, |index, (name, mask)| {
+                context.named_with(&from.join(name), &to.join(name), *mask, &arena, index, &validated[index])
+            });
+            arena.finish(result, &context)
+        })();
         context.finish(result)
     }
 

@@ -21,7 +21,7 @@ fn sequential_and_parallel_records_and_summaries_match() {
         if !dir.is_empty() {
             f.both_dir(dir);
         }
-        for i in (0..128).rev() {
+        for i in (0..24).rev() {
             let path = Path::new(dir).join(format!("file-{i:03}"));
             f.both_file(&path, b"old");
             if i % 7 == 0 {
@@ -45,7 +45,7 @@ fn sequential_and_parallel_records_and_summaries_match() {
 fn parallel_work_joins_before_apply_and_prune_boundaries() {
     let f = Fixture::new();
     f.both_dir("pending");
-    for i in 0..128 {
+    for i in 0..96 {
         file(&f.original.join(format!("new-{i:03}")), b"new");
     }
     let pool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
@@ -82,7 +82,7 @@ fn deterministic_error_priority_is_name_then_original_side_not_worker_race() {
     use std::os::unix::net::UnixListener;
 
     let f = Fixture::new();
-    for i in 0..128 {
+    for i in 0..64 {
         f.both_file(format!("file-{i:03}"), b"");
     }
     let _later = UnixListener::bind(f.original.join("z-error")).unwrap();

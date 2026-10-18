@@ -199,6 +199,11 @@ Same-name directory/leaf transitions are one operation. One-sided directories
 are recursive policy units; paired directories remain for the existing walker.
 The applier neither advances nor prunes the iterator. Finish applying before
 requesting the next record, preserving the core's cached-sibling guarantee.
+For a manual scoped loop use `diff_dirs::walk_scoped` (or its pool variant)
+with `applier.check().borrowed()` and `applier.scope_policy().borrowed()`;
+bring `diff_dirs::Scope` into scope for the latter. An unscoped manual comparison
+would still inspect preserved entries even though application refuses to change
+them.
 
 Publicly constructed records are validated **before mutation**: normal relative
 directory components, exactly one normal native component per name, no duplicate
@@ -438,6 +443,15 @@ repository parser, filesystem operation catalog, per-entry mount/clone probe,
 new scheduler, or automatic reconciliation/prune pass is introduced. This is
 the generic library slice only; caller revision/configuration integration stays
 outside this repository. No cancelled performance campaign was resumed.
+
+Verification for this slice (session cited above): required-reflink core/sync
+nextest passed **70 tests without default features** and **95 with all features**;
+all-feature doctests passed 9 examples. Workspace/all-target/all-feature clippy
+with `-D warnings` and `cargo fmt --all --check` passed. New semantic pairs are
+tiny; older 1,000-sibling and oversized parallel regression fixtures were reduced
+before final verification, retaining concurrency/admission coverage. Only tests
+and compile-time checks ran, not performance examples, real-workspace imports,
+or timing campaigns. Linux is verified; other platforms remain unverified.
 
 Implementation/verification evidence: [builder account](/design/sync/implementation0.sol61x.md).
 Owned-fixture method and observations: [measurements](/design/performance/sync0.sol61x.md).

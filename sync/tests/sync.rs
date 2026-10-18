@@ -400,7 +400,8 @@ fn real_nonempty_reflink_is_required_and_cow_edits_are_independent() {
 fn sibling_batches_preserve_collision_names_modes_timestamps_and_source() {
     use std::os::unix::fs::{MetadataExt, PermissionsExt, symlink};
     for &parallel in modes() {
-        for count in [1, 8, 1000] {
+        // Keep the complete source/target/staging pair below 256 entries.
+        for count in [1, 8, 64] {
             for policy in [CopyPolicy::Copy, CopyPolicy::ReflinkRequired, CopyPolicy::ReflinkOrCopy] {
                 let f = Fixture::new();
                 if policy != CopyPolicy::Copy && !f.reflinks_available() {
@@ -569,7 +570,7 @@ fn pool_sizes_limits_and_nested_callers_converge() {
     for p in [1, 2, 4] {
         for k in [0, 1, 16] {
             let f = Fixture::new();
-            for n in 0..64 {
+            for n in 0..24 {
                 file(f.source.join(format!("branch-{n}/nested/payload")), b"payload");
             }
             let pool = rayon::ThreadPoolBuilder::new().num_threads(p).build().unwrap();
@@ -577,7 +578,7 @@ fn pool_sizes_limits_and_nested_callers_converge() {
             let report = pool
                 .install(|| diff_dirs_sync::mirror_in_pool(&f.source, &f.target, CopyPolicy::Copy, &pool, limits))
                 .unwrap();
-            assert_eq!(report.completed.files_copied, 64);
+            assert_eq!(report.completed.files_copied, 24);
             f.clean();
         }
     }

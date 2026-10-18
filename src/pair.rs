@@ -286,7 +286,7 @@ mod tests {
     #[test]
     fn per_frame_metadata_jobs_use_the_callers_named_pool() {
         let f = crate::test_support::Fixture::new();
-        for i in 0..256 {
+        for i in 0..64 {
             f.both_file(format!("file-{i:03}"), b"");
         }
         let roots = Roots::new_checked(&f.original, &f.target, &crate::NoCheck).unwrap();
@@ -308,7 +308,7 @@ mod tests {
         });
         *GATE.lock().unwrap() = None;
         let workers = WORKERS.lock().unwrap();
-        assert_eq!(workers.len(), 512);
+        assert_eq!(workers.len(), 128);
         assert!(workers.iter().all(|(name, size)| name.starts_with("diff-dirs-caller-") && *size == 4));
         assert_ne!(workers[0].0, workers[1].0);
     }

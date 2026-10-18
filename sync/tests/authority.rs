@@ -186,6 +186,12 @@ fn public_records_cannot_reopen_preserved_ancestors_or_basenames() {
     };
     assert_eq!(applier.apply(&record).unwrap(), Progress::default());
     assert!(f.target.join("local/deep/changed").is_file());
+    let mut invalid = DirDiff::default();
+    invalid.files.added = vec!["local".into(), "missing".into()];
+    let failure = applier.apply_report(&invalid).unwrap_err();
+    assert_eq!(failure.completed, Progress::default());
+    assert_eq!(failure.policy.excluded, 1); // retained even on validation failure
+    assert!(!failure.policy.satisfied);
 }
 
 #[cfg(unix)]
