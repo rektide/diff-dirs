@@ -7,7 +7,7 @@ status: independent-proposal-for-comparison
 generated: { by: "model:openai/gpt-6-astra#medium", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb2ee3586ffeCmNiSndJnP80V0"
-    title: Independently inspected current comparison, frontier, sync kernels and pinned dependencies; developed optimization inventory and discriminating experiments without reading the parallel same-wave assessment
+    title: Independently assessed forty optimizations; incorporated explicit unpinned-toolchain direction and verified configured Rust 1.101 nightly source without reading the parallel same-wave assessment
   - resource: /README.md
     title: Current comparison, error precedence, ordered-prefix and mutable-consumer contract
   - resource: /src/pair.rs
@@ -48,6 +48,14 @@ sources:
     title: Verified DirEntry metadata uses dirfd-relative statx/fstatat on Linux GNU and file_type uses d_type when available
   - resource: https://github.com/rust-lang/rust/blob/1.88.0/library/std/src/sys/pal/unix/kernel_copy.rs
     title: Verified File-to-File io::copy specialization, metadata probes and kernel-copy fallback behavior
+  - resource: https://github.com/rust-lang/rust/blob/822182db4c4a1827256881d8c7aa685f0bcf2b11/library/std/src/sys/fs/unix.rs
+    title: Configured Rust 1.101 nightly commit; verified DirEntry metadata delegates to directory handle and file_type uses d_type
+  - resource: https://github.com/rust-lang/rust/blob/822182db4c4a1827256881d8c7aa685f0bcf2b11/library/std/src/sys/fs/unix/dir.rs
+    title: Verified current relative statx/fstatat and openat/renameat/unlinkat/mkdirat implementation
+  - resource: https://github.com/rust-lang/rust/blob/822182db4c4a1827256881d8c7aa685f0bcf2b11/library/std/src/sys/io/kernel_copy/linux.rs
+    title: Configured nightly File io::copy still probes metadata and attempts kernel-copy mechanisms
+  - resource: https://github.com/rust-lang/rust/blob/822182db4c4a1827256881d8c7aa685f0bcf2b11/library/std/src/fs.rs
+    title: Verified experimental public std::fs::Dir under dirfd feature and documented platform fallback
   - resource: file:///home/rektide/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reflink-copy-0.1.30/src/lib.rs
     title: Verified public clone/fallback distinctions
   - resource: file:///home/rektide/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reflink-copy-0.1.30/src/sys/unix/linux.rs
@@ -72,12 +80,13 @@ rewrite. Three different cost centers need different answers:
 
 **Important corrections to tempting premises:**
 
-- Rust 1.88 on Linux GNU already does `DirEntry::metadata()` through `dirfd` plus
+- Both historical Rust 1.88 and configured **Rust 1.101 nightly** on Linux GNU
+  already do `DirEntry::metadata()` through `dirfd` plus
   relative `statx` (fallback `fstatat64`), with no-follow flags. An FD backend
   does not newly remove full-path resolution from every existing comparison stat.
 - `pair::inspect_entry` nevertheless constructs `entry.path()` eagerly for
   every entry. This allocation is separable from the kernel lookup above.
-- Rust 1.88 `io::copy` for the actual `File` arguments already attempts
+- Both inspected compiler revisions' `io::copy` for the actual `File` arguments already attempt
   `copy_file_range`, then suitable alternatives/fallbacks. On CoW filesystems
   Copy can itself obtain reflink-like kernel behavior; it simply promises none.
   Existing Copy-versus-Required timing is not proof of data-copy-versus-CoW cost.
@@ -91,6 +100,26 @@ mutation experiments were performed. Existing reports are attributed evidence,
 not this session's measurements. Same-wave Sol optimization material and scratch
 were not read. Default serial/std-only and optional Rayon are useful baselines;
 names-only records, one mode and strict ordering are revisitable design choices.
+
+## Toolchain direction — explicit user override
+
+The project is **unpinned**. Use ordinary `cargo` and `rustc`, currently reporting
+`rustc 1.101.0-nightly (822182db4 2026-10-13)`, exact commit
+`822182db4c4a1827256881d8c7aa685f0bcf2b11`. Do not impose the former Rust 1.88
+baseline on dependencies, APIs or optimization proposals. The parent owns removal
+of manifest rust-version constraints and active-command updates; this document
+does not edit those files. Existing 1.88 measurement provenance remains historical
+evidence, not a fresh baseline. Every new timing comparison must rebuild its
+control and candidate with the same configured compiler/settings.
+
+After this direction arrived, I checked the installed nightly sysroot for source
+(not present) and inspected upstream at the **exact installed compiler commit**.
+Current `DirEntry::metadata` wraps the shared directory descriptor and calls
+`Dir::metadata_c(name, true)`, which uses relative statx with
+`STATX_BASIC_STATS | STATX_BTIME`, then relative fstatat fallback. The current
+kernel-copy implementation moved to `sys/io/kernel_copy/linux.rs`; its File
+specializations and metadata probes retain the relevant behavior. These are
+current source checks, not assumptions transferred from the historical compiler.
 
 ## Priorities
 
@@ -110,7 +139,7 @@ cost; retaining it still requires demonstrated resource or performance value.
 
 # Evidence and experiment rules
 
-Existing [frontier measurements](/design/performance/parallel1.sol61x.md) report
+Existing historical Rust 1.88 [frontier measurements](/design/performance/parallel1.sol61x.md) report
 clean node_modules with 191,805 entries per side and 22,828 committed directory
 pairs: final serial 722.817 ms versus P4/J4/K256 247.010 ms. The default K16 at P4
 was materially weaker. Root-wide 30k files favored the predecessor per-metadata
@@ -325,6 +354,17 @@ reasonable capability-oriented design candidate, but its particular version,
 resolution behavior and syscall count have **not** been inspected here. Do not
 assume its higher-level confinement behavior is free or required for this stable-
 tree API. Compare abstractions after the useful operation sequence is established.
+
+**New current-toolchain alternative:** the inspected nightly provides experimental
+`std::fs::Dir` under `#![feature(dirfd)]` (issue 120426). Its Unix backend directly
+implements relative open-file/open-dir, metadata/symlink-metadata, create/remove
+directory, remove-file and rename operations. Evaluate it alongside rustix for
+F01/F02 rather than treating an external dependency as mandatory. Its documented
+fallback on some platforms is a canonical absolute path, not an OS handle; it is
+not a universal confinement primitive. Public enumeration/readlink coverage and
+desired no-follow options need an API completeness check before selecting it.
+Using an unstable feature is an explicit compatibility/maintenance choice, but
+the user's configured nightly permits the experiment and legacy MSRV is no veto.
 
 # Q — Scheduling and retention (seven candidates)
 
@@ -805,10 +845,11 @@ binds the donor generation; no claim that root metadata detects donor changes.
 
 ## E7 — Descriptor lookup hypothesis isolation
 
-**Scope:** F01 read-only mini-backend, after reproducing pinned std behavior with
+**Scope:** F01 read-only mini-backend, after reproducing configured std behavior with
 a tiny trace; no production applier rewrite. **Inputs:** equal entry counts across
 depth/prefix-length and link-density sweeps. **Return:** statx/readlink/open forms,
-FD peak and low-limit behavior, timings with A01 baseline, portability boundary.
+FD peak and low-limit behavior, timings with A01 baseline, portability boundary;
+compare the available nightly `std::fs::Dir` API with rustix where appropriate.
 **Gate:** no chdir, no concurrent directory cursor, native links and deterministic
 errors. **Decision:** full handle descent versus just readlinkat and lazy paths.
 
@@ -860,11 +901,13 @@ Suggested index entry (shared index deliberately left for parent integration):
 
 > [Independent Astra optimization inventory](performance/opportunities0.gpt6am.md):
 > forty candidates spanning inspection work, descriptor-native operations,
-> scheduling, staging and donor-generation contracts; verified Rust 1.88/reflink
+> scheduling, staging and donor-generation contracts; verified configured Rust
+> 1.101 nightly and historical Rust 1.88/reflink
 > implementation details, explicit tradeoffs and seven bounded builder experiments.
 
 **Verification of this document:** source inspection and version-pinned upstream
 reads only; no benchmark campaign or implementation checks claimed. External Rust
 source was fetched after checking the installed toolchain/archive for local
 source; reflink source came from the local Cargo cache. Shared index and sibling
-same-wave documents were not edited.
+same-wave documents were not edited. A document check verified forty unique
+candidate IDs, all nine local Markdown link targets, and this session's provenance.
