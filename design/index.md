@@ -6,6 +6,8 @@ resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
+    title: Linked the independent shared-inspection-gate design and its jj-waltz integration map, with explicit recursive coverage and refusal-timing alternatives
   - resource: "opencode://ses_eb2c07f5cffe2uTLIC7b1rrD99"
     title: Connected implemented leaf ownership and batch staging to same-compiler controls, source-preservation and failure tests, syscall attribution and explicit negative performance cases
   - resource: "opencode://ses_eb3033c79ffeRIkn14uSNhs7O6"
@@ -49,6 +51,12 @@ The [root specification](../README.md) owns the current public contract.
   consumer-side record editing (free, today), a prefilter hook that edits
   the record and drives descent, declarative rules, and a parked event
   stream. Posed for deliberation, not ratified.
+- [Inline inspection policy](fit/policy0.gpt6a.md): independent Astra proposal —
+  a constrained directory prefilter shared by comparison and recursive sync,
+  pre-admission parallel placement, explicit mount facts, frozen/batched ignore
+  proofs in jw, and alternatives for strict preflight, caller-owned cursors,
+  uniform tree execution, and source-to-many streaming. Includes a linked
+  jj-waltz call-site map; proposed, not an amendment to the active specification.
 - [I/O assessment](fit/io0.glm53m.md): std, async wrappers, filesystem libraries,
   and the concrete sequential jj-waltz execution path. Jujutsu itself is a
   subprocess, not an embedded runtime dependency.
