@@ -1,0 +1,8 @@
+{
+  "root": "/home/rektide/src/diff-dirs/.test-agent/clean-reassessment0.sol61x/pair",
+  "full": "0ccb882881479360e1a24e731259b52acd77b4184574dba6ddeffb3de3f9c887:30a8b0f0fbd4bb50d59514f6ac02ad03a028510d80a99e34146932b590a3e8cd",
+  "metadata": "f9476e676e48740994cf92ff9e0bab32faee520bb22690300ff161a1fe2a5851:f7d2b88ee7ee681f4fd97dbd97bbe85d6cc3072b81184238381e7efa7d0e87e4",
+  "setup_ns": 21835283832,
+  "verification_ns": 140589292794,
+  "source_origin": "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target"
+}

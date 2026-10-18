@@ -1,0 +1,285 @@
+{
+  "artifact_preservation_ns": 40906774,
+  "blocks": [
+    [
+      3,
+      1,
+      2,
+      0
+    ],
+    [
+      0,
+      2,
+      1,
+      3
+    ],
+    [
+      0,
+      2,
+      3,
+      1
+    ],
+    [
+      1,
+      3,
+      2,
+      0
+    ]
+  ],
+  "build": "Cargo/build and fixture setup are separate; imported provenance is explicit operator evidence",
+  "compiler": "rustc 1.101.0-nightly (822182db4 2026-10-13) | binary: rustc | commit-hash: 822182db4c4a1827256881d8c7aa685f0bcf2b11 | commit-date: 2026-10-13 | host: x86_64-unknown-linux-gnu | release: 1.101.0-nightly | LLVM version: 23.1.3 |",
+  "controls": [
+    {
+      "binary": "/home/rektide/src/diff-dirs/.test-agent/clean-reassessment0.sol61x/serial-a/artifacts/baseline",
+      "label": "baseline",
+      "mode": "none",
+      "provenance": {
+        "compiler": "rustc 1.101.0-nightly (822182db4 2026-10-13)\nbinary: rustc\ncommit-hash: 822182db4c4a1827256881d8c7aa685f0bcf2b11\ncommit-date: 2026-10-13\nhost: x86_64-unknown-linux-gnu\nrelease: 1.101.0-nightly\nLLVM version: 23.1.3\n",
+        "frozen_identity": {
+          "artifacts": {
+            "checked-bench-after": {
+              "matched_identity_logs": [
+                "optimized-identity.json",
+                "syscalls-delta-identity.json"
+              ],
+              "sha256": "a6906bea63e9fcaf8ccbb498a83e30ded4f0d93db28b1895962d207768fee362"
+            },
+            "checked-bench-before": {
+              "matched_identity_logs": [
+                "syscalls-delta-identity.json"
+              ],
+              "sha256": "ab4a8dfe029892efc9a00cc92815c5cb3143dcb609c0db13eb4f6d27fd18afc9"
+            },
+            "checked-bench-initial": {
+              "matched_identity_logs": [
+                "identity.json"
+              ],
+              "sha256": "ef0ee960246475608c013a4b4aa90d863b196822cf66920ea1a974c0b64c7ee7"
+            },
+            "checked-live-after-trace": {
+              "matched_identity_logs": [
+                "syscalls-live-identity.json"
+              ],
+              "sha256": "bbf8caee18fca5e75a1b43abe8b42b2a43a70bdaebabb6acd282d9a8d6fb7948"
+            },
+            "checked-live-before-trace": {
+              "matched_identity_logs": [
+                "syscalls-live-identity.json"
+              ],
+              "sha256": "d222d7ef2911d22d81a20853414ee5ef01b00c23ed924c1d0f0619c2e22b51ef"
+            }
+          },
+          "compiler": "rustc 1.101.0-nightly (822182db4 2026-10-13)\nbinary: rustc\ncommit-hash: 822182db4c4a1827256881d8c7aa685f0bcf2b11\ncommit-date: 2026-10-13\nhost: x86_64-unknown-linux-gnu\nrelease: 1.101.0-nightly\nLLVM version: 23.1.3\n",
+          "note": "Current binaries are frozen exactly. Only explicitly matched identity logs refer to identical measured executable bytes; original experiment source and hashes remain preserved where a later rebuild changed bytes."
+        },
+        "library_features": [
+          "parallel"
+        ],
+        "lock_sha256": "bad6eb153465578080a402c0de4202a874361a613e213e69bda3a9b934e05a87",
+        "manifest": "[package]\nname = \"checked-control-before\"\nversion = \"0.0.0\"\nedition = \"2024\"\n[workspace]\n[dependencies]\ndiff-dirs = { path = \"../before-source\", features = [\"parallel\"] }\ndiff-dirs-sync = { path = \"../before-source/sync\", features = [\"parallel\"] }\nrayon = \"1.12.0\"\ntempfile = \"3\"\n[features]\nchecks = []\n[[bin]]\nname = \"checked-bench\"\npath = \"../bench.rs\"\n[[bin]]\nname = \"checked-live\"\npath = \"../live.rs\"\n",
+        "profile": "release default; no diagnostics",
+        "provenance_note": "# Frozen implementation/control build artifacts\n\nSession `ses_eb24f98a3ffewdVqa9lao6tXQu`, before handing performance tooling to\nthe separately commissioned Sol high agent. Do not overwrite these executables.\n`identity.json` records hashes and matches to the original timing/trace logs.\n\nSemantic candidates: baseline `fd277144`, initial checked implementation\n`8658b6da`, lazy-name candidate `243be8e2`; final comment/contract checkpoint\n`fa91c18a`, with evidence checkpoint `a6f577d9`. Configured compiler is Rust\n1.101.0-nightly 822182db4, release default, library `parallel` only. Candidate\nrunner's `checks` feature is harness-only. No diagnostics instrumentation.\n\nThe timed `checked-live` executables were subsequently rebuilt to add a\nclean-only tracing command and harden an untimed reserved-name setup operation.\nTheir original timing hashes/source remain in `live-identity.json` and the\ntracked `perf/results/checked/live-bench.rs`. Current frozen live executables are\nthe trace variants, matched to `syscalls-live-identity.json`, not falsely labeled\nas the original timed bytes. The frozen candidate and initial benchmark\nexecutables match their timing identities. The baseline benchmark was also\nrebuilt when candidate-only benchmark syntax changed; its current bytes match\nthe delta-syscall experiment rather than the older timing hash. Refer to the\nexplicit matches in `identity.json`; never infer byte identity from a filename.\nThe original baseline experiment source/hash are retained. The source snapshots here\nare for reproduction/provenance, not new product runners.\n",
+        "runner_checks_feature": false,
+        "runner_source_sha256": "e789de99773e180ecbcc33f748446afda143712a9fe2770b517672f02368b334",
+        "runtime_source_revision": "fd277144c51700ca70d068fc88f3ff72a0d64293"
+      },
+      "provenance_path": "/home/rektide/src/diff-dirs/.test-agent/checked/frozen-fa91/identity.json",
+      "provenance_sha256": "eb28d9ae6f9a4e4c675d78e113f1e5a8c501b0872adf058c8e1388b833ec48d9",
+      "sha256": "ab4a8dfe029892efc9a00cc92815c5cb3143dcb609c0db13eb4f6d27fd18afc9"
+    },
+    {
+      "binary": "/home/rektide/src/diff-dirs/.test-agent/clean-reassessment0.sol61x/serial-a/artifacts/default",
+      "label": "default",
+      "mode": "none",
+      "provenance": {
+        "compiler": "rustc 1.101.0-nightly (822182db4 2026-10-13)\nbinary: rustc\ncommit-hash: 822182db4c4a1827256881d8c7aa685f0bcf2b11\ncommit-date: 2026-10-13\nhost: x86_64-unknown-linux-gnu\nrelease: 1.101.0-nightly\nLLVM version: 23.1.3\n",
+        "frozen_identity": {
+          "artifacts": {
+            "checked-bench-after": {
+              "matched_identity_logs": [
+                "optimized-identity.json",
+                "syscalls-delta-identity.json"
+              ],
+              "sha256": "a6906bea63e9fcaf8ccbb498a83e30ded4f0d93db28b1895962d207768fee362"
+            },
+            "checked-bench-before": {
+              "matched_identity_logs": [
+                "syscalls-delta-identity.json"
+              ],
+              "sha256": "ab4a8dfe029892efc9a00cc92815c5cb3143dcb609c0db13eb4f6d27fd18afc9"
+            },
+            "checked-bench-initial": {
+              "matched_identity_logs": [
+                "identity.json"
+              ],
+              "sha256": "ef0ee960246475608c013a4b4aa90d863b196822cf66920ea1a974c0b64c7ee7"
+            },
+            "checked-live-after-trace": {
+              "matched_identity_logs": [
+                "syscalls-live-identity.json"
+              ],
+              "sha256": "bbf8caee18fca5e75a1b43abe8b42b2a43a70bdaebabb6acd282d9a8d6fb7948"
+            },
+            "checked-live-before-trace": {
+              "matched_identity_logs": [
+                "syscalls-live-identity.json"
+              ],
+              "sha256": "d222d7ef2911d22d81a20853414ee5ef01b00c23ed924c1d0f0619c2e22b51ef"
+            }
+          },
+          "compiler": "rustc 1.101.0-nightly (822182db4 2026-10-13)\nbinary: rustc\ncommit-hash: 822182db4c4a1827256881d8c7aa685f0bcf2b11\ncommit-date: 2026-10-13\nhost: x86_64-unknown-linux-gnu\nrelease: 1.101.0-nightly\nLLVM version: 23.1.3\n",
+          "note": "Current binaries are frozen exactly. Only explicitly matched identity logs refer to identical measured executable bytes; original experiment source and hashes remain preserved where a later rebuild changed bytes."
+        },
+        "library_features": [
+          "parallel"
+        ],
+        "lock_sha256": "3bb07117ca5cdab01861123fd8a553ce48d7d7f189cef49dc21088babfee35aa",
+        "manifest": "[package]\nname = \"checked-control-after\"\nversion = \"0.0.0\"\nedition = \"2024\"\n[workspace]\n[dependencies]\ndiff-dirs = { path = \"../../..\", features = [\"parallel\"] }\ndiff-dirs-sync = { path = \"../../../sync\", features = [\"parallel\"] }\nrayon = \"1.12.0\"\ntempfile = \"3\"\n[features]\nchecks = []\n[[bin]]\nname = \"checked-bench\"\npath = \"../bench.rs\"\n[[bin]]\nname = \"checked-live\"\npath = \"../live.rs\"\n",
+        "profile": "release default; no diagnostics",
+        "provenance_note": "# Frozen implementation/control build artifacts\n\nSession `ses_eb24f98a3ffewdVqa9lao6tXQu`, before handing performance tooling to\nthe separately commissioned Sol high agent. Do not overwrite these executables.\n`identity.json` records hashes and matches to the original timing/trace logs.\n\nSemantic candidates: baseline `fd277144`, initial checked implementation\n`8658b6da`, lazy-name candidate `243be8e2`; final comment/contract checkpoint\n`fa91c18a`, with evidence checkpoint `a6f577d9`. Configured compiler is Rust\n1.101.0-nightly 822182db4, release default, library `parallel` only. Candidate\nrunner's `checks` feature is harness-only. No diagnostics instrumentation.\n\nThe timed `checked-live` executables were subsequently rebuilt to add a\nclean-only tracing command and harden an untimed reserved-name setup operation.\nTheir original timing hashes/source remain in `live-identity.json` and the\ntracked `perf/results/checked/live-bench.rs`. Current frozen live executables are\nthe trace variants, matched to `syscalls-live-identity.json`, not falsely labeled\nas the original timed bytes. The frozen candidate and initial benchmark\nexecutables match their timing identities. The baseline benchmark was also\nrebuilt when candidate-only benchmark syntax changed; its current bytes match\nthe delta-syscall experiment rather than the older timing hash. Refer to the\nexplicit matches in `identity.json`; never infer byte identity from a filename.\nThe original baseline experiment source/hash are retained. The source snapshots here\nare for reproduction/provenance, not new product runners.\n",
+        "runner_checks_feature": true,
+        "runner_source_sha256": "e789de99773e180ecbcc33f748446afda143712a9fe2770b517672f02368b334",
+        "runtime_source_revision": "243be8e2a28a796c61652161c9dd30c6b35fc5d0"
+      },
+      "provenance_path": "/home/rektide/src/diff-dirs/.test-agent/checked/frozen-fa91/identity.json",
+      "provenance_sha256": "eb28d9ae6f9a4e4c675d78e113f1e5a8c501b0872adf058c8e1388b833ec48d9",
+      "sha256": "a6906bea63e9fcaf8ccbb498a83e30ded4f0d93db28b1895962d207768fee362"
+    },
+    {
+      "binary": "/home/rektide/src/diff-dirs/.test-agent/clean-reassessment0.sol61x/serial-a/artifacts/noop",
+      "label": "noop",
+      "mode": "noop",
+      "provenance": {
+        "compiler": "rustc 1.101.0-nightly (822182db4 2026-10-13)\nbinary: rustc\ncommit-hash: 822182db4c4a1827256881d8c7aa685f0bcf2b11\ncommit-date: 2026-10-13\nhost: x86_64-unknown-linux-gnu\nrelease: 1.101.0-nightly\nLLVM version: 23.1.3\n",
+        "frozen_identity": {
+          "artifacts": {
+            "checked-bench-after": {
+              "matched_identity_logs": [
+                "optimized-identity.json",
+                "syscalls-delta-identity.json"
+              ],
+              "sha256": "a6906bea63e9fcaf8ccbb498a83e30ded4f0d93db28b1895962d207768fee362"
+            },
+            "checked-bench-before": {
+              "matched_identity_logs": [
+                "syscalls-delta-identity.json"
+              ],
+              "sha256": "ab4a8dfe029892efc9a00cc92815c5cb3143dcb609c0db13eb4f6d27fd18afc9"
+            },
+            "checked-bench-initial": {
+              "matched_identity_logs": [
+                "identity.json"
+              ],
+              "sha256": "ef0ee960246475608c013a4b4aa90d863b196822cf66920ea1a974c0b64c7ee7"
+            },
+            "checked-live-after-trace": {
+              "matched_identity_logs": [
+                "syscalls-live-identity.json"
+              ],
+              "sha256": "bbf8caee18fca5e75a1b43abe8b42b2a43a70bdaebabb6acd282d9a8d6fb7948"
+            },
+            "checked-live-before-trace": {
+              "matched_identity_logs": [
+                "syscalls-live-identity.json"
+              ],
+              "sha256": "d222d7ef2911d22d81a20853414ee5ef01b00c23ed924c1d0f0619c2e22b51ef"
+            }
+          },
+          "compiler": "rustc 1.101.0-nightly (822182db4 2026-10-13)\nbinary: rustc\ncommit-hash: 822182db4c4a1827256881d8c7aa685f0bcf2b11\ncommit-date: 2026-10-13\nhost: x86_64-unknown-linux-gnu\nrelease: 1.101.0-nightly\nLLVM version: 23.1.3\n",
+          "note": "Current binaries are frozen exactly. Only explicitly matched identity logs refer to identical measured executable bytes; original experiment source and hashes remain preserved where a later rebuild changed bytes."
+        },
+        "library_features": [
+          "parallel"
+        ],
+        "lock_sha256": "3bb07117ca5cdab01861123fd8a553ce48d7d7f189cef49dc21088babfee35aa",
+        "manifest": "[package]\nname = \"checked-control-after\"\nversion = \"0.0.0\"\nedition = \"2024\"\n[workspace]\n[dependencies]\ndiff-dirs = { path = \"../../..\", features = [\"parallel\"] }\ndiff-dirs-sync = { path = \"../../../sync\", features = [\"parallel\"] }\nrayon = \"1.12.0\"\ntempfile = \"3\"\n[features]\nchecks = []\n[[bin]]\nname = \"checked-bench\"\npath = \"../bench.rs\"\n[[bin]]\nname = \"checked-live\"\npath = \"../live.rs\"\n",
+        "profile": "release default; no diagnostics",
+        "provenance_note": "# Frozen implementation/control build artifacts\n\nSession `ses_eb24f98a3ffewdVqa9lao6tXQu`, before handing performance tooling to\nthe separately commissioned Sol high agent. Do not overwrite these executables.\n`identity.json` records hashes and matches to the original timing/trace logs.\n\nSemantic candidates: baseline `fd277144`, initial checked implementation\n`8658b6da`, lazy-name candidate `243be8e2`; final comment/contract checkpoint\n`fa91c18a`, with evidence checkpoint `a6f577d9`. Configured compiler is Rust\n1.101.0-nightly 822182db4, release default, library `parallel` only. Candidate\nrunner's `checks` feature is harness-only. No diagnostics instrumentation.\n\nThe timed `checked-live` executables were subsequently rebuilt to add a\nclean-only tracing command and harden an untimed reserved-name setup operation.\nTheir original timing hashes/source remain in `live-identity.json` and the\ntracked `perf/results/checked/live-bench.rs`. Current frozen live executables are\nthe trace variants, matched to `syscalls-live-identity.json`, not falsely labeled\nas the original timed bytes. The frozen candidate and initial benchmark\nexecutables match their timing identities. The baseline benchmark was also\nrebuilt when candidate-only benchmark syntax changed; its current bytes match\nthe delta-syscall experiment rather than the older timing hash. Refer to the\nexplicit matches in `identity.json`; never infer byte identity from a filename.\nThe original baseline experiment source/hash are retained. The source snapshots here\nare for reproduction/provenance, not new product runners.\n",
+        "runner_checks_feature": true,
+        "runner_source_sha256": "e789de99773e180ecbcc33f748446afda143712a9fe2770b517672f02368b334",
+        "runtime_source_revision": "243be8e2a28a796c61652161c9dd30c6b35fc5d0"
+      },
+      "provenance_path": "/home/rektide/src/diff-dirs/.test-agent/checked/frozen-fa91/identity.json",
+      "provenance_sha256": "eb28d9ae6f9a4e4c675d78e113f1e5a8c501b0872adf058c8e1388b833ec48d9",
+      "sha256": "a6906bea63e9fcaf8ccbb498a83e30ded4f0d93db28b1895962d207768fee362"
+    },
+    {
+      "binary": "/home/rektide/src/diff-dirs/.test-agent/clean-reassessment0.sol61x/serial-a/artifacts/admin",
+      "label": "admin",
+      "mode": "admin",
+      "provenance": {
+        "compiler": "rustc 1.101.0-nightly (822182db4 2026-10-13)\nbinary: rustc\ncommit-hash: 822182db4c4a1827256881d8c7aa685f0bcf2b11\ncommit-date: 2026-10-13\nhost: x86_64-unknown-linux-gnu\nrelease: 1.101.0-nightly\nLLVM version: 23.1.3\n",
+        "frozen_identity": {
+          "artifacts": {
+            "checked-bench-after": {
+              "matched_identity_logs": [
+                "optimized-identity.json",
+                "syscalls-delta-identity.json"
+              ],
+              "sha256": "a6906bea63e9fcaf8ccbb498a83e30ded4f0d93db28b1895962d207768fee362"
+            },
+            "checked-bench-before": {
+              "matched_identity_logs": [
+                "syscalls-delta-identity.json"
+              ],
+              "sha256": "ab4a8dfe029892efc9a00cc92815c5cb3143dcb609c0db13eb4f6d27fd18afc9"
+            },
+            "checked-bench-initial": {
+              "matched_identity_logs": [
+                "identity.json"
+              ],
+              "sha256": "ef0ee960246475608c013a4b4aa90d863b196822cf66920ea1a974c0b64c7ee7"
+            },
+            "checked-live-after-trace": {
+              "matched_identity_logs": [
+                "syscalls-live-identity.json"
+              ],
+              "sha256": "bbf8caee18fca5e75a1b43abe8b42b2a43a70bdaebabb6acd282d9a8d6fb7948"
+            },
+            "checked-live-before-trace": {
+              "matched_identity_logs": [
+                "syscalls-live-identity.json"
+              ],
+              "sha256": "d222d7ef2911d22d81a20853414ee5ef01b00c23ed924c1d0f0619c2e22b51ef"
+            }
+          },
+          "compiler": "rustc 1.101.0-nightly (822182db4 2026-10-13)\nbinary: rustc\ncommit-hash: 822182db4c4a1827256881d8c7aa685f0bcf2b11\ncommit-date: 2026-10-13\nhost: x86_64-unknown-linux-gnu\nrelease: 1.101.0-nightly\nLLVM version: 23.1.3\n",
+          "note": "Current binaries are frozen exactly. Only explicitly matched identity logs refer to identical measured executable bytes; original experiment source and hashes remain preserved where a later rebuild changed bytes."
+        },
+        "library_features": [
+          "parallel"
+        ],
+        "lock_sha256": "3bb07117ca5cdab01861123fd8a553ce48d7d7f189cef49dc21088babfee35aa",
+        "manifest": "[package]\nname = \"checked-control-after\"\nversion = \"0.0.0\"\nedition = \"2024\"\n[workspace]\n[dependencies]\ndiff-dirs = { path = \"../../..\", features = [\"parallel\"] }\ndiff-dirs-sync = { path = \"../../../sync\", features = [\"parallel\"] }\nrayon = \"1.12.0\"\ntempfile = \"3\"\n[features]\nchecks = []\n[[bin]]\nname = \"checked-bench\"\npath = \"../bench.rs\"\n[[bin]]\nname = \"checked-live\"\npath = \"../live.rs\"\n",
+        "profile": "release default; no diagnostics",
+        "provenance_note": "# Frozen implementation/control build artifacts\n\nSession `ses_eb24f98a3ffewdVqa9lao6tXQu`, before handing performance tooling to\nthe separately commissioned Sol high agent. Do not overwrite these executables.\n`identity.json` records hashes and matches to the original timing/trace logs.\n\nSemantic candidates: baseline `fd277144`, initial checked implementation\n`8658b6da`, lazy-name candidate `243be8e2`; final comment/contract checkpoint\n`fa91c18a`, with evidence checkpoint `a6f577d9`. Configured compiler is Rust\n1.101.0-nightly 822182db4, release default, library `parallel` only. Candidate\nrunner's `checks` feature is harness-only. No diagnostics instrumentation.\n\nThe timed `checked-live` executables were subsequently rebuilt to add a\nclean-only tracing command and harden an untimed reserved-name setup operation.\nTheir original timing hashes/source remain in `live-identity.json` and the\ntracked `perf/results/checked/live-bench.rs`. Current frozen live executables are\nthe trace variants, matched to `syscalls-live-identity.json`, not falsely labeled\nas the original timed bytes. The frozen candidate and initial benchmark\nexecutables match their timing identities. The baseline benchmark was also\nrebuilt when candidate-only benchmark syntax changed; its current bytes match\nthe delta-syscall experiment rather than the older timing hash. Refer to the\nexplicit matches in `identity.json`; never infer byte identity from a filename.\nThe original baseline experiment source/hash are retained. The source snapshots here\nare for reproduction/provenance, not new product runners.\n",
+        "runner_checks_feature": true,
+        "runner_source_sha256": "e789de99773e180ecbcc33f748446afda143712a9fe2770b517672f02368b334",
+        "runtime_source_revision": "243be8e2a28a796c61652161c9dd30c6b35fc5d0"
+      },
+      "provenance_path": "/home/rektide/src/diff-dirs/.test-agent/checked/frozen-fa91/identity.json",
+      "provenance_sha256": "eb28d9ae6f9a4e4c675d78e113f1e5a8c501b0872adf058c8e1388b833ec48d9",
+      "sha256": "a6906bea63e9fcaf8ccbb498a83e30ded4f0d93db28b1895962d207768fee362"
+    }
+  ],
+  "fixture": {
+    "full": "0ccb882881479360e1a24e731259b52acd77b4184574dba6ddeffb3de3f9c887:30a8b0f0fbd4bb50d59514f6ac02ad03a028510d80a99e34146932b590a3e8cd",
+    "metadata": "f9476e676e48740994cf92ff9e0bab32faee520bb22690300ff161a1fe2a5851:f7d2b88ee7ee681f4fd97dbd97bbe85d6cc3072b81184238381e7efa7d0e87e4",
+    "root": "/home/rektide/src/diff-dirs/.test-agent/clean-reassessment0.sol61x/pair",
+    "setup_ns": 21835283832,
+    "source_origin": "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target",
+    "verification_ns": 140589292794
+  },
+  "initial_error": null,
+  "initial_verification_ns": 49669565235,
+  "profile": "release",
+  "runner_build_source": "use std::process::Command;\n\nfn main() {\n    let output = Command::new(std::env::var_os(\"RUSTC\").unwrap())\n        .args([\"--version\", \"--verbose\"])\n        .output()\n        .unwrap();\n    assert!(output.status.success());\n    let compiler = String::from_utf8(output.stdout).unwrap().replace('\\n', \" | \");\n    println!(\"cargo:rustc-env=BUILD_COMPILER={compiler}\");\n    println!(\"cargo:rustc-env=BUILD_PROFILE={}\", std::env::var(\"PROFILE\").unwrap());\n    println!(\"cargo:rerun-if-changed=build.rs\");\n}\n",
+  "runner_manifest": "[package]\nname = \"diff-dirs-perf-runner\"\nversion = \"0.0.0\"\nedition.workspace = true\npublish = false\nbuild = \"build.rs\"\n\n[dependencies]\nclap = { version = \"4\", features = [\"derive\"] }\nserde = { version = \"1\", features = [\"derive\"] }\nserde_json = \"1\"\nsha2 = \"0.10\"\n\n[dev-dependencies]\ntempfile = \"3\"\n",
+  "runner_sha256": "0e4e8a09b8cde94f0dc3464331f628379f66e099870452c5fe343cb30bb7bb32",
+  "runner_source_sha256": "afc26acf540276590c20a271cbf3e0f991d529d06b6e849ca603961bb062e811",
+  "sampling": "seeded mirrored blocks; no warmup samples; each child initializes/warms outside its API timer",
+  "schema": 1,
+  "scope": "API timer from checked-bench; process_ns includes startup, pool, untimed initialization; no cache dropping",
+  "seed": 1701,
+  "threads": 0
+}

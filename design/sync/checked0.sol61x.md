@@ -7,7 +7,7 @@ status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb24f98a3ffewdVqa9lao6tXQu"
-    title: Implemented and verified static checked streaming, recursive guard coverage, separate audit and staged root transitions; removed eager path extraction, preserved controls and paused performance assessment for improved tooling
+    title: Implemented and verified static checked streaming and recursive safety, removed eager path extraction, preserved controls, then independently completed 64 matched real-shape clean samples with the frozen Rust controller
   - resource: /design/fit/policy0.gpt6a.md
     title: Read updated proposal for shared observations, recursive coverage, pre-admission checks, batch mount topology and operation-time reflink failure
   - resource: /design/fit/policy0.glm53m.md
@@ -279,3 +279,17 @@ all have the same 383,634 metadata calls, 91,344 directory reads, 45,663 opens a
 244,887 baseline versus 234,880 checked metadata calls, with other operation
 counts unchanged: immediate metadata reuse removes work even though noisy wall
 time does not yet establish its payoff. Traced times are not performance results.
+
+### Independent Rust clean reassessment — completed, bounded
+
+The resumed same-session [assessment](../performance/reassessment0.sol61x.md)
+reviews Rust tooling checkpoint `453ec94d` and retains **64/64 successful real-
+shape clean samples**, eight balanced blocks per mode, with byte/metadata/inode
+identity unchanged and zero operations. On this N=1 warm payload, the native-
+guard API median is 726.10 ms serial versus 239.57 ms P4/J4/K256. Within-block
+guard/default ratio centers are 1.040 and 1.035 with broad two-sided spreads;
+these do not isolate an exact predicate cost or justify changing production.
+Keep the guard and prefer the explicit P4 profile when four workers are available.
+This does not measure K16, mutable work, concurrent destinations or whole JW;
+those remain with the Rust tooling/application owners. All raw data, setup and
+verification costs and unchanged executable identities are linked from the report.
