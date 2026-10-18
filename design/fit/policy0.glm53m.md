@@ -132,6 +132,87 @@ blessed convergent-not-transactional recovery, retry heals; gather-mode
 consumers keep the old refuse-before-touching-anything behavior for free.
 This is the main semantic change to weigh.
 
+## Alternative design implementations
+
+The operator's pushback on the candidate above: the `Vec<SkipRule>` /
+`Vec<RefuseRule>` shape adds significant structure. The instinct instead —
+"a callback that can just modify our change report thing, with dispatch to
+the next level driven by that as normal — a prefilter." The design space,
+lightest to heaviest:
+
+### D0 — consumer-side record editing (possible today, no library change)
+
+Records are **owned values** yielded to the consumer's loop. A consumer can
+already strip entries from a `DirDiff` before rendering it or handing it to
+`sync`'s `Applier` (which validates publicly constructed records; removing
+entries is safe, though paired file↔dir transitions must stay coherent).
+This covers output filtering and "never apply changes under `.git`" with
+zero library work. It does **not** cover: suppressing *descent* (excluded
+subtrees still cost walk IO), visibility of entries that never surface in
+records (a clean both-sided `.git` appears nowhere), or fail-closed refusal
+from data only the walker holds.
+
+### D1 — prefilter hook (the operator's instinct, refined)
+
+One synchronous closure run at record-construction time, before yield and
+before descent is committed:
+
+```rust
+struct DirPre {
+    diff: DirDiff,                  // editable: the classification the
+                                    // consumer will receive
+    both_sided_dirs: Vec<OsString>, // editable: removing a name suppresses
+                                    // descent into that child
+}
+enum Descent { Continue, SkipThisDirectory }
+
+fn walk_with_prefilter(original, target,
+                       pre: impl FnMut(&mut DirPre) -> Result<Descent>) -> …
+```
+
+- Editing `diff` is skip-for-entries; `Err` is refuse (fail-closed, path
+  named); removing from `both_sided_dirs` is a preemptive per-child prune;
+  `SkipThisDirectory` is `prune_here` at prefilter time.
+- Records stay stat-free: where a decision needs data (mount ids, kinds),
+  `DirPre` exposes a lazy per-name stat lookup into what the walker already
+  collected, rather than embedding metadata in the record.
+- Summary reflects the **post-filter** committed records; edited/skipped
+  paths are recorded for audit, mirroring `Summary.pruned`.
+- Frontier composition: the hook runs in the ordered reducer — serial,
+  deterministic, no `Send` requirements beyond the walker's own.
+- Built-ins (`AdminNames`, `SameMount`, `IgnoredUnder`) become *constructors
+  returning filters* — sugar over the one hook, not parallel structure.
+- What it erodes: the "no callbacks" settlement — deliberately, and far more
+  narrowly than the old processor trait (one synchronous mutation-only hook,
+  no push loop, no `finish`).
+
+### D2 — declarative rule vectors (this document's original candidate)
+
+Data-only, serializable, no closures — but the heaviest API surface, and
+every capability beyond name matching quietly requires predicate closures
+in disguise. Once D1 exists, D2 is expressible as sugar; the reverse is not
+true.
+
+### D3 — two-phase event stream (enter/leave events, pull-based)
+
+Maximal control — decisions at every boundary including clean directories —
+at the cost of the largest redesign and a second record shape. Previously
+declined during the pull-model design; park unless D1 proves insufficient
+in practice.
+
+| | API weight | descent control | clean-entry visibility | refuse | erodes settlements |
+| --- | --- | --- | --- | --- | --- |
+| D0 edit consumer-side | none | no | no | consumer-side only | none |
+| D1 prefilter hook | one closure | yes (per-child + this-dir) | yes (via lookup) | yes | "no callbacks", narrowly |
+| D2 rule vectors | types + enums | yes | yes | yes | none, but structure |
+| D3 event stream | largest | maximal | maximal | yes | record model itself |
+
+Working lean, pending deliberation: **D0 is free and may cover the drift-audit
+cases; D1 is the power-dense addition if descent control or clean-entry
+refusal is genuinely needed, and it subsumes D2's built-ins as sugar; D3
+stays parked.** The fail-late trade from the candidate section applies
+identically to D1/D2.
+
 ## Broader reshaping to mull
 
 - **Ignore evaluation inside the loop.** `IgnoredUnder(frozen_rules)` as a
@@ -179,6 +260,7 @@ This is the main semantic change to weigh.
 
 A mulling document. The [root README](../../README.md) is unchanged and its
 settled-decisions list governs until a ratified amendment lands. The natural
-ratification path, if this holds up: amend the README with a `WalkPolicy`
-section, implement rules + `Summary.skipped`, then fold jj-waltz's preflight
-per the integration handoff's Option-B sequencing.
+ratification path, if this holds up: pick a shape from the alternatives
+section (working lean: D0 first, D1 if the library must grow), amend the
+README accordingly, implement, then fold jj-waltz's preflight per the
+integration handoff's Option-B sequencing.

@@ -45,9 +45,10 @@ The [root specification](../README.md) owns the current public contract.
   suggestions beyond the inventories.
 - [Walk-time policy inquiry](fit/policy0.glm53m.md): mulling handoff — the
   current control model, the preflight passes jj-waltz pays before the walk,
-  a candidate `WalkPolicy` (skip/refuse rules evaluated during iteration),
-  and broader reshaping questions including ignore evaluation inside the
-  loop and policy-aware sync. Posed for deliberation, not ratified.
+  a candidate policy direction, and an alternatives section spanning
+  consumer-side record editing (free, today), a prefilter hook that edits
+  the record and drives descent, declarative rules, and a parked event
+  stream. Posed for deliberation, not ratified.
 - [I/O assessment](fit/io0.glm53m.md): std, async wrappers, filesystem libraries,
   and the concrete sequential jj-waltz execution path. Jujutsu itself is a
   subprocess, not an embedded runtime dependency.
