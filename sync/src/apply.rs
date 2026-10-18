@@ -530,10 +530,10 @@ mod tests {
             .build()
             .unwrap();
         for nested in [false, true] {
-            let source = if nested { source.join("opaque") } else { source.clone() };
-            fs::create_dir_all(&source).unwrap();
+            let input = if nested { source.join("opaque") } else { source.clone() };
+            fs::create_dir_all(&input).unwrap();
             for name in ["a-fail", "b-work"] {
-                fs::write(source.join(name), b"actual nonempty apply work").unwrap();
+                fs::write(input.join(name), b"actual nonempty apply work").unwrap();
             }
             let hook = Arc::new(Hook {
                 parent: if nested { target.join("opaque") } else { target.clone() },
@@ -542,7 +542,7 @@ mod tests {
                 changed: Condvar::new(),
             });
             *HOOK.lock().unwrap() = Some(hook.clone());
-            crate::mirror_in_pool(&source, &hook.parent, CopyPolicy::Copy, &pool, diff_dirs::ParallelLimits::for_pool(&pool)).unwrap();
+            crate::mirror_in_pool(&source, &target, CopyPolicy::Copy, &pool, diff_dirs::ParallelLimits::for_pool(&pool)).unwrap();
             *HOOK.lock().unwrap() = None;
             let state = hook.state.lock().unwrap();
             assert_eq!(state.workers.len(), 2);

@@ -31,6 +31,26 @@ impl Fixture {
         assert!(walk.next().is_none());
         assert!(walk.into_summary().is_clean());
     }
+
+    fn reflinks_available(&self) -> bool {
+        let from = self.temporary.path().join("owned-reflink-source");
+        let to = self.temporary.path().join("owned-reflink-destination");
+        fs::write(&from, vec![b'x'; 8192]).unwrap();
+        let result = reflink_copy::reflink(&from, &to);
+        fs::remove_file(from).unwrap();
+        if result.is_ok() {
+            fs::remove_file(to).unwrap();
+        }
+        if let Err(error) = result {
+            assert!(
+                std::env::var_os("DIFF_DIRS_SYNC_REQUIRE_REFLINK").is_none(),
+                "real reflink verification required: {error}"
+            );
+            eprintln!("real reflink branch unavailable on this test filesystem: {error}");
+            return false;
+        }
+        true
+    }
 }
 
 impl Drop for Fixture {
@@ -298,6 +318,9 @@ fn readonly_directories_are_restored_files_preserve_mode_and_exact_timestamp() {
     for &parallel in modes() {
         for policy in [CopyPolicy::Copy, CopyPolicy::ReflinkRequired] {
             let f = Fixture::new();
+            if policy == CopyPolicy::ReflinkRequired && !f.reflinks_available() {
+                continue;
+            }
             file(f.source.join("paired/file"), b"new readonly");
             file(f.target.join("paired/file"), b"old");
             file(f.source.join("new/nested/file"), b"created readonly");
@@ -350,6 +373,9 @@ fn readonly_directories_are_restored_files_preserve_mode_and_exact_timestamp() {
 fn real_nonempty_reflink_is_required_and_cow_edits_are_independent() {
     for &parallel in modes() {
         let f = Fixture::new();
+        if !f.reflinks_available() {
+            continue;
+        }
         let payload = vec![b'x'; 16384];
         file(f.source.join("payload"), &payload);
         let report = sync(&f, CopyPolicy::ReflinkRequired, parallel).unwrap();
@@ -386,8 +412,12 @@ fn strict_cross_filesystem_failure_preserves_old_leaf_and_fallback_reports_copy(
         // Same-filesystem fallback policy truthfully reports a real clone.
         file(f.source.join("local"), b"nonempty local");
         let report = sync(&f, CopyPolicy::ReflinkOrCopy, parallel).unwrap();
-        assert_eq!(report.completed.files_reflinked, 1);
-        assert_eq!(report.completed.files_copied, 0);
+        if f.reflinks_available() {
+            assert_eq!(report.completed.files_reflinked, 1);
+            assert_eq!(report.completed.files_copied, 0);
+        } else {
+            assert_eq!(report.completed.files_copied, 1);
+        }
     }
 }
 
