@@ -390,6 +390,63 @@ fn real_nonempty_reflink_is_required_and_cow_edits_are_independent() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn sibling_batches_preserve_collision_names_modes_timestamps_and_source() {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt, symlink};
+    for &parallel in modes() {
+        for count in [1, 8, 1000] {
+            for policy in [CopyPolicy::Copy, CopyPolicy::ReflinkRequired, CopyPolicy::ReflinkOrCopy] {
+                let f = Fixture::new();
+                if policy != CopyPolicy::Copy && !f.reflinks_available() {
+                    continue;
+                }
+                // Two nested levels exercise recursive copy, then changed
+                // siblings exercise public-record application on the next run.
+                let mut snapshot = Vec::new();
+                for n in 0..count {
+                    let name = format!("opaque/nested/.diff-dirs-sync-{n}-payload");
+                    let path = f.source.join(&name);
+                    let payload = vec![b'x'; n % 4097]; // empty and unaligned too
+                    file(&path, &payload);
+                    File::options()
+                        .write(true)
+                        .open(&path)
+                        .unwrap()
+                        .set_modified(SystemTime::UNIX_EPOCH - Duration::new(3, 987_654_321))
+                        .unwrap();
+                    fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
+                    let metadata = fs::metadata(&path).unwrap();
+                    snapshot.push((name, payload, metadata.ino(), metadata.mode(), metadata.modified().unwrap()));
+                }
+                symlink("missing//./literal", f.source.join("opaque/nested/.diff-dirs-sync-1001-link")).unwrap();
+                file(f.source.join("opaque/nested/.diff-dirs-sync-1002-directory/child"), b"nested directory");
+                let first = sync(&f, policy, parallel).unwrap();
+                assert_eq!(first.completed.files_copied + first.completed.files_reflinked, count as u64 + 1);
+                for (name, _, _, _, _) in &snapshot {
+                    fs::remove_file(f.target.join(name)).unwrap();
+                    fs::write(f.target.join(name), b"old target inode").unwrap();
+                }
+                fs::set_permissions(f.target.join("opaque/nested"), fs::Permissions::from_mode(0o555)).unwrap();
+                let second = sync(&f, policy, parallel).unwrap();
+                assert_eq!(second.completed.files_copied + second.completed.files_reflinked, count as u64);
+                assert_eq!(fs::metadata(f.target.join("opaque/nested")).unwrap().mode() & 0o777, 0o555);
+                f.clean();
+                for (name, payload, inode, mode, modified) in snapshot {
+                    let source = fs::metadata(f.source.join(&name)).unwrap();
+                    let target = fs::metadata(f.target.join(&name)).unwrap();
+                    assert_eq!((source.ino(), source.mode(), source.modified().unwrap()), (inode, mode, modified));
+                    assert_eq!((target.mode(), target.modified().unwrap()), (mode, modified));
+                    assert_eq!(fs::read(f.source.join(&name)).unwrap(), payload);
+                    assert_eq!(fs::read(f.target.join(&name)).unwrap(), payload);
+                    assert_ne!(source.ino(), target.ino());
+                }
+                assert_eq!(sync(&f, policy, parallel).unwrap().completed, Progress::default());
+            }
+        }
+    }
+}
+
 #[cfg(target_os = "linux")]
 #[test]
 fn strict_cross_filesystem_failure_preserves_old_leaf_and_fallback_reports_copy() {

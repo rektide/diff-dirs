@@ -1,6 +1,10 @@
+use std::collections::HashSet;
+use std::ffi::OsStr;
 use std::fs::{self, File, Metadata, OpenOptions, Permissions};
 use std::io;
 use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::model::merge;
@@ -21,7 +25,11 @@ impl Applier {
         }
         let context = Context::new(self.policy, parallel);
         let (permissions, relaxed) = relax(&to)?;
-        let result = context.batch(&names, |(name, mask)| context.named(&from.join(name), &to.join(name), *mask));
+        let arena = Staging::new(&to, names.iter().map(|(name, _)| name.as_os_str()));
+        let result = context.batch(&names, |index, (name, mask)| {
+            context.named(&from.join(name), &to.join(name), *mask, &arena, index)
+        });
+        let result = arena.finish(result, &context);
         finish_permissions(result, &to, permissions, relaxed, true)
     }
 
@@ -121,12 +129,12 @@ impl Context {
         }
     }
 
-    fn batch<T: Sync>(&self, items: &[T], operation: impl Fn(&T) -> Result<Progress, Failure> + Sync) -> Result<Progress, Failure> {
-        let run = |item: &T| {
+    fn batch<T: Sync>(&self, items: &[T], operation: impl Fn(usize, &T) -> Result<Progress, Failure> + Sync) -> Result<Progress, Failure> {
+        let run = |(index, item): (usize, &T)| {
             if self.stopped.load(Ordering::Acquire) {
                 return Ok(Progress::default());
             }
-            let result = operation(item);
+            let result = operation(index, item);
             if result.is_err() {
                 self.stopped.store(true, Ordering::Release);
             }
@@ -138,25 +146,25 @@ impl Context {
             // Indexed collection joins all started siblings and retains native
             // name error order among encountered failures. Lazy Rayon splitting,
             // not one detached task per file or a whole-tree operation list.
-            let results: Vec<_> = items.par_iter().map(run).collect();
+            let results: Vec<_> = items.par_iter().enumerate().map(run).collect();
             return merge(results);
         }
         let _ = self.parallel;
-        merge(items.iter().map(run))
+        merge(items.iter().enumerate().map(run))
     }
 
-    fn named(&self, from: &Path, to: &Path, mask: u8) -> Result<Progress, Failure> {
+    fn named(&self, from: &Path, to: &Path, mask: u8, arena: &Staging<'_>, index: usize) -> Result<Progress, Failure> {
         #[cfg(all(test, feature = "parallel"))]
         tests::observe(to);
         if mask & ADD_DIR != 0 {
             if mask & REMOVE_LEAF != 0 {
                 // Prepare the whole replacement before removing an old leaf.
                 // A failed strict reflink must not destroy that leaf.
-                return self.staged_directory(from, to);
+                return self.staged_directory(from, to, &arena.entry(index, to)?);
             }
             self.copy_directory(from, to)
         } else if mask & (ADD_LEAF | CHANGED) != 0 {
-            self.copy_leaf(from, to, mask & REMOVE_DIR != 0)
+            self.copy_leaf(from, to, mask & REMOVE_DIR != 0, &arena.entry(index, to)?)
         } else {
             self.remove(to)
         }
@@ -164,6 +172,10 @@ impl Context {
 
     fn copy_directory(&self, from: &Path, to: &Path) -> Result<Progress, Failure> {
         let metadata = paths::directory(from)?;
+        self.copy_directory_with(from, to, &metadata)
+    }
+
+    fn copy_directory_with(&self, from: &Path, to: &Path, metadata: &Metadata) -> Result<Progress, Failure> {
         fs::create_dir(to).map_err(|error| Failure::io("create directory", to, error))?;
         let created = Progress {
             directories_created: 1,
@@ -174,7 +186,8 @@ impl Context {
         let result = (|| {
             relaxed = relax(to)?.1;
             let children = children(from)?;
-            self.batch(&children, |name| {
+            let arena = Staging::new(to, children.iter().map(|name| name.as_os_str()));
+            let result = self.batch(&children, |index, name| {
                 let from = from.join(name);
                 let to = to.join(name);
                 #[cfg(all(test, feature = "parallel"))]
@@ -182,9 +195,10 @@ impl Context {
                 let metadata = fs::symlink_metadata(&from).map_err(|error| Failure::io("inspect source entry", &from, error))?;
                 match metadata_kind(&from, &metadata)? {
                     Kind::Directory => self.copy_directory(&from, &to),
-                    _ => self.copy_leaf(&from, &to, false),
+                    _ => self.copy_leaf(&from, &to, false, &arena.entry(index, &to)?),
                 }
-            })
+            });
+            arena.finish(result, self)
         })();
         // Account for a successful relaxation even if listing failed before
         // child admission; finalization still follows every joined result.
@@ -193,18 +207,14 @@ impl Context {
         result
     }
 
-    fn staged_directory(&self, from: &Path, to: &Path) -> Result<Progress, Failure> {
-        let temporary = staging(to)?;
-        let staged = temporary.path().join("entry");
-        let result = self.copy_directory(from, &staged);
-        let mut installed = false;
-        let result = match result {
+    fn staged_directory(&self, from: &Path, to: &Path, staged: &Path) -> Result<Progress, Failure> {
+        let result = self.copy_directory(from, staged);
+        match result {
             Ok(progress) if !self.stopped.load(Ordering::Acquire) => {
                 let removed = self.remove(to);
                 match removed {
                     Ok(mut removed) => match fs::rename(&staged, to) {
                         Ok(()) => {
-                            installed = true;
                             removed += progress;
                             Ok(removed)
                         }
@@ -223,45 +233,42 @@ impl Context {
                 failure.completed = Progress::default();
                 Err(failure)
             }
-        };
-        cleanup(temporary, result, installed)
+        }
     }
 
-    fn copy_leaf(&self, from: &Path, to: &Path, remove_directory: bool) -> Result<Progress, Failure> {
+    fn copy_leaf(&self, from: &Path, to: &Path, remove_directory: bool, staged: &Path) -> Result<Progress, Failure> {
         let metadata = fs::symlink_metadata(from).map_err(|error| Failure::io("inspect source leaf", from, error))?;
-        let kind = metadata_kind(from, &metadata)?;
+        self.copy_leaf_with(from, to, remove_directory, &metadata, staged)
+    }
+
+    fn copy_leaf_with(&self, from: &Path, to: &Path, remove_directory: bool, metadata: &Metadata, staged: &Path) -> Result<Progress, Failure> {
+        let kind = metadata_kind(from, metadata)?;
         if kind == Kind::Directory {
             return Err(Failure::invalid("copy leaf", from, "expected a regular file or symlink"));
         }
-        let temporary = staging(to)?;
-        let staged = temporary.path().join("entry");
-        let result = (|| {
-            let prepared = if kind == Kind::Symlink {
-                let link = fs::read_link(from).map_err(|error| Failure::io("read symlink", from, error))?;
-                platform::symlink(&link, &staged, &metadata).map_err(|error| Failure::io("prepare symlink", to, error))?;
-                PreparedLeaf {
-                    progress: Progress {
-                        symlinks_created: 1,
-                        ..Progress::default()
-                    },
-                    _source: None,
-                    _output: None,
-                }
-            } else {
-                self.prepare_file(from, &staged, to, &metadata)?
-            };
-            let removed = if remove_directory { self.remove(to)? } else { Progress::default() };
-            if let Err(error) = fs::rename(&staged, to) {
-                let mut failure = Failure::io("install leaf", to, error);
-                failure.completed = removed;
-                return Err(failure);
+        let prepared = if kind == Kind::Symlink {
+            let link = fs::read_link(from).map_err(|error| Failure::io("read symlink", from, error))?;
+            platform::symlink(&link, &staged, &metadata).map_err(|error| Failure::io("prepare symlink", to, error))?;
+            PreparedLeaf {
+                progress: Progress {
+                    symlinks_created: 1,
+                    ..Progress::default()
+                },
+                _source: None,
+                _output: None,
             }
-            let mut progress = prepared.progress;
-            progress += removed;
-            Ok(progress)
-        })();
-        let installed = result.is_ok();
-        cleanup(temporary, result, installed)
+        } else {
+            self.prepare_file(from, &staged, to, &metadata)?
+        };
+        let removed = if remove_directory { self.remove(to)? } else { Progress::default() };
+        if let Err(error) = fs::rename(&staged, to) {
+            let mut failure = Failure::io("install leaf", to, error);
+            failure.completed = removed;
+            return Err(failure);
+        }
+        let mut progress = prepared.progress;
+        progress += removed;
+        Ok(progress)
     }
 
     fn prepare_file(&self, from: &Path, staged: &Path, to: &Path, metadata: &Metadata) -> Result<PreparedLeaf, Failure> {
@@ -435,11 +442,69 @@ fn preserve_file(output: &File, metadata: &Metadata, to: &Path) -> Result<(), Fa
         .map_err(|error| Failure::io("set file permissions", to, error))
 }
 
-fn staging(to: &Path) -> Result<tempfile::TempDir, Failure> {
-    tempfile::Builder::new()
-        .prefix(".diff-dirs-sync-")
-        .tempdir_in(to.parent().expect("entry has parent"))
-        .map_err(|error| Failure::io("create private staging directory", to, error))
+/// One lazy parent-local arena per joined sibling batch. Slots are batch indices,
+/// so independent jobs never share a prepared inode or need a per-leaf lock.
+struct Staging<'a> {
+    parent: &'a Path,
+    prefix: String,
+    temporary: Mutex<Option<tempfile::TempDir>>,
+}
+
+impl<'a> Staging<'a> {
+    fn new<'n>(parent: &'a Path, names: impl Iterator<Item = &'n OsStr>) -> Self {
+        // Exclude planned names BEFORE mkdir: a random basename can otherwise
+        // collide with a concurrently added/transitioned source entry. Existing
+        // unmentioned names are protected by tempfile's exclusive creation.
+        let reserved: HashSet<usize> = names
+            .filter_map(|name| {
+                let suffix = name.as_encoded_bytes().strip_prefix(b".diff-dirs-sync-")?;
+                let end = suffix.iter().position(|byte| *byte == b'-')?;
+                std::str::from_utf8(&suffix[..end]).ok()?.parse().ok()
+            })
+            .collect();
+        let index = (0..).find(|index| !reserved.contains(index)).unwrap();
+        Self {
+            parent,
+            prefix: format!(".diff-dirs-sync-{index}-"),
+            temporary: Mutex::new(None),
+        }
+    }
+
+    fn entry(&self, index: usize, to: &Path) -> Result<PathBuf, Failure> {
+        let mut temporary = self.temporary.lock().unwrap();
+        if temporary.is_none() {
+            let mut builder = tempfile::Builder::new();
+            builder.prefix(&self.prefix);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                builder.permissions(Permissions::from_mode(0o700));
+            }
+            *temporary = Some(
+                builder
+                    .tempdir_in(self.parent)
+                    .map_err(|error| Failure::io("create private staging directory", to, error))?,
+            );
+            // Retain ownership before a fallible permission repair so batch
+            // cleanup still runs under a restrictive process umask.
+            let path = temporary.as_ref().unwrap().path();
+            relax(path)?;
+        }
+        Ok(temporary.as_ref().unwrap().path().join(index.to_string()))
+    }
+
+    fn finish(self, result: Result<Progress, Failure>, context: &Context) -> Result<Progress, Failure> {
+        match self.temporary.into_inner().unwrap() {
+            Some(temporary) => {
+                // A stopped sibling can leave a successfully prepared directory
+                // deliberately uninstalled. Only an unstopped successful batch
+                // proves that every allocated slot was renamed out.
+                let empty = result.is_ok() && !context.stopped.load(Ordering::Acquire);
+                cleanup(temporary, result, empty)
+            }
+            None => result,
+        }
+    }
 }
 
 /// Clean only the temporary directory we created, without following links or
@@ -507,6 +572,162 @@ fn add_progress(result: &mut Result<Progress, Failure>, progress: Progress) {
     match result {
         Ok(completed) => *completed += progress,
         Err(failure) => failure.completed += progress,
+    }
+}
+
+#[cfg(all(test, unix))]
+mod staging_tests {
+    use super::*;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    fn scratch() -> tempfile::TempDir {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../.test-agent/sync-tests");
+        fs::create_dir_all(&root).unwrap();
+        tempfile::tempdir_in(root).unwrap()
+    }
+
+    #[test]
+    fn cleanup_failure_retains_installations_and_primary_error() {
+        let owned = scratch();
+        for primary in [false, true] {
+            let temporary = tempfile::tempdir_in(owned.path()).unwrap();
+            let path = temporary.path().to_owned();
+            // A proven-empty arena cannot be removed through a readonly parent.
+            fs::set_permissions(owned.path(), Permissions::from_mode(0o500)).unwrap();
+            let progress = Progress {
+                files_reflinked: 2,
+                bytes_reflinked: 8192,
+                ..Progress::default()
+            };
+            let result = if primary {
+                let mut error = Failure::invalid("original operation", &path, "primary fault");
+                error.completed = progress.clone();
+                Err(error)
+            } else {
+                Ok(progress.clone())
+            };
+            let result = cleanup(temporary, result, true);
+            fs::set_permissions(owned.path(), Permissions::from_mode(0o700)).unwrap();
+            if let Err(failure) = result {
+                assert_eq!(failure.completed, progress);
+                if primary {
+                    assert_eq!(failure.primary.operation, "original operation");
+                    assert_eq!(failure.secondary.len(), 1);
+                    assert_eq!(failure.secondary[0].operation, "clean private staging directory");
+                } else {
+                    assert_eq!(failure.primary.operation, "clean private staging directory");
+                }
+                fs::remove_dir(path).unwrap();
+            } else {
+                assert!(File::open("/root").is_ok(), "unprivileged cleanup fault did not fire");
+            }
+        }
+    }
+
+    #[test]
+    fn failed_private_preparation_is_recursively_cleaned_without_progress() {
+        let owned = scratch();
+        let arena = Staging::new(owned.path(), std::iter::empty());
+        let slot = arena.entry(0, &owned.path().join("logical-target")).unwrap();
+        fs::create_dir(&slot).unwrap();
+        fs::write(slot.join("readonly"), b"discarded private data").unwrap();
+        fs::set_permissions(slot.join("readonly"), Permissions::from_mode(0o000)).unwrap();
+        fs::set_permissions(&slot, Permissions::from_mode(0o000)).unwrap();
+        let context = Context::new(CopyPolicy::Copy, false);
+        context.stopped.store(true, Ordering::Release);
+        let failure = arena.finish(Err(Failure::invalid("prepare fault", &slot, "fault")), &context).unwrap_err();
+        assert_eq!(failure.primary.operation, "prepare fault");
+        assert!(failure.secondary.is_empty());
+        assert_eq!(failure.completed, Progress::default());
+        assert_eq!(fs::read_dir(owned.path()).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn arena_excludes_planned_names_before_creation_and_slots_are_exclusive() {
+        let owned = scratch();
+        let names = [".diff-dirs-sync-0-source", ".diff-dirs-sync-1-source", ".diff-dirs-sync-2-source"];
+        let arena = Staging::new(owned.path(), names.iter().map(OsStr::new));
+        for name in names {
+            assert!(!name.starts_with(&arena.prefix));
+        }
+        std::thread::scope(|scope| {
+            for index in 0..8 {
+                let arena = &arena;
+                scope.spawn(move || {
+                    let path = arena.entry(index, owned_path()).unwrap();
+                    let output = OpenOptions::new().create_new(true).write(true).open(&path).unwrap();
+                    assert!(OpenOptions::new().create_new(true).write(true).open(&path).is_err());
+                    drop(output);
+                    fs::remove_file(path).unwrap();
+                });
+            }
+        });
+        assert_eq!(fs::read_dir(owned.path()).unwrap().count(), 1);
+        arena.finish(Ok(Progress::default()), &Context::new(CopyPolicy::Copy, true)).unwrap();
+        assert_eq!(fs::read_dir(owned.path()).unwrap().count(), 0);
+        fn owned_path() -> &'static Path {
+            Path::new("logical-target")
+        }
+    }
+
+    #[test]
+    fn retained_output_finalizes_exact_mtime_and_mode000_before_installation() {
+        let owned = scratch();
+        let source = owned.path().join("source");
+        fs::write(&source, b"nonempty source").unwrap();
+        let source_file = OpenOptions::new().read(true).write(true).open(&source).unwrap();
+        source_file
+            .set_modified(std::time::SystemTime::UNIX_EPOCH - std::time::Duration::new(1, 123_456_789))
+            .unwrap();
+        source_file.set_permissions(Permissions::from_mode(0o000)).unwrap();
+        let metadata = source_file.metadata().unwrap();
+        let staged = owned.path().join("staged");
+        let output = OpenOptions::new().create_new(true).read(true).write(true).open(&staged).unwrap();
+        preserve_file(&output, &metadata, &staged).unwrap();
+        fs::rename(&staged, owned.path().join("installed")).unwrap();
+        assert_eq!(output.metadata().unwrap().mode() & 0o777, 0);
+        assert_eq!(output.metadata().unwrap().modified().unwrap(), metadata.modified().unwrap());
+        output.set_modified(metadata.modified().unwrap()).unwrap(); // still usable
+    }
+
+    #[cfg(all(target_os = "linux", feature = "parallel"))]
+    #[test]
+    fn shared_arena_joins_real_clone_failure_and_successful_sibling() {
+        let owned = scratch();
+        let external = tempfile::tempdir_in("/tmp/opencode").unwrap();
+        let local = owned.path().join("local");
+        fs::write(&local, vec![b'x'; 4097]).unwrap();
+        let remote = external.path().join("remote");
+        fs::write(&remote, b"cross-filesystem failure").unwrap();
+        let target = owned.path().join("target");
+        fs::create_dir(&target).unwrap();
+        fs::write(target.join("a-fail"), b"old survives").unwrap();
+        let names = ["a-fail", "z-good"];
+        let arena = Staging::new(&target, names.iter().map(OsStr::new));
+        let context = Context::new(CopyPolicy::ReflinkRequired, true);
+        let barrier = std::sync::Barrier::new(2);
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
+        let result = pool.install(|| {
+            context.batch(&names, |index, name| {
+                barrier.wait(); // both operations started before either can fail
+                context.named(
+                    if index == 0 { &remote } else { &local },
+                    &target.join(name),
+                    if index == 0 { CHANGED } else { ADD_LEAF },
+                    &arena,
+                    index,
+                )
+            })
+        });
+        let failure = arena.finish(result, &context).unwrap_err();
+        assert_eq!(failure.primary.operation, "prepare reflink");
+        assert_eq!(failure.primary.path, target.join("a-fail"));
+        assert!(failure.secondary.is_empty());
+        assert_eq!(failure.completed.files_reflinked, 1);
+        assert_eq!(failure.completed.bytes_reflinked, 4097);
+        assert_eq!(fs::read(target.join("a-fail")).unwrap(), b"old survives");
+        assert_eq!(fs::read(target.join("z-good")).unwrap(), fs::read(local).unwrap());
+        assert_eq!(fs::read_dir(target).unwrap().count(), 2);
     }
 }
 
