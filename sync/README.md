@@ -145,11 +145,14 @@ its `observed` is still a pre-application comparison, not a verification scan.
 A manual unchecked walk plus checked apply cannot validate unmentioned equal entries.
 
 `Applier::audit()` inspects each existing side fully, original then target, without
-comparison or writes. `AuditReport` has side-local entry counts including roots;
+comparison or writes. It is currently a sequential sorted DFS, independent of
+the optional execution pool. `AuditReport` has side-local entry counts including roots;
 `AuditFailure` retains its checked prefix and refusal/I/O cause. An absent target
 has zero target observations. A dry-run is a current observation, not a durable
 authorization after writers resume. Audit reads literal symlink text but follows
 neither symlink leaves nor a selected target-root link.
+It does not probe clone capability or prove that later writes/metadata operations
+will succeed; real staged operation failures remain normal runtime errors.
 
 ### Explicit selected-root transition
 

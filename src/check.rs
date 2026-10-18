@@ -17,9 +17,14 @@ pub enum Side {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Purpose {
+    /// Paired comparison, including entries which turn out equal.
     Compare,
+    /// Source inspection for copying, including accepted source ancestors.
     Copy,
+    /// Target inspection for removal/replacement or ancestor permission changes;
+    /// not a promise that this particular entry will itself be removed.
     Remove,
+    /// Explicit read-only coverage, not a mutation plan or clone capability test.
     Audit,
 }
 

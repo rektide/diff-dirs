@@ -17,7 +17,8 @@ pub struct Audit {
 #[derive(Debug)]
 pub struct AuditFailure {
     pub error: Error,
-    /// Successfully checked DFS prefix, excluding the offending entry.
+    /// Successfully checked DFS prefix. A refused/unsupported entry is excluded;
+    /// an accepted directory is counted even if reading its contents later fails.
     pub inspected: Audit,
 }
 

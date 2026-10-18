@@ -7,7 +7,7 @@ status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb24f98a3ffewdVqa9lao6tXQu"
-    title: Selected and implemented the authorized static checker seam, recursive guard coverage, separate audit and staged selected-root transition; verified correctness and measured owned controls
+    title: Implemented and verified static checked streaming, recursive guard coverage, separate audit and staged root transitions; removed eager path extraction, preserved controls and paused performance assessment for improved tooling
   - resource: /design/fit/policy0.gpt6a.md
     title: Read updated proposal for shared observations, recursive coverage, pre-admission checks, batch mount topology and operation-time reflink failure
   - resource: /design/fit/policy0.glm53m.md
@@ -128,7 +128,8 @@ operations are retained. No whole-tree rollback or serial-prefix mutation promis
 does not validate opaque interiors. A successful checked mirror covers those
 through its recursive operations. Failed comparison retains `Failed`; a failed
 apply retains the incomplete committed comparison prefix and completed physical
-work. Whole-root initialization/replacement has `observed: None`. Audit reports
+work. Whole-root initialization/replacement has `observed: None`. Audit is currently
+a sequential sorted DFS, not pool-parallel. It reports
 side-local checked counts including roots; errors retain its checked prefix.
 
 ## JW integration
@@ -177,6 +178,13 @@ Do not substitute an unchecked walker: it cannot guard equal entries. Do not
 pre-audit real execution. Do not use `prune_here` without taking responsibility
 for the deliberately omitted paired descendants.
 
+Keep the JW hot guard on `e.name`, `e.metadata` and `e.link_target`: do not call
+`relative_path()` or lock a diagnostic collector for every ordinary entry.
+`e.path` already borrows the observed full path; clone it only for a rare emitted
+diagnostic. Source absolute-link warnings can be deduplicated when an actual
+absolute source link is encountered. Audit does not promise reflink feasibility:
+that is deliberately answered by the real staged operation, not a dry-run probe.
+
 ### Equality and confinement limits — keep in JW documentation
 
 Incremental equality is still regular-file `(type,size,exact mtime)` and literal
@@ -194,8 +202,12 @@ Linux/btrfs is verified; other platform cfg paths remain unexecuted best effort.
 
 ## Verification and measurements
 
-The first checkpoint passed 92 all-feature tests, 64 default-feature tests and
-7 all-feature doctests. Tests include equal `.git`, deep one-sided blockers in
+The final correctness checkpoint passed **94 all-feature tests, 66 default-feature
+tests, 7 all-feature doctests and 6 default-feature doctests**. Both nextest runs
+and the 94-test ordinary all-feature harness used
+`DIFF_DIRS_SYNC_REQUIRE_REFLINK=1`, so real clone branches could not silently skip.
+Default and all-feature clippy passed with `-D warnings`; formatting passed.
+Tests include equal `.git`, deep one-sided blockers in
 both directions, special-file facts, partial sibling work and surviving modes,
 absent roots, six existing ordinary type transitions plus guarded transitions,
 selected-root symlink replacement, clean stable inode/ctime/mtime and zero
@@ -207,3 +219,55 @@ The [controlled performance account](../performance/checked0.sol61x.md) records
 same-compiler before/after/no-op/concrete-check controls, exact commands, raw
 observations, syscall attribution and limitations. Results must not be read as
 JW integration measurements.
+
+### Tooling handoff and independent reassessment checkpoint
+
+The user subsequently identified significant unavoidable unstable host I/O load
+and commissioned a **new Sol high** to own diff-dirs/JW performance runners and
+tooling documentation. Performance paths were frozen at that steering; their
+existing observations are preserved, not a settled regression/speedup verdict.
+This same implementation session is to reassess independently after that tooling
+lands. No further agents were spawned here; no JW files were edited.
+
+Source coordinates: control `fd277144c51700ca70d068fc88f3ff72a0d64293`, initial
+implementation `8658b6da`, initial evidence `6ff1b2e9`, lazy observation API
+`243be8e2`. Follow-up source changes only clarify documentation/comments.
+Compiler: `rustc 1.101.0-nightly (822182db4 2026-10-13)`, LLVM 23.1.3. Timing
+controls use default release and library **`parallel` only**, not instrumentation
+or all-feature test builds. Runner feature `checks` only exposes candidate APIs.
+No dependency or library Cargo feature changes were needed by this implementation.
+
+`.test-agent/checked/{before,after}-runner` contains exact Cargo manifests/locks;
+`before-source/` is the archived control. Executables are under
+`target/checked-control-{before,after}/release/`; the initial candidate executable
+is separately preserved as `.test-agent/checked/checked-bench-initial`. Benchmark
+source, command logs, compiler and binary hashes are in
+`perf/results/checked/` and `.test-agent/checked/*identity.json`. Do not overwrite
+these variants while building improved controls.
+
+Additional raw observations completed just before the tooling handoff remain in
+scratch: `live-fill-repeat.csv` / `live-fill-repeat-commands.json` (three further
+alternating P4 fills per variant), `syscalls-live-{before,default,admin}.txt` /
+`syscalls-live-identity.json`, and `syscalls-delta-{before,admin}.txt` /
+`syscalls-delta-identity.json`. These are available to the tooling owner without
+further edits to their paths. The later scratch `live.rs` adds clean-only tracing
+and exclusive creation for its untimed reserved stale-file setup; the archived
+`live-bench.rs` remains the actual original timed experiment source. Its measured
+input had no reserved-name collision, as the observed exact removal count shows.
+
+The actual 191,805-entry / 22,828-directory-pair / 8.29 GB donor and its owned
+`live-node-modules/control-target` are available for matched experiments. Avoid
+inferring fleet behavior from flat fixtures, chronology-separated fills or one
+noisy sample. Discriminate default versus cheap compiled checks, compare-only
+versus apply, first fill versus clean/sparse/subtree, caller limits K16/K256,
+and N=1 versus independent shared-pool destinations before contemplating future
+coordinated source sharing. No whole-tree map/cache is needed for those controls.
+
+Non-latency evidence is stronger: actual clean runs have zero progress and
+sampled owned inode/mode/size/mtime/ctime stability; baseline/default/admin traces
+all have the same 383,634 metadata calls, 91,344 directory reads, 45,663 opens and
+17,156 readlinks, with no clone, chmod, truncation or namespace mutation calls
+(the single `write` is CSV stdout). The 10k-fixture full-scenario command has
+244,887 baseline versus 234,880 checked metadata calls, with other operation
+counts unchanged: immediate metadata reuse removes work even though noisy wall
+time does not yet establish its payoff. Traced times are not performance results.
