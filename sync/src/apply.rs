@@ -189,12 +189,14 @@ impl Context {
         let temporary = staging(to)?;
         let staged = temporary.path().join("entry");
         let result = self.copy_directory(from, &staged);
+        let mut installed = false;
         let result = match result {
             Ok(progress) if !self.stopped.load(Ordering::Acquire) => {
                 let removed = self.remove(to);
                 match removed {
                     Ok(mut removed) => match fs::rename(&staged, to) {
                         Ok(()) => {
+                            installed = true;
                             removed += progress;
                             Ok(removed)
                         }
@@ -214,7 +216,7 @@ impl Context {
                 Err(failure)
             }
         };
-        cleanup(temporary, result)
+        cleanup(temporary, result, installed)
     }
 
     fn copy_leaf(&self, from: &Path, to: &Path, remove_directory: bool) -> Result<Progress, Failure> {
@@ -245,7 +247,8 @@ impl Context {
             progress += removed;
             Ok(progress)
         })();
-        cleanup(temporary, result)
+        let installed = result.is_ok();
+        cleanup(temporary, result, installed)
     }
 
     fn prepare_file(&self, from: &Path, staged: &Path, to: &Path, metadata: &Metadata) -> Result<Progress, Failure> {
@@ -398,10 +401,16 @@ fn staging(to: &Path) -> Result<tempfile::TempDir, Failure> {
 
 /// Clean only the temporary directory we created, without following links or
 /// chmodding hardlinked leaves. Cleanup failures are retained, never concealed.
-fn cleanup(temporary: tempfile::TempDir, mut result: Result<Progress, Failure>) -> Result<Progress, Failure> {
+fn cleanup(temporary: tempfile::TempDir, mut result: Result<Progress, Failure>, empty: bool) -> Result<Progress, Failure> {
     let path = temporary.keep();
-    let context = Context::new(CopyPolicy::Copy, false);
-    if let Err(mut cleanup) = context.remove(&path) {
+    let cleaned = if empty {
+        fs::remove_dir(&path)
+            .map(|()| Progress::default())
+            .map_err(|error| Failure::io("clean private staging directory", &path, error))
+    } else {
+        Context::new(CopyPolicy::Copy, false).remove(&path)
+    };
+    if let Err(mut cleanup) = cleaned {
         cleanup.primary.operation = "clean private staging directory";
         cleanup.completed = Progress::default();
         result = merge([result, Err(cleanup)]);
