@@ -17,7 +17,7 @@ sources:
   - resource: "opencode://ses_eb37f1883ffeZ8HgL0aFBFJf4R"
     title: Added the post-handoff bounded-directory-frontier design proposal to the reading path
   - resource: "opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY"
-    title: Coordinated research and implementation, reviewed concurrency limits, and connected the independent optimization inventories and architecture-sensitive ranking
+    title: Coordinated research and implementation, connected independent optimization inventories and ranking, and linked the benchmark-tooling audit
   - resource: /design/fit/fit0.glm53m.md
     title: Consumer fit and corrected reseed integration requirements
   - resource: /design/fit/io0.glm53m.md
@@ -110,6 +110,13 @@ The [root specification](../README.md) owns the current public contract.
   and final-build confirmations, syscall attribution, raw observations and
   single-leaf/large-file/P4 descriptor negatives. Qualifies which mechanisms
   actually helped rather than promoting the entire opportunity inventory.
+
+## Benchmark tooling
+
+- [Tooling audit](performance/tooling-audit0.glm53fx.md): inventory of scratch
+  probes and tracked runners, installed Hyperfine capabilities, process versus
+  in-process timing, variant provenance and schema gaps, and consolidation
+  proposals. No tooling replacement or scratch cleanup has been selected.
 
 ## Performance opportunities — research, not implementation selection
 
