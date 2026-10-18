@@ -245,6 +245,14 @@ source, command logs, compiler and binary hashes are in
 `perf/results/checked/` and `.test-agent/checked/*identity.json`. Do not overwrite
 these variants while building improved controls.
 
+Current executable bytes, source/manifests/locks and identity logs have also been
+copied to `.test-agent/checked/frozen-fa91/` with executable modes preserved.
+Its `identity.json` explicitly matches each hash to measurement/trace logs.
+Candidate/initial benchmark bytes match their timing logs; the baseline benchmark
+and live executables were later rebuilt, so their current bytes must not be
+misidentified as the older timing binaries. Original timing sources/hashes remain
+preserved. The improved tooling should maintain coexisting immutable build paths.
+
 Additional raw observations completed just before the tooling handoff remain in
 scratch: `live-fill-repeat.csv` / `live-fill-repeat-commands.json` (three further
 alternating P4 fills per variant), `syscalls-live-{before,default,admin}.txt` /
