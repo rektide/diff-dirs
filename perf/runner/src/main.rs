@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use diff_dirs_perf_runner::{Result, artifacts, build_operation, execution, fixture, scenario::Scenario};
+use diff_dirs_perf_runner::{Result, artifacts, build_operation, diagnostics, execution, fixture, report, scenario::Scenario};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -10,6 +10,23 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Action {
+    Report {
+        root: PathBuf,
+    },
+    SummarizeCsv {
+        #[arg(required = true)]
+        paths: Vec<PathBuf>,
+    },
+    Audit {
+        trace: PathBuf,
+        fixture_substring: String,
+    },
+    Resources {
+        binary: PathBuf,
+        output: PathBuf,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Build this instrument from an exact archived library commit, outside all sample timers.
     BuildOperation {
         repository: PathBuf,
@@ -49,6 +66,10 @@ enum Action {
 
 fn main() -> Result<()> {
     match Cli::parse().action {
+        Action::Report { root } => println!("{}", serde_json::to_string_pretty(&report::retained(&root)?)?),
+        Action::SummarizeCsv { paths } => println!("{}", serde_json::to_string_pretty(&diagnostics::summarize_csv(&paths)?)?),
+        Action::Audit { trace, fixture_substring } => println!("{}", diagnostics::audit(&trace, &fixture_substring)?),
+        Action::Resources { binary, output, args } => diagnostics::resources(&binary, &output, &args)?,
         Action::BuildOperation {
             repository,
             revision,

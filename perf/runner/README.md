@@ -3,7 +3,7 @@ type: ToolGuide
 title: Rust performance controls — clean and selectable scenarios
 description: Checked-in native driver for frozen baseline/default/noop/name-check controls, mirrored samples and retained failures; migration beyond clean controls remains explicit.
 resource: /perf/runner/README.md
-status: implemented-scenarios-archive-build-validation-pending
+status: implemented-native-scenarios
 generated: { by: "model:openai/gpt-6.1-sol#medium", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu"
@@ -48,11 +48,15 @@ resolved lock and immutable executable hashes are retained in each build root.
 The builds share a common lock seed and preserve the actual resolved lock rather
 than claiming an old library lock includes new development tools. No production
 code or profile is rewritten. Building and measuring both honor the cooperative
-host lock. An attempted archived baseline build correctly refused `WouldBlock`
-while independent clean reassessment held that lock; archived build/matrix smoke
-is **pending**, not claimed successful by this checkpoint.
+host lock. An initial attempt correctly refused `WouldBlock` during independent
+clean reassessment. The first archive build then exposed a nested-workspace
+manifest error; its failure logs remain at `.test-agent/rust-operation-baseline/`.
+The explicit `source` workspace exclusion fixes that development manifest.
+Actual builds at `.test-agent/rust-operation-{baseline,candidate}-v2/` succeeded;
+all **64/64** tiny balanced samples passed across 4 scenarios × N1/N2 × 4 controls
+× 2 blocks. Raw campaigns are `.test-agent/rust-operation-SCENARIO-nN/`.
 
-Six Rust tests pass, including an actual native instrument integration test with
+Eight Rust tests pass, including an actual native instrument integration test with
 48 tiny cases: 4 scenarios × N1/N2 × serial/P4 × none/noop/admin. Required reflink
 reset tests assert matching starts across repeats and independent target inodes.
 The accepted clean CLI remains compatible after splitting artifacts, scheduling,
@@ -102,20 +106,22 @@ library interface; the same candidate binary selects none/noop/admin at runtime.
   four controls. Same seed replays order. Shared advisory lock prevents overlap
   with cooperating runners, not unrelated host I/O.
 - API nanoseconds come only from the child's `Instant` around the mirror call.
-  The child separately creates its pool and performs an untimed clean warmup.
+  The frozen clean child separately creates its pool and performs an untimed warmup.
   It asserts zero completed operations. The controller validates exactly one
   correctly labeled clean CSV row with zero operations, and unchanged fixture
   metadata/inodes after each sample. Full byte checks run before/after campaign.
 - `preparation_ns`, `verification_ns`, setup costs and artifact preservation are
   retained but excluded from API timing. `process_ns` includes startup, pool,
-  warmup and 2ms wait polling; it is **not** a precision whole-process comparison.
+  warmup for the frozen protocol, distinct from API scope. The current process
+  helper blocks in `wait4` and retains child CPU/peak RSS; the preserved first
+  proof executable used 2ms polling. Never conflate those process scopes.
   No cache drops, cold-cache, significance or causal host-load correction claim.
 - `samples.jsonl` is append-only/flushed/synced per attempt; stdout/stderr are
   retained separately. Failed hash/child/parser/fixture checks retain their slot
   with no API value. `summary.json` includes all successful within-block pairs
   and descriptive median/min/max ratios; failed samples are never speed results.
   Campaign failure exits nonzero. Native child timeout is 1800s; this fixed
-  protocol has no child subprocess tree to manage.
+  native process helper kills ordinary descendant process groups on timeout.
 - `campaign.json` retains exact order, controls, original build provenance, runner
   executable/source hashes, compiler/profile and build source/manifest. Initial
   and final full verification failures are explicit. A killed run can lack its
@@ -138,8 +144,11 @@ cargo clippy -p diff-dirs-perf-runner --all-targets -- -D warnings
 cargo fmt -p diff-dirs-perf-runner -- --check
 ```
 
-Four tests passed: mirrored seed/replay, strict clean parser, private reset/
-change detection, and retained corrupt-artifact rejection without pairing.
+The original four tests covered seed/replay, strict clean parsing, private reset/
+change detection and corrupt-artifact rejection. Current tests also cover N2
+scenario equivalence, executable modes, process failure/group timeout and CSV/
+PID-prefixed trace auditing. Include `-p diff-dirs-perf-operation` for its native
+48-case executable test.
 Initial tests on `/tmp` correctly failed required reflinks; tests now create tiny
 private roots on the checkout filesystem under `.test-agent/runner-tests/`.
 Nextest emits build-script-output lookup warnings on this configured nightly;
@@ -155,17 +164,15 @@ report,audit,resources,leaf_trace}.py` / `experiments/`; J `tools/performance/
 of this Rust path. Do not expand them or treat this as permission to retain them
 as the final supported interface.
 
-Next bounded slice: a checked-in Rust single-operation scenario instrument for
-initialization/clean/sparse/subtree, equivalent owned resets, N destinations and
-payload verification; reuse this ordering/artifact/raw-result core rather than
-another registry/platform. Then a Rust JW-specific adapter: reproduce the old
-N2/feature mismatch on the preserved baseline, assert requested feature counts,
-final roots/target identities, and per-variant clean inode behavior. Baseline
-full-copy clean behavior must be recorded, not rejected by candidate-only
-zero-write requirements. Coordinate J Cargo membership with its production owner.
-Rust process-count wrappers/diagnostic parity, native copy baseline, reporting and
-read-only audit/resource workflows must be implemented/verified before deliberate
-retirement of superseded tracked Python interfaces. Preserve committed history,
+The scenario instrument and the JW native adapter now exist. J's Rust-owned
+prepare/preview/reseed, exec process-count wrappers, count/scaling gates, feature
+history/root checks and raw-copy baseline passed tiny real-binary controls. Its
+historical BEFORE clean rewrites remain valid measured behavior; zero-write
+requirements apply only to an explicitly named incremental candidate. Both
+projects share one compiled `Workload`/balanced execution interface, not catalogs.
+Rust `report`, `summarize-csv`, `audit` and `resources` replace the remaining
+report/audit/resource entrypoints; final retirement and surrounding doc repairs
+are in progress. Preserve committed history,
 raw data, frozen executables and historical experiment sources; fix historical
 links with revision-qualified references when active paths retire. No sweeping
 scratch cleanup. Large campaigns belong to independent reassessment, not this

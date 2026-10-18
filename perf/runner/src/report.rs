@@ -2,6 +2,39 @@ use crate::{artifacts::Control, execution::Sample};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
+pub fn retained(root: &std::path::Path) -> crate::Result<Value> {
+    let campaign: Value = serde_json::from_slice(&std::fs::read(root.join("campaign.json"))?)?;
+    // A completed summary is required; a killed run's prefix is never a finished result.
+    let complete: Value = serde_json::from_slice(&std::fs::read(root.join("summary.json"))?)?;
+    let controls: Vec<Control> = serde_json::from_value(campaign["controls"].clone())?;
+    let order: Vec<Vec<usize>> = serde_json::from_value(campaign["blocks"].clone())?;
+    let mut samples = Vec::new();
+    for line in std::fs::read_to_string(root.join("samples.jsonl"))?.lines() {
+        samples.push(serde_json::from_str::<Sample>(line)?);
+    }
+    if controls.len() < 2 || samples.len() != order.iter().map(Vec::len).sum::<usize>() {
+        return Err("incomplete raw chronology".into());
+    }
+    for (sequence, (block, position, index)) in order
+        .iter()
+        .enumerate()
+        .flat_map(|(block, row)| row.iter().enumerate().map(move |(position, index)| (block, position, *index)))
+        .enumerate()
+    {
+        let sample = &samples[sequence];
+        let control = controls.get(index).ok_or("invalid schedule index")?;
+        if sample.sequence != sequence || sample.block != block || sample.position != position || sample.label != control.label {
+            return Err("sample does not match planned immutable chronology".into());
+        }
+        if sample.error.is_none() && (sample.api_ns.is_some() == sample.native_ns.is_some() || sample.api_ns.or(sample.native_ns) == Some(0)) {
+            return Err("successful sample needs exactly one positive timing scope".into());
+        }
+    }
+    let pairs = pairs(&samples, &controls);
+    Ok(json!({"campaign_passed":complete["passed"],"pairs":pairs,"paired_spreads":spreads(&pairs),
+        "failed_samples":samples.iter().filter(|s|s.error.is_some()).count(),"limits":"raw descriptive matched blocks; no win/significance/causal correction"}))
+}
+
 pub fn pairs(samples: &[Sample], controls: &[Control]) -> Vec<Value> {
     let baseline = &controls[0].label;
     let mut result = Vec::new();

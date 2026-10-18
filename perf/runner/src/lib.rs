@@ -1,6 +1,7 @@
 //! Development-only measurement primitives, shared by domain-specific instruments.
 pub mod artifacts;
 pub mod build_operation;
+pub mod diagnostics;
 pub mod execution;
 pub mod fixture;
 pub mod process;
@@ -32,6 +33,7 @@ pub fn source_identity() -> serde_json::Value {
         ("fixture.rs", include_str!("fixture.rs")),
         ("scheduling.rs", include_str!("scheduling.rs")),
         ("execution.rs", include_str!("execution.rs")),
+        ("diagnostics.rs", include_str!("diagnostics.rs")),
         ("report.rs", include_str!("report.rs")),
         ("process.rs", include_str!("process.rs")),
         ("scenario.rs", include_str!("scenario.rs")),

@@ -9,6 +9,19 @@ use std::time::Instant;
 
 pub const MARKER: &str = "checked-streaming owned fixture v1\n";
 
+/// Resolve the intended NEW directory before creating anything in a read-only input.
+pub fn fresh_path(path: &Path) -> Result<PathBuf> {
+    let name = path.file_name().ok_or("new directory needs a final path component")?;
+    let parent = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let absolute = fs::canonicalize(parent)?.join(name);
+    match fs::symlink_metadata(&absolute) {
+        Ok(_) => return Err("destination must be new".into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
+    Ok(absolute)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Fixture {
     pub root: PathBuf,
@@ -97,10 +110,16 @@ pub fn clone_tree(source: &Path, target: &Path) -> Result<()> {
 
 pub fn setup(root: &Path, source: Option<&Path>) -> Result<()> {
     let start = Instant::now();
-    fs::create_dir(root)?;
-    let root = fs::canonicalize(root)?;
-    fs::write(root.join(".owned"), MARKER)?;
     let origin = source.map(fs::canonicalize).transpose()?;
+    let root = fresh_path(root)?;
+    if let Some(source) = &origin {
+        if !fs::symlink_metadata(source)?.is_dir() || root.starts_with(source) {
+            return Err("source must be a separate real directory".into());
+        }
+        tree(source, false, false)?;
+    }
+    fs::create_dir(&root)?;
+    fs::write(root.join(".owned"), MARKER)?;
     if let Some(source) = &origin {
         if !fs::symlink_metadata(source)?.is_dir() || root.starts_with(source) {
             return Err("source must be a separate real directory".into());
@@ -160,4 +179,7 @@ fn private_reset_is_equivalent_but_not_shared_and_detects_changes() {
     assert!(verify(&root, &fixture, true).is_err());
     assert_eq!(fs::read(root.join("source/a/one")).unwrap(), vec![b'x'; 4096]);
     assert!(setup(&root, None).is_err());
+    let nested = root.join("source/refused");
+    assert!(setup(&nested, Some(&root.join("source"))).is_err());
+    assert!(!nested.exists());
 }

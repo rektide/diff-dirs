@@ -82,6 +82,7 @@ edition = "2024"
 publish = false
 [workspace]
 members = ["helper"]
+exclude = ["source"]
 [workspace.package]
 edition = "2024"
 [dependencies]

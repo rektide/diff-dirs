@@ -90,7 +90,9 @@ pub fn balanced(output: &Path, controls: &[Control], blocks: usize, seed: u64, w
             let start = Instant::now();
             let checked = artifacts::verify(control);
             sample.preparation_ns = start.elapsed().as_nanos();
+            let attempt_start = Instant::now();
             let attempt = checked.and_then(|()| workload.sample(control, &stem, &mut sample));
+            sample.details["attempt_ns"] = json!(attempt_start.elapsed().as_nanos());
             if let Err(e) = attempt {
                 sample.error = Some(e.to_string());
                 sample.api_ns = None;
@@ -136,6 +138,9 @@ pub fn run(root: &Path, output: &Path, controls: &[Control], blocks: usize, seed
     run_task(root, output, controls, blocks, seed, threads, Task::FrozenClean)
 }
 pub fn run_task(root: &Path, output: &Path, controls: &[Control], blocks: usize, seed: u64, threads: usize, task: Task) -> Result<bool> {
+    if fixture::fresh_path(output)?.starts_with(fs::canonicalize(root)?) {
+        return Err("campaign output must be outside immutable fixture".into());
+    }
     balanced(
         output,
         controls,

@@ -93,6 +93,10 @@ pub fn prepare(fixture: &Fixture, root: &Path, scenario: Scenario, destinations:
         return Err("destinations must be positive".into());
     }
     fixture::verify(&fixture.root, fixture, false)?;
+    let planned = fixture::fresh_path(root)?;
+    if planned.starts_with(&fixture.root) {
+        return Err("scenario case must be outside immutable fixture".into());
+    }
     fs::create_dir(root)?;
     let root = fs::canonicalize(root)?;
     fs::write(root.join(".scenario-owned"), "owned scenario v1\n")?;
