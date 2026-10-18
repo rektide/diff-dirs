@@ -8,8 +8,7 @@ use diff_dirs::{CheckError, Entry, Error, Purpose, ScanState, Side, audit, walk_
 use support::Fixture;
 
 fn refuse_admin(entry: Entry<'_>) -> Result<(), CheckError> {
-    let name = entry.relative.file_name().or_else(|| entry.root.file_name());
-    if name.is_some_and(|name| name == ".git" || name == ".jj") {
+    if entry.name == ".git" || entry.name == ".jj" {
         return Err("administrative name".into());
     }
     Ok(())
@@ -42,7 +41,9 @@ fn roots_and_every_equal_entry_have_borrowed_side_path_and_metadata() {
     let check = |entry: Entry<'_>| -> Result<(), CheckError> {
         assert_eq!(entry.purpose, Purpose::Compare);
         assert_eq!(entry.root, if entry.side == Side::Original { &f.original } else { &f.target });
-        seen.lock().unwrap().push((entry.relative.to_path_buf(), entry.side, entry.metadata.is_dir()));
+        seen.lock()
+            .unwrap()
+            .push((entry.relative_path().to_path_buf(), entry.side, entry.metadata.is_dir()));
         Ok(())
     };
     let mut walk = walk_checked(&f.original, &f.target, check).unwrap();
@@ -73,7 +74,7 @@ fn root_refusal_precedes_contents_and_audit_covers_opaque_interiors() {
     assert_eq!(failure.error.path(), f.original.join("new/deep/.git"));
     assert_eq!(failure.inspected.directories, 3);
     let check = |entry: Entry<'_>| -> Result<(), CheckError> {
-        assert_eq!(entry.relative, Path::new(""));
+        assert_eq!(entry.relative_path(), Path::new(""));
         Err("root refused before listing".into())
     };
     assert!(matches!(walk_checked(&f.original, &f.target, check), Err(Error::Refused { .. })));
@@ -123,12 +124,12 @@ fn parallel_refusal_prevents_child_admission_and_retains_ordered_prefix_at_k_zer
     for k in [0, 1, 32] {
         let calls = Mutex::new(Vec::new());
         let check = |entry: Entry<'_>| -> Result<(), CheckError> {
-            assert!(!entry.relative.starts_with("b/denied/never-open"));
-            calls.lock().unwrap().push(entry.relative.to_path_buf());
-            if entry.relative == Path::new("b/denied") {
+            assert!(!entry.relative_path().starts_with("b/denied/never-open"));
+            calls.lock().unwrap().push(entry.relative_path().to_path_buf());
+            if entry.relative_path() == Path::new("b/denied") {
                 return Err("refuse before descent".into());
             }
-            if entry.relative == Path::new("z/deep/leaf") {
+            if entry.relative_path() == Path::new("z/deep/leaf") {
                 return Err("later speculative error".into());
             }
             Ok(())
@@ -161,7 +162,7 @@ fn real_parallel_checks_run_outside_frontier_lock_and_divergence_seals_stay_clos
     // Instrumentation is deliberately stateful to detect the placement, not a
     // recommended policy. A lock-held checker would prevent the second arrival.
     let check = |entry: Entry<'_>| -> Result<(), CheckError> {
-        if entry.side == Side::Original && entry.relative.file_name().is_some_and(|name| name == "leaf") {
+        if entry.side == Side::Original && entry.name == "leaf" {
             let mut arrivals = entered.lock().unwrap();
             *arrivals += 1;
             changed.notify_all();
@@ -178,7 +179,7 @@ fn real_parallel_checks_run_outside_frontier_lock_and_divergence_seals_stay_clos
 
     support::file(&f.original.join("new"), b"root divergence");
     let check = |entry: Entry<'_>| -> Result<(), CheckError> {
-        assert!(!entry.relative.ends_with("leaf"), "descendant inspected through a closed divergence seal");
+        assert!(entry.name != "leaf", "descendant inspected through a closed divergence seal");
         Ok(())
     };
     let mut walk = diff_dirs::walk_in_pool_checked(&f.original, &f.target, &pool, limits, check).unwrap();

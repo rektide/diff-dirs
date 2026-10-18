@@ -98,8 +98,7 @@ recompare with `mirror` after partial application.
 use diff_dirs::{Check, CheckError, Entry};
 use diff_dirs_sync::{Applier, CopyPolicy};
 fn guard(entry: Entry<'_>) -> Result<(), CheckError> {
-    let name = entry.relative.file_name().or_else(|| entry.root.file_name());
-    if name.is_some_and(|name| name == ".git" || name == ".jj") {
+    if entry.name == ".git" || entry.name == ".jj" {
         return Err("administrative name in selected payload".into());
     }
     Ok(())

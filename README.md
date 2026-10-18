@@ -210,8 +210,7 @@ distinction between them. See [Use cases](#use-cases).
 ```rust,no_run
 use diff_dirs::{CheckError, Entry};
 fn check(entry: Entry<'_>) -> Result<(), CheckError> {
-    let name = entry.relative.file_name().or_else(|| entry.root.file_name());
-    if name.is_some_and(|name| name == ".git" || name == ".jj") {
+    if entry.name == ".git" || entry.name == ".jj" {
         return Err("administrative entry in payload".into());
     }
     Ok(())
@@ -228,8 +227,10 @@ let inspected = diff_dirs::audit("original", diff_dirs::Side::Original, &check)?
 `Check: Sync` accepts or refuses each observed **present side**, including roots,
 equal leaves, paired directories, and unsupported entry types (which the library
 still rejects if the checker accepts them). `Entry` borrows the bound root,
-root-relative path (empty for root), side, `Purpose`, and already-needed
-no-follow metadata. `link_target` is literal text where comparison/copy needs it;
+already-built full path, native basename, side, `Purpose`, and already-needed
+no-follow metadata. `relative_path()` borrows the root-relative path (empty for
+root) **lazily**; name/type checks need not parse root prefixes or allocate.
+`link_target` is literal text where comparison/copy needs it;
 removal does not add `readlink` solely for a hook. Audit deliberately observes
 literal links too. No mount facts, syscall-request interface, rule vectors,
 skip/preserve engine, or retained inspection catalog are added.

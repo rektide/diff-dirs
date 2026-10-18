@@ -1,5 +1,6 @@
 //! Borrowed observations and statically dispatched accept/refuse checks.
 
+use std::ffi::OsStr;
 use std::fs::Metadata;
 use std::path::Path;
 
@@ -23,11 +24,17 @@ pub enum Purpose {
 }
 
 /// A short-lived observation, never a retained plan or permission certificate.
-/// `relative` is empty for a root. `metadata` never follows a symlink.
+/// `relative_path()` is empty for a root. `metadata` never follows a symlink.
 #[derive(Clone, Copy, Debug)]
 pub struct Entry<'a> {
     pub root: &'a Path,
-    pub relative: &'a Path,
+    /// Already-built observed path, including `root`; absolute for bound sync
+    /// roots, but not necessarily absolute for a caller's relative core roots.
+    pub path: &'a Path,
+    /// Native basename, including for a root. For a filesystem root without a
+    /// basename, this is the root's spelling (for example `/`). Name/type checks
+    /// need no path decomposition, allocation or root-prefix scan.
+    pub name: &'a OsStr,
     pub side: Side,
     pub purpose: Purpose,
     pub metadata: &'a Metadata,
@@ -97,13 +104,22 @@ impl Check for NoCheck {
 }
 
 impl Entry<'_> {
+    /// Borrow the root-relative path only when needed. Name-only checkers should
+    /// use `name` instead: extracting a relative path on every entry is avoidable
+    /// work, especially with long absolute roots. Library observations are
+    /// guaranteed under `root`; manually fabricated invalid entries may panic.
+    #[inline]
+    pub fn relative_path(&self) -> &Path {
+        self.path.strip_prefix(self.root).expect("observed path under root")
+    }
+
     /// Evaluate the policy using only this borrowed observation. Also used by
     /// the optional sync crate, so recursive operations share the same contract.
     #[inline]
     pub fn check<C: Check + ?Sized>(self, check: &C) -> Result<(), Error> {
         if C::ENABLED {
             check.check(self).map_err(|source| Error::Refused {
-                path: self.root.join(self.relative),
+                path: self.path.to_path_buf(),
                 source,
             })?;
         }

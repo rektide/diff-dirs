@@ -34,7 +34,8 @@ impl Roots {
             let metadata = fs::symlink_metadata(path).map_err(|e| Error::io(path.clone(), "inspect root", e))?;
             Observation {
                 root: path,
-                relative: Path::new(""),
+                path,
+                name: path.file_name().unwrap_or(path.as_os_str()),
                 side,
                 purpose: Purpose::Compare,
                 metadata: &metadata,
@@ -134,7 +135,8 @@ fn inspect_entry<C: Check>(raw: RawEntry, roots: &Roots, check: &C) -> Result<(S
         };
         Observation {
             root,
-            relative: path.strip_prefix(root).expect("entry belongs to listed root"),
+            path: &path,
+            name: &raw.name,
             side: raw.side,
             purpose: Purpose::Compare,
             metadata: &metadata,

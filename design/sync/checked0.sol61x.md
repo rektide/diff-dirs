@@ -54,9 +54,10 @@ observation construction/check dispatch. `Check::borrowed()` retains that static
 specialization while lending one policy to comparison and application. Error
 causes are boxed only on refusal; there is no per-entry trait object dispatch.
 
-`Entry` borrows root, relative path (empty at root), side, purpose, already-needed
-no-follow metadata, and optional literal link text. A root's native name can be
-obtained from `entry.root.file_name()`. Comparison and copying already need
+`Entry` borrows root, already-built full path, native basename (including roots),
+side, purpose, already-needed no-follow metadata, and optional literal link text.
+`relative_path()` supplies the root-relative path lazily, empty for root.
+Comparison and copying already need
 readlink; removal does not read it solely for policy. Audit deliberately reads
 literal links so a dry-run can produce the same source-link diagnostics. Special
 entry metadata reaches the checker, then the kernel refuses unsupported kinds
@@ -93,8 +94,11 @@ current batch's already-observed source/target metadata and source link text for
 use by operations, eliminating repeat immediate-leaf metadata lookups. Removal
 also reuses its directory metadata for permission relaxation rather than statting
 again. This is directory-local state, not a whole-tree map. Copy/removal check
-construction reuses paths/metadata; `NoCheck` does not pay root-prefix extraction
-per entry. Comparison/application still have a real public-record boundary and
+construction reuses paths/metadata; neither `NoCheck` nor name-only checks pay
+root-prefix extraction per entry. Initial eager root-relative construction had a
+measured cost, preserved in the performance account; the follow-up deliberately
+changed this observation shape instead of accepting avoidable hook overhead.
+Comparison/application still have a real public-record boundary and
 therefore some duplicate observations; no unsafe "checked record" certificate
 was invented to hide it.
 
@@ -132,8 +136,7 @@ side-local checked counts including roots; errors retain its checked prefix.
 ```rust,ignore
 use diff_dirs::{Check, CheckError, Entry};
 fn payload_guard(e: Entry<'_>) -> Result<(), CheckError> {
-    let name = e.relative.file_name().or_else(|| e.root.file_name());
-    if name.is_some_and(|n| n == ".git" || n == ".jj") {
+    if e.name == ".git" || e.name == ".jj" {
         return Err("nested administrative name".into());
     }
     Ok(()) // unsupported special types still fail in the kernel

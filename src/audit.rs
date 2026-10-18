@@ -47,7 +47,8 @@ pub fn audit<C: Check>(root: impl AsRef<Path>, side: Side, check: &C) -> Result<
         };
         Entry {
             root,
-            relative: path.strip_prefix(root).expect("audit path under root"),
+            path,
+            name: path.file_name().unwrap_or(path.as_os_str()),
             side,
             purpose: Purpose::Audit,
             metadata: &metadata,

@@ -200,7 +200,8 @@ impl<'a, C: Check> Context<'a, C> {
             let root = if side == Side::Original { self.original } else { self.target };
             Entry {
                 root,
-                relative: path.strip_prefix(root).expect("checked operation stays under bound root"),
+                path,
+                name: path.file_name().unwrap_or(path.as_os_str()),
                 side,
                 purpose,
                 metadata,
