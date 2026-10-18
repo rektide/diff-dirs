@@ -6,6 +6,8 @@ resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu
+    title: Linked the accepted tooling assessment, completed Rust-only takeover and current native tool guide
   - resource: "opencode://ses_eb24f98a3ffewdVqa9lao6tXQu"
     title: Connected implemented static checks, recursive guarded execution, full read-only audit and selected-root transitions to the earlier proposals and controlled performance evidence
   - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
@@ -144,10 +146,18 @@ The [root specification](../README.md) owns the current public contract.
 
 ## Benchmark tooling
 
+- [Rust-only tooling completion](performance/tooling-completion0.sol61m.md):
+  implemented artifact/control/scenario engine, real tracked-tree/nested-root JW
+  import, native process-count parity, verified smokes and active Python retirement.
+  [Current commands](/perf/runner/README.md).
+- [Accepted takeover assessment](performance/tooling-takeover0.sol61m.md):
+  timestamped predecessor inventory and concrete gaps that bounded this implementation.
+
 - [Tooling audit](performance/tooling-audit0.glm53fx.md): inventory of scratch
   probes and tracked runners, installed Hyperfine capabilities, process versus
   in-process timing, variant provenance and schema gaps, and consolidation
-  proposals. No tooling replacement or scratch cleanup has been selected.
+  proposals. Historical predecessor account; Rust replacement is now implemented.
+  Scratch/evidence cleanup was not performed or implied.
 
 ## Performance opportunities — research, not implementation selection
 

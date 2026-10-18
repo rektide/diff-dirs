@@ -56,7 +56,7 @@ Actual builds at `.test-agent/rust-operation-{baseline,candidate}-v2/` succeeded
 all **64/64** tiny balanced samples passed across 4 scenarios × N1/N2 × 4 controls
 × 2 blocks. Raw campaigns are `.test-agent/rust-operation-SCENARIO-nN/`.
 
-Eight Rust tests pass, including an actual native instrument integration test with
+Nine Rust tests pass, including an actual native instrument integration test with
 48 tiny cases: 4 scenarios × N1/N2 × serial/P4 × none/noop/admin. Required reflink
 reset tests assert matching starts across repeats and independent target inodes.
 The accepted clean CLI remains compatible after splitting artifacts, scheduling,
@@ -154,15 +154,17 @@ private roots on the checkout filesystem under `.test-agent/runner-tests/`.
 Nextest emits build-script-output lookup warnings on this configured nightly;
 the actual builds/tests succeed. Clippy and formatting checks passed.
 
-## Explicit migration remainder
+## Rust-only endpoint and historical source
 
-Human acceptance now requires **Rust-only active performance workflows in both
-repositories**. This checkpoint is not that completed migration. Existing Python
-entrypoints remain temporarily present: D `perf/{experiment,compare,frontier,leaf,
-report,audit,resources,leaf_trace}.py` / `experiments/`; J `tools/performance/
-{experiment,jw_sample,measure,fixture,copy_baseline}.py`. They are NOT dependencies
-of this Rust path. Do not expand them or treat this as permission to retain them
-as the final supported interface.
+Supported performance workflows in both repositories are **checked-in Rust**.
+The 19 active D Python entrypoints/modules (the old matrix/leaf/report/audit/
+resource scripts and experiment package), six J Python files and three obsolete
+JSON recipes are retired. Their exact source remains in committed history:
+D `997183df472f81d21e8d553a9002d083d636ef05`, J
+`a35da35d7635e14be70fb4aab37ea6edbd933ef8`. `perf/results/checked/*-run.py`
+are explicitly historical experiment-source snapshots, never supported commands.
+No `.test-agent` tree, raw data, original frozen binary or source snapshot was
+removed. Historical accounts are retained, with revision-bound source pointers.
 
 The scenario instrument and the JW native adapter now exist. J's Rust-owned
 prepare/preview/reseed, exec process-count wrappers, count/scaling gates, feature
@@ -170,10 +172,12 @@ history/root checks and raw-copy baseline passed tiny real-binary controls. Its
 historical BEFORE clean rewrites remain valid measured behavior; zero-write
 requirements apply only to an explicitly named incremental candidate. Both
 projects share one compiled `Workload`/balanced execution interface, not catalogs.
-Rust `report`, `summarize-csv`, `audit` and `resources` replace the remaining
-report/audit/resource entrypoints; final retirement and surrounding doc repairs
-are in progress. Preserve committed history,
-raw data, frozen executables and historical experiment sources; fix historical
-links with revision-qualified references when active paths retire. No sweeping
-scratch cleanup. Large campaigns belong to independent reassessment, not this
-plumbing implementation session.
+Rust `report`, `summarize-csv`, `audit` and `resources` replace report/audit/resource
+entrypoints. J's native `snapshot` additionally imports the actual tracked
+inventory and outermost Git-eligible payload roots into a verified owned fixture;
+its `build` records/preserves serial and payload-parallel app artifacts. See the
+[J guide](file:///home/rektide/src/jj-waltz/tools/performance/README.md) for the
+actual opencode/N2 commands. [Completion and evidence](/design/performance/tooling-completion0.sol61m.md)
+records usable identities, checks, failure retention and genuine limitations.
+Large workload campaigns remain independently owned, not results inferred from
+these plumbing smokes.

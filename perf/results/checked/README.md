@@ -6,6 +6,8 @@ resource: /perf/results/checked/README.md
 status: measured-initial-checkpoint
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu
+    title: Distinguished immutable historical Python source snapshots from current Rust reproduction
   - resource: "opencode://ses_eb24f98a3ffewdVqa9lao6tXQu"
     title: Built identical baseline/candidate controls, collected all observations on owned fixtures and preserved the initial enabled-check overhead before tuning
   - resource: /design/performance/checked0.sol61x.md
@@ -13,6 +15,11 @@ sources:
 ---
 
 # Checked-streaming evidence
+
+The Python files here are immutable **historical experiment source snapshots**,
+not supported entrypoints or dependencies. Historical reproduction commands below
+describe those recorded campaigns only. Current baseline/default/noop/admin
+reproduction uses [checked-in Rust controls](/perf/runner/README.md).
 
 `initial.csv`: 480 rows (80 round-zero warmup, 400 retained), 10k × 4 KiB source
 files, 100 package dirs/links, serial/P4 and Copy/ReflinkRequired. `initial-commands.json`

@@ -6,6 +6,8 @@ resource: /perf/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu
+    title: Replaced active Python performance entrypoints with checked-in Rust controls, reports, audits and resource observation; retained historical evidence
   - resource: opencode://ses_eb24f98a3ffewdVqa9lao6tXQu
     title: Added checked-streaming benchmark reproduction and baseline/no-op/name-check controls, preserving negative initial path extraction and the lazy-path correction
   - resource: opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY
@@ -23,6 +25,12 @@ sources:
 ---
 
 # Directory-walk harness
+
+Current orchestration is **Rust-only**: [native control guide](/perf/runner/README.md)
+and [migration/evidence account](/design/performance/tooling-completion0.sol61m.md).
+The comparison example below remains the domain instrument. Former Python
+drivers are retired, not an alternative supported path. Historical sources are
+recoverable with `git show 997183df472f81d21e8d553a9002d083d636ef05:perf/PATH`.
 
 This measures the generic comparison library, **not copy/sync or jj-waltz**.
 Owned metadata-shape fixtures do not reproduce the historical 8 GB workload.
@@ -110,12 +118,12 @@ reads are normal. Traced timing is not performance data. The benchmark binary
 itself reads no fixture manifest or payload content.
 
 ```sh
-python3 perf/report.py perf/results/btrfs-30k.csv perf/results/btrfs-192k.csv
-python3 perf/audit.py .test-agent/perf/io.trace .test-agent/perf/btrfs-30k
+cargo run --release -p diff-dirs-perf-runner -- summarize-csv perf/results/btrfs-30k.csv perf/results/btrfs-192k.csv
+cargo run --release -p diff-dirs-perf-runner -- audit .test-agent/perf/io.trace .test-agent/perf/btrfs-30k
 ```
 
-The stdlib-only report script computes medians, ranges, means, and population
-standard deviations. The audit script checks all matching fixture opens are
+The Rust CSV report computes per-file medians, ranges, means, and population
+standard deviations without pooling unrelated scopes. The Rust audit checks matching fixture opens are
 directory-only and rejects fixture data reads/mmaps; pass the same trace flags
 as above and a substring matching only the fixture paths, not the working dir.
 
@@ -130,20 +138,20 @@ rebuilding. Pool creation is outside all timings and one pool is shared across
 every walk/warmup in that process. For example:
 
 ```sh
-cargo build --release --example perf --features parallel
+cargo build --release --example perf --features parallel-bench
 target/release/examples/perf run .test-agent/perf/btrfs-192k 3
 target/release/examples/perf parallel 4 run .test-agent/perf/btrfs-192k 3
 target/release/examples/perf parallel 4 repeat /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 3
-python3 perf/compare.py --binary target/release/examples/perf --fixture .test-agent/perf/btrfs-30k --fixture .test-agent/perf/btrfs-192k --pair live-whole /home/rektide/a/a/opencode /home/rektide/src/opencode-export-qa --pair live-node-modules /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules --output .test-agent/perf/parallel-matrix -n 3
+target/release/examples/perf compare /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 4 5 4 256 live-node
 ```
 
 `parallel THREADS` is a harness-only prefix using a caller-created Rayon pool;
-it is not a core-owned pool. `compare.py` runs sequential plus 1/2/4/8 worker
-pools. Its `--fixture` arguments are explicitly disposable, generated fixtures
-and run the mutating scenario setup/restoration; `--pair LABEL ORIGINAL TARGET`
-arguments are always strictly read-only. The output directory must not exist.
-It emits raw per-command CSV/stderr plus a consolidated `combined.csv`.
-Report with `python3 perf/report.py perf/results/parallel.csv`.
+it is not a core-owned pool. The native `compare` command is read-only and
+rotates same-build serial/per-frame/frontier controls. For 1/2/4/8 comparisons,
+invoke explicit pool configurations sequentially and retain each CSV/stderr;
+configuration order itself is not drift-balanced. `run` remains only for
+generated owned fixtures and performs its own scenario restoration.
+Report with `cargo run --release -p diff-dirs-perf-runner -- summarize-csv perf/results/parallel.csv`.
 The [parallel report](/design/performance/parallel0.sol61x.md) preserves actual
 results, counts, scheduling limits, and the selected default policy.
 
@@ -173,13 +181,12 @@ and summary consumption; printing/parity checks are excluded. The public
 borrowed-pool API drives frontier, while per-frame uses the retained hidden
 measurement control. No output is gathered during a timed walk.
 
-`perf/frontier.py` invokes these comparisons on explicit labeled pairs and
-P:J:K configurations, preserving raw CSV/stderr and a combined CSV. It alternates
-pair order between configurations; each subprocess still rotates backend order.
-For example, append multiple `--pair` and `--config` arguments:
+Run explicit configurations with the native instrument, retaining raw CSV/stderr.
+Each subprocess rotates backend order; this shell recipe does not make claims
+about balanced order across configurations:
 
 ```sh
-python3 perf/frontier.py --binary target/frontier-timing/release/examples/perf --pair live-node /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules --config 2:2:8 --config 4:4:16 --config 4:4:256 --output .test-agent/perf/frontier-matrix -n 5
+target/frontier-timing/release/examples/perf compare /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 4 5 4 256 live-node
 ```
 
 `diagnose ORIGINAL TARGET P J K` performs a separate instrumented frontier walk,
@@ -219,15 +226,15 @@ For a separate process-resource observation, use one backend without the
 outside-timing whole-record parity collector:
 
 ```sh
-python3 perf/resources.py -- target/frontier-timing/release/examples/perf backend-once frontier /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 4 4 256
+cargo run --release -p diff-dirs-perf-runner -- resources target/frontier-timing/release/examples/perf .test-agent/resources-NEW -- backend-once frontier /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 4 4 256
 ```
 
 `backend-once serial|per-frame|frontier ORIGINAL TARGET P J K` builds its pool
-outside the internal timer and compares read-only once. The Linux helper emits
-exact child CPU accounting including startup, plus the largest child `/proc`
-VmHWM observed at 5ms intervals. That RSS measure excludes the Python parent's
-memory but may miss a peak confined to the final sampling gap; it is explicitly
-sampled, not a strict allocator or peak-memory bound. Resource observations are
+outside the internal timer and compares read-only once. The Rust Linux helper
+uses `wait4` for child CPU accounting and peak RSS including startup, excluding
+the controller. These process scopes are not the internal API timer or an
+allocator bound. Historical `/proc` sampling has different semantics and is not
+silently combined with the new observations. Resource observations are
 separate from the interleaved timing matrix.
 
 ## Filesystem synchronization — separate owned-fixture harness

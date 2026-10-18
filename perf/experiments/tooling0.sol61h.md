@@ -6,6 +6,8 @@ resource: /perf/experiments/tooling0.sol61h.md
 status: incomplete-stopped-by-user
 generated: { by: "model:openai/gpt-6.1-sol#high", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu
+    title: Recorded retirement standing and exact predecessor revision; prototype findings unchanged
   - resource: opencode://ses_eb224880fffeZxuFkeb0yDaCeN
     title: Implemented independent immutable-artifact and matched-block prototype; stopped expansion at human request and preserved successful and failed smoke controls
   - resource: /design/performance/tooling-audit0.glm53fx.md
@@ -21,6 +23,11 @@ sources:
 ---
 
 # Stopped prototype checkpoint
+
+Historical stopped prototype; active Python modules/recipes were subsequently
+retired. Use [Rust tooling](/perf/runner/README.md). Sources below belong to
+`997183df472f81d21e8d553a9002d083d636ef05`; recover with `git show COMMIT:PATH`.
+The old commands are transcripts, not current supported instructions.
 
 **The user stopped expansion because too much Python was accumulating.** This is
 preserved for independent read-only assessment, not a proposed mandatory framework.
@@ -87,7 +94,7 @@ after the user's stop. Do not present this adapter as end-to-end revalidated.
 JW's sibling account records its passing and failing native smoke cases:
 [JW handoff](file:///home/rektide/src/jj-waltz/tools/performance/experiments/handoff0.sol61h.md).
 
-## Exact independent library rerun recipe — NOT executed on real payload
+## Historical retired library recipe — NOT current commands
 
 Frozen originals remain untouched under `.test-agent/checked/frozen-fa91/`.
 The adapter checks `identity.json`'s hashes:

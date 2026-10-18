@@ -3,18 +3,18 @@ type: Assessment
 title: Performance tooling takeover — keep the instruments, bound the engine
 description: Read-only cross-repository inventory and takeover boundaries after the Python experiment prototype; no benchmark or implementation performed.
 resource: /design/performance/tooling-takeover0.sol61m.md
-status: assessed-not-implemented
+status: historical-assessment-takeover-implemented
 generated: { by: "model:openai/gpt-6.1-sol#medium", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu"
-    title: Inspected existing Rust runners, Python prototype, frozen controls and JW adapters read-only; identified concrete gaps and bounded Rust-first takeover
+    title: Assessed the stopped tooling read-only, then implemented the accepted Rust takeover and retirement recorded in the linked completion account
   - resource: /design/performance/tooling-audit0.glm53fx.md
     title: Earlier inventory and locally verified hyperfine semantics; no tool capability probes repeated here
   - resource: /perf/README.md
     title: Maintained comparison and synchronization measurement contracts
   - resource: /perf/results/checked/README.md
     title: Historical checked-streaming experiment source, retained rows and executable provenance
-  - resource: /perf/experiments/runner.py
+  - resource: https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/experiments/runner.py
     title: In-flight experiment engine inspected with its registry, fixtures, scheduler, reporting and tests
   - resource: /perf/experiments/tooling0.sol61h.md
     title: Completed stopped checkpoint, twelve reported passing tests and unrevalidated frozen-adapter repair
@@ -22,13 +22,19 @@ sources:
     title: Completed JW tooling checkpoint with sixteen passing and four failing matrix attempts
   - resource: "file:///home/rektide/src/jj-waltz/tools/performance/README.md"
     title: Maintained preparation/reseed correctness and subprocess-count harness
-  - resource: "file:///home/rektide/src/jj-waltz/tools/performance/jw_sample.py"
+  - resource: "https://github.com/ezracerpac/jj-waltz/blob/a35da35d7635e14be70fb4aab37ea6edbd933ef8/tools/performance/jw_sample.py"
     title: In-flight single-native-reseed adapter and its verification boundaries
   - resource: "file:///home/rektide/src/jj-waltz/.test-agent/inline-policy/integration-handoff.md"
     title: Preserved baseline, clean-payload invariant and actual opencode workload constraints
 ---
 
 # Verdict
+
+**Standing:** accepted takeover basis, now historical inventory—not current tool
+availability. [Rust-only completion](/design/performance/tooling-completion0.sol61m.md)
+records implementation, real-tree import, verification and deliberate retirement.
+Commands below describe the observed predecessor only. Deleted sources are pinned
+to their original commits; for local/unpushed history use `git show COMMIT:PATH`.
 
 **Stop growing the Python framework; do not discard its useful work.** Existing
 Rust runners already own the difficult measurement semantics. The new prototype
@@ -94,7 +100,7 @@ The completed new Python footprint is **1,260 lines including 230 test lines**
 across both repositories, in addition to the older tooling. That is a framework,
 not merely a small wrapper.
 
-### Commands that exist now
+### Commands that existed at observation (historical only)
 
 Run from D, using NEW owned roots/output paths where indicated:
 
@@ -143,7 +149,7 @@ measurements**. `diff.json`/JW `reseed.json` require explicit path/revision edit
 ## What the prototype really guarantees—and does not
 
 1. **Executable identity is materially better.**
-   [registry.py](/perf/experiments/registry.py):15–19 refuses label overwrite;
+   [registry.py](https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/experiments/registry.py):15–19 refuses label overwrite;
    58–69 hashes and copies executable bytes to a hash-named, read-only artifact;
    75–81 verifies bytes and identity before use. Build mode records compiler,
    exact source command, source state, build argv and hashed explicit inputs.
@@ -155,7 +161,7 @@ measurements**. `diff.json`/JW `reseed.json` require explicit path/revision edit
    it. Build only checkpointed, quiescent sources for credible next evidence.
 
 2. **Balanced order is real, drift removal is not.**
-   [schedule.py](/perf/experiments/schedule.py):5–16 seeds shuffled permutation /
+   [schedule.py](https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/experiments/schedule.py):5–16 seeds shuffled permutation /
    reverse pairs, balancing positions over every two blocks. Runner:113–116
    keeps variants adjacent per job and alternates job order. Runner:159–171
    calls hyperfine for **one** command/one sample, so hyperfine's grouped
@@ -167,7 +173,7 @@ measurements**. `diff.json`/JW `reseed.json` require explicit path/revision edit
    14 configurations; its 15 rounds are not a balanced-block schedule.
 
 3. **Managed mutation resets have a sound narrow contract.**
-   [fixtures.py](/perf/experiments/fixtures.py):107–166 creates separate scenario
+   [fixtures.py](https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/experiments/fixtures.py):107–166 creates separate scenario
    templates and fresh private required-reflink clones, compares metadata before
    and after reset, and never resets a live donor. This avoids clean-vs-first-fill
    mismatches. Census deliberately covers names/kind/mode/size/mtime/link targets,
@@ -183,7 +189,7 @@ measurements**. `diff.json`/JW `reseed.json` require explicit path/revision edit
    (includes warmups); that tests plumbing, not an optimization. Observed
    `matched-smoke/frozen-run/result.json` failed with 36 samples and clean target
    fingerprint mismatches at the older shared `frozen-plan/case/control-target`.
-   Current [frozen.py](/perf/experiments/frozen.py):44–64 separates clean/measure/
+   Then-current [frozen.py](https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/experiments/frozen.py):44–64 separates clean/measure/
    fill cases, and test_experiments:148–168 tests that separation using fake cp
    artifacts. It does **not** demonstrate an actual corrected frozen rerun.
    Frozen recipe supplies baseline/default/admin, not enabled-noop or initial
@@ -193,7 +199,7 @@ measurements**. `diff.json`/JW `reseed.json` require explicit path/revision edit
 5. **Raw paired summaries are useful and appropriately descriptive.**
    Runner:126–193 retains sample order, argv, stdout/stderr, load, failures and
    raw CSV rows; CSV repetitions collapse to one per-block median, not invented
-   independent samples. [report.py](/perf/experiments/report.py):33–64 matches
+   independent samples. [report.py](https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/experiments/report.py):33–64 matches
    baseline/candidate within job/block/metric, rejects mismatched fingerprints,
    retains failed/unpaired status, reports median/range/MAD and explicitly no
    significance or causal load adjustment. Six matched blocks is a heuristic,
@@ -203,7 +209,7 @@ measurements**. `diff.json`/JW `reseed.json` require explicit path/revision edit
    summaries. There is not yet one established report for both new and old data.
 
 6. **JW adapter is narrower than the takeover needs.**
-   [jw_sample.py](file:///home/rektide/src/jj-waltz/tools/performance/jw_sample.py):66–127
+   [jw_sample.py](https://github.com/ezracerpac/jj-waltz/blob/a35da35d7635e14be70fb4aab37ea6edbd933ef8/tools/performance/jw_sample.py):66–127
    initializes owned JJ state, overrides donor-local freshen config, and overlays
    reset payloads before one native reseed. Setup is outside its CSV timer.
    Verification checks payload bytes/link/mode and tracked tree against the
@@ -221,7 +227,7 @@ measurements**. `diff.json`/JW `reseed.json` require explicit path/revision edit
    exists in pieces, not as a verified integrated campaign.
 
 7. **Cross-repository sharing is brittle, not duplicated.**
-   [JW launcher](file:///home/rektide/src/jj-waltz/tools/performance/experiment.py):9–16
+   [JW launcher](https://github.com/ezracerpac/jj-waltz/blob/a35da35d7635e14be70fb4aab37ea6edbd933ef8/tools/performance/experiment.py):9–16
    loads a sibling Python engine or `DIFF_DIRS_PERF`; the sample adapter separately
    defaults a sibling engine path (jw_sample:181). Recipe setup uses absolute
    workstation paths. Adapters import `measure.py` and shared `verify_tree.py`,

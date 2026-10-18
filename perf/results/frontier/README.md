@@ -6,11 +6,13 @@ resource: /perf/results/frontier/README.md
 status: measured
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu
+    title: Revision-bound the retired driver source while preserving all evidence
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
     title: Ran and promoted read-only live/frontier comparisons and owned fixture measurements, preserving separate instrumented observations
   - resource: /perf/README.md
     title: Reproducible timing, topology, diagnostics, and resource methods
-  - resource: /perf/frontier.py
+  - resource: https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/frontier.py
     title: Configured pair driver and unmodified raw CSV consolidation
 ---
 

@@ -6,6 +6,8 @@ resource: /design/performance/tooling-audit0.glm53fx.md
 status: draft
 generated: { by: "model:zai-coding-plan/glm-5.3-flash#max", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu
+    title: Marked historical availability and bound retired source pointers to exact history; linked the Rust successor without changing audit findings
   - resource: "opencode://ses_eb2b25eb7ffe8EMkSQFlGkfQDc"
     title: Audited scratch tooling and tracked harness read-only, probed installed hyperfine/perf/strace semantics, and proposed a staged promotion workflow without changing any tool or running benchmarks
   - resource: /perf/README.md
@@ -16,17 +18,17 @@ sources:
     title: Marked-owned-fixture sync benchmark — marker guard, rotation, four hardcoded scenarios
   - resource: /perf/leaf.rs
     title: Active leaf-pipeline probe — owned setup, five scenarios, process CPU clock, private targets
-  - resource: /perf/leaf.py
+  - resource: https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/leaf.py
     title: Active interleaved variant driver — rotation, confirm (wait4 resources), isolate modes
-  - resource: /perf/compare.py
+  - resource: https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/compare.py
     title: Sequential vs 1/2/4/8 pool matrix driver with CSV combining
-  - resource: /perf/frontier.py
+  - resource: https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/frontier.py
     title: Read-only interleaved P:J:K matrix driver
-  - resource: /perf/resources.py
+  - resource: https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/resources.py
     title: Child rusage and sampled VmHWM observer
-  - resource: /perf/audit.py
+  - resource: https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/audit.py
     title: strace fixture-payload IO audit
-  - resource: /perf/report.py
+  - resource: https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/report.py
     title: elapsed_ns-schema CSV summarizer
   - resource: /perf/results/leaf/README.md
     title: Leaf evidence bundle — variants, executables.json hashes, fixture shapes, timing boundaries
@@ -49,6 +51,12 @@ sources:
 ---
 
 # Performance tooling audit
+
+Historical audit: availability/proposals below describe the predecessor. Active
+Python tooling is now retired; use [Rust controls](/perf/runner/README.md) and the
+[completion account](/design/performance/tooling-completion0.sol61m.md). Original
+sources/commands remain recoverable at `997183df472f81d21e8d553a9002d083d636ef05`;
+revision-bound links also resolve locally with `git show COMMIT:PATH` when unpushed.
 
 Audit of the ad hoc tooling under `.test-agent/` against the tracked harness,
 and of what external benchmark tooling actually offers for this project's

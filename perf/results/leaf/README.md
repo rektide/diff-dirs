@@ -6,19 +6,25 @@ resource: /perf/results/leaf/README.md
 status: measured-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu
+    title: Marked command transcripts historical and revision-bound retired scripts; raw evidence unchanged
   - resource: "opencode://ses_eb2c07f5cffe2uTLIC7b1rrD99"
     title: Preserved same-compiler controls, generated exclusive disposable fixtures, interleaved all variants, and retained raw timings without sample filtering
   - resource: /perf/leaf.rs
     title: Timer, process CPU clock, owned fixture guard, reused P4 pool, private targets, and outside-timing verification
-  - resource: /perf/leaf.py
+  - resource: https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/leaf.py
     title: Rotating same-compiler variants and bounded final-build resource confirmation
-  - resource: /perf/leaf_trace.py
+  - resource: https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/leaf_trace.py
     title: Separate syscall census and explicit whole-process versus arena-path count scopes
   - resource: /design/performance/leaf0.sol61x.md
     title: Interpretation, negative cases, scope and selection limits
 ---
 
 # Owned leaf-pipeline evidence
+
+Historical campaign and command transcript, not a supported Python workflow.
+Exact scripts are retained at `997183df472f81d21e8d553a9002d083d636ef05` (use
+`git show COMMIT:perf/leaf.py`, etc.). Current tools: [Rust guide](/perf/runner/README.md).
 
 All mutation stays under newly owned `.test-agent/leaf-pipeline/`; every timed
 run creates its own private target. Prior fixture and live roots were not used

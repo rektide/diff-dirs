@@ -6,6 +6,8 @@ resource: /design/performance/performance0.sol61x.md
 status: measured
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu
+    title: Repaired the retired audit-source link to its immutable revision; no remeasurement
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
     title: Implemented release harness, measured synthetic and supplied live roots read-only, audited payload IO, and preserved raw observations
   - resource: /perf/README.md
@@ -94,7 +96,7 @@ Five `read` and two `pread64` calls came from process startup, not payloads.
 
 A separate fd-annotated audit on the small fixture found 1,548 fixture
 directory opens, 386 symlink reads, and **zero fixture payload opens, data
-reads, or mmaps**. [`perf/audit.py`](/perf/audit.py) checked all matching open
+reads, or mmaps**. [Historical `perf/audit.py`](https://github.com/rektide/diff-dirs/blob/997183df472f81d21e8d553a9002d083d636ef05/perf/audit.py) checked all matching open
 flags and read/mmap fd paths. The trace shows startup reads of dynamic libraries
 and `/proc/self/maps`, which are expected. Traced durations are not used in the
 timing table. Raw large census is retained; the larger annotated trace remains
