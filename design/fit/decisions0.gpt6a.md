@@ -7,7 +7,7 @@ status: implementation-direction
 generated: { by: "model:openai/gpt-6-astra", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY"
-    title: Commissioned G research and Sol xhigh implementation; resolved comparison ambiguities and incorporated the user's generic I/O and separate synchronization direction
+    title: Commissioned G research and Sol xhigh implementation; resolved comparison ambiguities and incorporated generic I/O, separate synchronization, and shared Rayon pool direction
   - resource: /README.md
     title: Initial tree-comparison specification and conflicting application examples
   - resource: /design/fit/fit0.glm53m.md
@@ -85,7 +85,7 @@ sublinear-to-tree-size claim is accurate for arbitrarily wide trees.
 
 ## Dependencies and ownership
 
-Use a zero-runtime-dependency core, Rust 1.88 and edition 2024. The root package
+Use a zero-runtime-dependency default core, Rust 1.88 and edition 2024. The root package
 is the library; a separate `cli/` workspace member owns CLI dependencies. This
 keeps embedding inexpensive without duplicating a general traversal engine or
 pulling terminal/serialization dependencies into jj-waltz.
@@ -98,6 +98,27 @@ backends must be std-only. Applications own root selection and their policy
 requirements; jj-waltz additionally owns its workspace confinement and
 quiescence checks. The core is not a filesystem security boundary under
 concurrent mutation.
+
+### Shared Rayon execution
+
+The user subsequently requested Rayon and investigation of sharing its runtime.
+The implementation direction is an optional `parallel` feature and an explicit
+execution choice, preserving a dependency-free default and allowing sequential
+and parallel runs in the same benchmark binary. Parallel operations should use
+Rayon's current pool: an embedding caller can run the **entire consumption
+loop** inside `ThreadPool::install`; otherwise Rayon supplies its shared global
+pool. The library must not configure the process-global pool or construct a
+private pool for every walk. G is verifying the concrete integration recipe.
+
+Only parallelize work for the current directory comparison, and join it before
+returning from `next()`. Speculative subtree work across a yield would break
+the caller's ability to replace/prune that subtree. Sort and retain ordered
+results so failure selection, as well as successful records, stays
+deterministic. The right batch threshold and thread count are measurement
+questions: compare sequential and shared-pool execution on fixtures and the
+user-selected live source/destination trees. Tokio's use of blocking filesystem
+operations establishes neither that parallelism is useless nor that Rayon
+necessarily improves this workload.
 
 The parent found **two payload deletion points** in the inspected reseed
 execution: the cleanup before tracked materialization and the final payload
