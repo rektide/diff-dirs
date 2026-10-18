@@ -1,13 +1,13 @@
 ---
 type: DesignDecision
-title: Implementation contract for the jj-waltz consumer
-description: Parent decisions translating the fit assessment into the first library build, with explicit comparison direction, native paths, partial summaries, and integration boundaries.
+title: Generic comparison and optional synchronization contract
+description: Parent decisions for the generic library, including comparison direction, native paths, partial summaries, and separately packaged synchronization; jj-waltz is the first consumer.
 resource: /design/fit/decisions0.gpt6a.md
 status: implementation-direction
 generated: { by: "model:openai/gpt-6-astra", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY"
-    title: Commissioned G research and Sol xhigh implementation; resolved contract ambiguities and reviewed the reseed integration boundary
+    title: Commissioned G research and Sol xhigh implementation; resolved comparison ambiguities and incorporated the user's generic I/O and separate synchronization direction
   - resource: /README.md
     title: Initial tree-comparison specification and conflicting application examples
   - resource: /design/fit/fit0.glm53m.md
@@ -20,11 +20,18 @@ sources:
 
 # Implementation contract
 
-The user's primary outcome is a fast library for embedding in jj-waltz reseed.
+The user's outcome is a fast generic library, first embedded in jj-waltz reseed.
 [G's assessment](fit0.glm53m.md) precedes the Sol xhigh build. These are parent
 implementation decisions resolving the initial specification's ambiguities;
 the maintained [README](../../README.md) must reflect them. They are not a
 claim of user acceptance or an end-to-end reseed performance result.
+
+The user subsequently clarified that the I/O investigation should consider
+general libraries such as Tokio, and authorized copy/sync procedures provided
+they remain separate from comparison. The selected packaging is a `sync/`
+crate depending on the core, with no reverse dependency. G is investigating
+general filesystem backends before that component is implemented. The core
+remains usable by callers with their own apply loops or reporting policy.
 
 ## Consumer-facing model
 
@@ -83,9 +90,14 @@ is the library; a separate `cli/` workspace member owns CLI dependencies. This
 keeps embedding inexpensive without duplicating a general traversal engine or
 pulling terminal/serialization dependencies into jj-waltz.
 
-The library compares only. jj-waltz owns root selection, quiescence,
-confinement, reflink application, metadata restoration, and replacement policy.
-The library is not a filesystem security boundary under concurrent mutation.
+The core compares only. A separate optional sync crate may provide copy and
+reconciliation procedures without introducing jj concepts or a mandatory async
+runtime. Its backend choice follows the additional I/O assessment; the initial
+std-only comparison implementation does not establish that all possible sync
+backends must be std-only. Applications own root selection and their policy
+requirements; jj-waltz additionally owns its workspace confinement and
+quiescence checks. The core is not a filesystem security boundary under
+concurrent mutation.
 
 The parent found **two payload deletion points** in the inspected reseed
 execution: the cleanup before tracked materialization and the final payload
