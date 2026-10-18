@@ -6,6 +6,8 @@ resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb24f98a3ffewdVqa9lao6tXQu
+    title: Implemented static accept/refuse checks across comparison, recursive sync and read-only audit, retaining streaming records and frontier semantics
   - resource: opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY
     title: Applied unpinned toolchain direction, commissioned leaf-pipeline optimization, and recorded the user's future coordinated multi-destination streaming direction
   - resource: opencode://ses_eb3033c79ffeRIkn14uSNhs7O6
@@ -73,12 +75,15 @@ motivation, not a claim of measured end-to-end sync speedup.
   miss divergences below unchanged dir mtimes. Mode-only changes (including
   executable bits), ownership, ACLs, and other metadata are outside this
   comparison contract. Hashing is not offered.
-- **Roots:** both must exist as real directories; missing roots, files, and
+- **Comparison roots:** both must exist as real directories; missing roots, files, and
   symlink roots are errors. A consumer handles absent or non-directory selected
-  roots using whole-root policy before calling `walk`.
+  roots using whole-root policy before calling `walk`. Sync offers absent-root
+  initialization and an explicitly authorized, staged leaf-root transition.
 - **Safety:** symlink leaves are not followed. Unsupported special-file entries
   in examined listings fail with their path; one-sided directories are opaque
-  units, so their descendants are not validated. This is not a sandbox or an
+  units, so their descendants are not validated by comparison alone. Checked
+  sync validates them during recursive application; explicit audit validates
+  them without mutation. This is not a sandbox or an
   atomic snapshot: callers retain quiescence and confinement, including checks
   against ancestor symlinks and concurrent path replacement. No special `.git`,
   `.jj`, mount, or ignore-rule policy is built in.
@@ -158,8 +163,9 @@ Consuming an unstarted walk or breaking early never claims a clean scan.
 
 ## Driving the walk
 
-No callbacks, no traits: the walker is a pull iterator running inside the
-consumer's loop.
+The walker remains a pull iterator running inside the consumer's loop. An
+optional statically dispatched accept/refuse check deliberately amends the old
+"no callbacks, no traits" restriction; it does not drive mutation or edit records.
 
 ```rust,no_run
 fn compare(original: &std::path::Path, target: &std::path::Path)
@@ -198,6 +204,61 @@ Ok(walk.into_summary())             // topmost divergent subtrees, counts
 
 Both consumption styles below run over this same walk — the library makes no
 distinction between them. See [Use cases](#use-cases).
+
+## Checked inspection and read-only audit
+
+```rust,no_run
+use diff_dirs::{CheckError, Entry};
+fn check(entry: Entry<'_>) -> Result<(), CheckError> {
+    let name = entry.relative.file_name().or_else(|| entry.root.file_name());
+    if name.is_some_and(|name| name == ".git" || name == ".jj") {
+        return Err("administrative entry in payload".into());
+    }
+    Ok(())
+}
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let mut walk = diff_dirs::walk_checked("original", "target", check)?;
+for item in walk.by_ref() { let diff = item?; /* caller applies */ }
+let compared = walk.into_summary();
+// Separate, explicitly requested full validation; NEVER implicit before sync:
+let inspected = diff_dirs::audit("original", diff_dirs::Side::Original, &check)?;
+# Ok(()) }
+```
+
+`Check: Sync` accepts or refuses each observed **present side**, including roots,
+equal leaves, paired directories, and unsupported entry types (which the library
+still rejects if the checker accepts them). `Entry` borrows the bound root,
+root-relative path (empty for root), side, `Purpose`, and already-needed
+no-follow metadata. `link_target` is literal text where comparison/copy needs it;
+removal does not add `readlink` solely for a hook. Audit deliberately observes
+literal links too. No mount facts, syscall-request interface, rule vectors,
+skip/preserve engine, or retained inspection catalog are added.
+
+Closures with `Fn(Entry<'_>) -> Result<(), CheckError> + Sync` implement `Check`.
+Annotate a closure's argument as `Entry<'_>` for lifetime inference. A concrete
+implementation can borrow command context. `Check::borrowed()` lends any checker
+to another operation without changing its static dispatch or no-op specialization.
+Existing APIs use `NoCheck`; its disabled associated constant removes hook work.
+Public `DirDiff` stays stat-free. Metadata is not a reusable validation certificate.
+
+Checks must make **pure, deterministic decisions**: no filesystem mutation,
+printing, processes, or reliance on invocation order. Parallel speculative checks
+run outside the frontier mutex, before results can expose children. Calls can
+overlap, repeat across comparison/application, and concern an uncommitted suffix.
+They are not ordered/exactly-once notifications. If a caller collects diagnostics,
+use an idempotent thread-safe collector and label them as encountered observations,
+not committed progress; do not let collection affect decisions. `Error::Refused`
+retains the caller's cause and the observed path. Existing ordered-prefix error,
+join, divergence-seal, pruning, and J/K contracts are unchanged.
+
+`walk_with_options_checked` and `walk_in_pool_checked` are the execution variants.
+A checked comparison still leaves one-sided interiors opaque: successful iterator
+exhaustion certifies **comparison** coverage, not full recursive policy coverage.
+Use [checked sync](sync/README.md#checked-execution-and-audit) or explicit audit
+for that. `audit(root, side, &check)` is a read-only sorted DFS of every entry,
+including a leaf root without following it. It returns side-local counts including
+the root; `AuditFailure` carries the successfully checked prefix. It neither
+compares roots nor builds a plan. Sync's audit binds roots and combines both sides.
 
 ## Use cases
 

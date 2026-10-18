@@ -3,7 +3,7 @@ use std::iter::FusedIterator;
 use std::path::{Path, PathBuf};
 
 use crate::pair::Roots;
-use crate::{DirDiff, Error, ScanState, Summary, WalkOptions};
+use crate::{Check, DirDiff, Error, NoCheck, ScanState, Summary, WalkOptions};
 
 /// Validate two existing real directory roots and construct a lazy walker.
 pub fn walk(original: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Walk, Error> {
@@ -12,8 +12,20 @@ pub fn walk(original: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Walk
 
 /// Construct a walk with explicit execution policy. Contents remain lazy.
 pub fn walk_with_options(original: impl AsRef<Path>, target: impl AsRef<Path>, options: WalkOptions) -> Result<Walk, Error> {
+    walk_with_options_checked(original, target, options, NoCheck)
+}
+
+/// Compare with a statically dispatched accept/refuse check, including equal
+/// entries and roots. One-sided directory interiors remain opaque to this walk;
+/// use checked sync or audit for recursive coverage.
+pub fn walk_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<Path>, check: C) -> Result<Walk<C>, Error> {
+    walk_with_options_checked(original, target, WalkOptions::default(), check)
+}
+
+pub fn walk_with_options_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<Path>, options: WalkOptions, check: C) -> Result<Walk<C>, Error> {
     Ok(Walk {
-        roots: Roots::new(original, target)?,
+        roots: Roots::new_checked(original, target, &check)?,
+        check,
         frames: Vec::new(),
         start: true,
         prune_eligible: false,
@@ -29,8 +41,9 @@ pub fn walk_with_options(original: impl AsRef<Path>, target: impl AsRef<Path>, o
 /// Deterministic pull walk. Sequential by default; optional ambient frontier
 /// execution also retains count-bounded private lookahead.
 #[derive(Debug)]
-pub struct Walk {
+pub struct Walk<C = NoCheck> {
     roots: Roots,
+    check: C,
     frames: Vec<Frame>,
     start: bool,
     prune_eligible: bool,
@@ -50,7 +63,7 @@ struct Frame {
     subtree_changed: bool,
 }
 
-impl Walk {
+impl<C: Check> Walk<C> {
     /// Skip pending children once immediately after a successful yielded record.
     pub fn prune_here(&mut self) -> bool {
         #[cfg(feature = "parallel")]
@@ -90,7 +103,7 @@ impl Walk {
     }
 
     fn examine(&mut self, dir: PathBuf, direct_ancestor: bool) -> Result<Option<DirDiff>, Error> {
-        let pair = self.roots.inspect(dir, self.options.execution)?;
+        let pair = self.roots.inspect_checked(dir, self.options.execution, &self.check)?;
         let changed = !pair.diff.is_empty();
         self.summary.examined_directories += 1;
         self.summary.counts.add(&pair.diff);
@@ -129,7 +142,7 @@ impl Walk {
     }
 }
 
-impl Iterator for Walk {
+impl<C: Check> Iterator for Walk<C> {
     type Item = Result<DirDiff, Error>;
     fn next(&mut self) -> Option<Self::Item> {
         #[cfg(feature = "parallel")]
@@ -137,7 +150,7 @@ impl Iterator for Walk {
             let frontier = self
                 .frontier
                 .get_or_insert_with(|| Box::new(crate::frontier::Frontier::new(crate::ParallelLimits::for_threads(rayon::current_num_threads()))));
-            return frontier.next_with(|dir| self.roots.inspect(dir.to_path_buf(), crate::Execution::Sequential));
+            return frontier.next_with(|dir| self.roots.inspect_checked(dir.to_path_buf(), crate::Execution::Sequential, &self.check));
         }
         self.prune_eligible = false;
         if self.summary.state != ScanState::Incomplete {
@@ -157,7 +170,7 @@ impl Iterator for Walk {
     }
 }
 
-impl FusedIterator for Walk {}
+impl<C: Check> FusedIterator for Walk<C> {}
 
 /// Temporary measurement control for the predecessor per-frame backend.
 /// Not part of the supported embedding API; requires `parallel-bench`.

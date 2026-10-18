@@ -6,6 +6,8 @@ resource: /sync/README.md
 status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: "opencode://ses_eb24f98a3ffewdVqa9lao6tXQu"
+    title: Added static checked execution through equal comparison, recursive copy/removal, absent roots and staged root transitions, plus explicit full read-only audit
   - resource: "opencode://ses_eb2c07f5cffe2uTLIC7b1rrD99"
     title: Optimized owned Linux leaf descriptors and parent-local batch staging, retaining metadata, validation, partial-failure and portable-backend contracts
   - resource: "opencode://ses_eb3033c79ffeRIkn14uSNhs7O6"
@@ -37,7 +39,8 @@ println!("copied {} files", report.completed.files_copied);
 
 Both roots must be real directories, except that an absent target is initialized
 as a whole tree. Its immediate parent must already exist. Existing file/symlink
-roots are rejected. Construction and root checks perform no writes or source
+roots are rejected by the default binding; an explicit replacing binding is
+available below. Construction and root checks perform no writes or source
 capability probes. There are no `.git`, `.jj`, ignore, or mount exclusions.
 
 Every regular file uses the explicitly selected policy (no default):
@@ -88,6 +91,87 @@ add-leaf/remove-directory transitions are allowed. Actual immediate entry types
 must match the record. Supplied directory ancestors on both sides must be real
 directories, never links. Replaying a stale record is not the retry API;
 recompare with `mirror` after partial application.
+
+## Checked execution and audit
+
+```rust,no_run
+use diff_dirs::{Check, CheckError, Entry};
+use diff_dirs_sync::{Applier, CopyPolicy};
+fn guard(entry: Entry<'_>) -> Result<(), CheckError> {
+    let name = entry.relative.file_name().or_else(|| entry.root.file_name());
+    if name.is_some_and(|name| name == ".git" || name == ".jj") {
+        return Err("administrative name in selected payload".into());
+    }
+    Ok(())
+}
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let applier = Applier::new_checked("original", "target", CopyPolicy::ReflinkRequired, guard)?;
+// Dry-run ONLY: full read-only coverage, including one-sided interiors.
+let coverage = applier.audit()?;
+// Actual execution: call mirror directly, NOT audit then mirror.
+let report = applier.mirror()?;
+// Or, with both roots existing, drive the checked pull loop yourself:
+let mut walk = diff_dirs::walk_checked(applier.original(), applier.target(), applier.check().borrowed())?;
+for item in walk.by_ref() { let completed = applier.apply(&item?)?; }
+assert!(walk.into_summary().is_complete());
+# Ok(()) }
+```
+
+`mirror_checked` is the free-function convenience. For borrowed-pool execution,
+use `applier.mirror_in_pool(&pool, limits)` or the manual checked pool walker plus
+`apply_in_pool`. No intermediate whole-tree work map or validation pass is built.
+Comparison inspects paired directories; recursive application checks source-only
+copies and target-only removals as it goes. The **same checker** covers equal
+entries, roots, recursive initialization, transitions, and public-record validation.
+Already-needed immediate metadata is retained only for the application batch and
+reused by its operations; recursive copy/removal similarly reuse their observations.
+The default `Applier<NoCheck>` specializes away checking.
+
+The [core check contract](../README.md#checked-inspection-and-read-only-audit)
+defines borrowed facts, `Purpose`, purity/`Sync`, speculative invocation, and
+literal-link availability. Checks accept or refuse only; no skipping/preservation
+rules. Private owned staging cleanup intentionally does **not** run caller policy.
+Binding itself performs structural path validation, not interior checks. Operations
+check roots before their mutation; the checked walker also checks roots at construction.
+
+Refusal is **streaming**, not whole-batch preflight: earlier permitted siblings or
+records may already have changed. The offending entry is not copied, chmodded,
+removed, or descended. Surviving accepted ancestors regain prior permissions.
+Failed private preparations are discarded. Failures retain completed operations;
+comparison failures keep a failed committed prefix, and apply failures keep an
+incomplete observed prefix. There is no rollback or automatic retry. Resolve the
+violation, then start a fresh comparison. A successful checked mirror establishes
+full visited-policy coverage and stat-key convergence without a second walk;
+its `observed` is still a pre-application comparison, not a verification scan.
+A manual unchecked walk plus checked apply cannot validate unmentioned equal entries.
+
+`Applier::audit()` inspects each existing side fully, original then target, without
+comparison or writes. `AuditReport` has side-local entry counts including roots;
+`AuditFailure` retains its checked prefix and refusal/I/O cause. An absent target
+has zero target observations. A dry-run is a current observation, not a durable
+authorization after writers resume. Audit reads literal symlink text but follows
+neither symlink leaves nor a selected target-root link.
+
+### Explicit selected-root transition
+
+```rust,no_run
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let applier = diff_dirs_sync::Applier::new_replacing_checked(
+    "original", "selected-target", diff_dirs_sync::CopyPolicy::ReflinkRequired,
+    diff_dirs::NoCheck, // replace with the caller's payload guard
+)?;
+let report = applier.mirror()?; // existing dir, absent root, or existing leaf
+# Ok(()) }
+```
+
+Only this explicit binding permits an existing file/link selected root. Its real
+parent is bound; the final leaf is never canonicalized/followed. `replace_root`
+(or `replace_root_in_pool`) requires an existing leaf and stages the complete new
+directory before removing it. Refusal or reflink preparation failure leaves the
+old leaf intact. Once old-leaf removal succeeds, installation failure is partial
+progress, not a whole-root transaction. Parent permissions are restored. Ordinary
+bindings and `mirror` continue rejecting leaf roots rather than silently following
+destination links. Original roots must remain real directories.
 
 ## Borrowed caller pool
 
@@ -166,7 +250,8 @@ journal, snapshot, or automatic subtree replacement heuristic is provided.
 ## Reports, failures, and safety boundary
 
 `Report.observed` is the diff's complete **pre-application observed delta**, not
-a post-sync verification. It is `None` for absent-root initialization.
+a post-sync verification. It is `None` for absent-root initialization or explicit
+whole-root leaf replacement.
 `Report.completed` counts installed copied/reflinked files and logical bytes,
 created links/directories, recursive removals, and directory permission calls.
 Replacing a leaf counts its installation, not a fictitious separate unlink.

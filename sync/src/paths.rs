@@ -25,9 +25,14 @@ pub(crate) fn directory(path: &Path) -> Result<fs::Metadata, Failure> {
 /// Check each ancestor before canonicalization, including the existing prefix
 /// of a missing target. No creation, probes, or source writes.
 pub(crate) fn root(path: &Path, allow_missing: bool) -> Result<PathBuf, Failure> {
+    root_with_leaf(path, allow_missing, false)
+}
+
+pub(crate) fn root_with_leaf(path: &Path, allow_missing: bool, allow_leaf: bool) -> Result<PathBuf, Failure> {
     let absolute = std::path::absolute(path).map_err(|error| Failure::io("resolve root", path, error))?;
     let mut bound = PathBuf::new();
-    for component in absolute.components() {
+    let mut components = absolute.components().peekable();
+    while let Some(component) = components.next() {
         match component {
             Component::ParentDir => {
                 bound.pop();
@@ -37,6 +42,12 @@ pub(crate) fn root(path: &Path, allow_missing: bool) -> Result<PathBuf, Failure>
         }
         match fs::symlink_metadata(&bound) {
             Ok(metadata) if metadata.is_dir() => {}
+            Ok(_) if allow_leaf && components.peek().is_none() => {
+                // Canonicalize only the real parent, NEVER the selected leaf.
+                let parent = bound.parent().expect("leaf root has parent");
+                let canonical = fs::canonicalize(parent).map_err(|error| Failure::io("canonicalize root parent", parent, error))?;
+                return Ok(canonical.join(bound.file_name().expect("leaf root has name")));
+            }
             Ok(_) => return Err(Failure::invalid("bind roots", &bound, "root and existing ancestors must be real directories")),
             Err(error) if allow_missing && error.kind() == io::ErrorKind::NotFound => {}
             Err(error) => return Err(Failure::io("bind roots", &bound, error)),
@@ -59,23 +70,6 @@ pub(crate) fn root(path: &Path, allow_missing: bool) -> Result<PathBuf, Failure>
         canonical.push(name);
     }
     Ok(canonical)
-}
-
-pub(crate) fn relative(root: &Path, dir: &Path) -> Result<PathBuf, Failure> {
-    let mut path = root.to_path_buf();
-    directory(&path)?;
-    for component in dir.components() {
-        if !matches!(component, Component::Normal(_)) {
-            return Err(Failure::invalid(
-                "validate record",
-                dir,
-                "directory must be relative with normal components only",
-            ));
-        }
-        path.push(component);
-        directory(&path)?;
-    }
-    Ok(path)
 }
 
 pub(crate) const CHANGED: u8 = 1;

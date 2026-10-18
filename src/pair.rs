@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use crate::{DirDiff, Error, Execution};
+use crate::{Check, DirDiff, Entry as Observation, Error, Execution, Purpose, Side};
 
 #[derive(Debug)]
 pub(crate) struct Roots {
@@ -15,13 +15,32 @@ pub(crate) struct Roots {
 }
 
 impl Roots {
+    #[cfg(all(test, feature = "parallel"))]
     pub fn new(original: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Self, Error> {
+        Self::new_checked(original, target, &crate::NoCheck)
+    }
+
+    #[cfg(all(test, feature = "parallel"))]
+    pub fn inspect(&self, dir: PathBuf, execution: Execution) -> Result<ComparedPair, Error> {
+        self.inspect_checked(dir, execution, &crate::NoCheck)
+    }
+
+    pub fn new_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<Path>, check: &C) -> Result<Self, Error> {
         let roots = Self {
             original: original.as_ref().to_path_buf(),
             target: target.as_ref().to_path_buf(),
         };
-        for path in [&roots.original, &roots.target] {
+        for (path, side) in [(&roots.original, Side::Original), (&roots.target, Side::Target)] {
             let metadata = fs::symlink_metadata(path).map_err(|e| Error::io(path.clone(), "inspect root", e))?;
+            Observation {
+                root: path,
+                relative: Path::new(""),
+                side,
+                purpose: Purpose::Compare,
+                metadata: &metadata,
+                link_target: None,
+            }
+            .check(check)?;
             if !metadata.is_dir() {
                 return Err(Error::NotDirectory { path: path.clone() });
             }
@@ -29,8 +48,8 @@ impl Roots {
         Ok(roots)
     }
 
-    pub fn inspect(&self, dir: PathBuf, execution: Execution) -> Result<ComparedPair, Error> {
-        let (original, target) = entries(&self.original.join(&dir), &self.target.join(&dir), execution)?;
+    pub fn inspect_checked<C: Check>(&self, dir: PathBuf, execution: Execution, check: &C) -> Result<ComparedPair, Error> {
+        let (original, target) = entries(self, &dir, execution, check)?;
         Ok(compare(dir, original, target))
     }
 }
@@ -53,12 +72,6 @@ struct Entry {
     kind: Kind,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum Side {
-    Original,
-    Target,
-}
-
 struct RawEntry {
     entry: fs::DirEntry,
     name: OsString,
@@ -78,11 +91,16 @@ fn list(dir: &Path, side: Side, entries: &mut Vec<RawEntry>) -> Result<(), Error
     Ok(())
 }
 
-fn entries(original: &Path, target: &Path, execution: Execution) -> Result<(Vec<Entry>, Vec<Entry>), Error> {
+fn entries<C: Check>(roots: &Roots, dir: &Path, execution: Execution, check: &C) -> Result<(Vec<Entry>, Vec<Entry>), Error> {
     let mut raw = Vec::new();
-    list(original, Side::Original, &mut raw)?;
-    list(target, Side::Target, &mut raw)?;
-    raw.sort_unstable_by(|a, b| a.name.as_encoded_bytes().cmp(b.name.as_encoded_bytes()).then(a.side.cmp(&b.side)));
+    list(&roots.original.join(dir), Side::Original, &mut raw)?;
+    list(&roots.target.join(dir), Side::Target, &mut raw)?;
+    raw.sort_unstable_by(|a, b| {
+        a.name
+            .as_encoded_bytes()
+            .cmp(b.name.as_encoded_bytes())
+            .then((a.side as u8).cmp(&(b.side as u8)))
+    });
     #[cfg(feature = "parallel")]
     if execution == Execution::Parallel && raw.len() >= 64 {
         use rayon::prelude::*;
@@ -92,18 +110,38 @@ fn entries(original: &Path, target: &Path, execution: Execution) -> Result<(Vec<
             .map(|entry| {
                 #[cfg(test)]
                 tests::observe_worker();
-                inspect_entry(entry)
+                inspect_entry(entry, roots, check)
             })
             .collect();
         return split_entries(results.into_iter());
     }
     let _ = execution;
-    split_entries(raw.into_iter().map(inspect_entry))
+    split_entries(raw.into_iter().map(|entry| inspect_entry(entry, roots, check)))
 }
 
-fn inspect_entry(raw: RawEntry) -> Result<(Side, Entry), Error> {
+fn inspect_entry<C: Check>(raw: RawEntry, roots: &Roots, check: &C) -> Result<(Side, Entry), Error> {
     let path = raw.entry.path();
     let metadata = raw.entry.metadata().map_err(|e| Error::io(path.clone(), "inspect entry", e))?;
+    let link = if metadata.is_symlink() {
+        Some(fs::read_link(&path).map_err(|e| Error::io(path.clone(), "read symlink", e))?)
+    } else {
+        None
+    };
+    if C::ENABLED {
+        let root = match raw.side {
+            Side::Original => &roots.original,
+            Side::Target => &roots.target,
+        };
+        Observation {
+            root,
+            relative: path.strip_prefix(root).expect("entry belongs to listed root"),
+            side: raw.side,
+            purpose: Purpose::Compare,
+            metadata: &metadata,
+            link_target: link.as_deref(),
+        }
+        .check(check)?;
+    }
     let kind = if metadata.is_dir() {
         Kind::Directory
     } else if metadata.is_file() {
@@ -112,7 +150,7 @@ fn inspect_entry(raw: RawEntry) -> Result<(Side, Entry), Error> {
             modified: metadata.modified().map_err(|e| Error::io(path.clone(), "read modification time", e))?,
         }
     } else if metadata.is_symlink() {
-        Kind::Symlink(fs::read_link(&path).map_err(|e| Error::io(path, "read symlink", e))?.into_os_string())
+        Kind::Symlink(link.unwrap().into_os_string())
     } else {
         return Err(Error::UnsupportedEntry { path });
     };
@@ -216,7 +254,7 @@ mod tests {
         for i in 0..256 {
             f.both_file(format!("file-{i:03}"), b"");
         }
-        let roots = Roots::new(&f.original, &f.target).unwrap();
+        let roots = Roots::new_checked(&f.original, &f.target, &crate::NoCheck).unwrap();
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(4)
             .thread_name(|i| format!("diff-dirs-caller-{i}"))
@@ -224,7 +262,15 @@ mod tests {
             .unwrap();
         WORKERS.lock().unwrap().clear();
         *GATE.lock().unwrap() = Some(Arc::new(Gate::default()));
-        pool.install(|| assert!(roots.inspect(PathBuf::new(), Execution::Parallel).unwrap().diff.is_empty()));
+        pool.install(|| {
+            assert!(
+                roots
+                    .inspect_checked(PathBuf::new(), Execution::Parallel, &crate::NoCheck)
+                    .unwrap()
+                    .diff
+                    .is_empty()
+            )
+        });
         *GATE.lock().unwrap() = None;
         let workers = WORKERS.lock().unwrap();
         assert_eq!(workers.len(), 512);

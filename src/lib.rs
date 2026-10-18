@@ -24,6 +24,8 @@
 //! confinement, mutation, and absent/non-directory root dispatch. Symlink leaves
 //! are never followed; symlink roots are rejected.
 
+mod audit;
+mod check;
 mod error;
 mod model;
 mod pair;
@@ -36,14 +38,16 @@ mod parallel;
 #[cfg(feature = "parallel-diagnostics")]
 pub use frontier::ParallelDiagnostics;
 #[cfg(feature = "parallel")]
-pub use parallel::{ParallelLimits, ParallelWalk, walk_in_pool};
+pub use parallel::{ParallelLimits, ParallelWalk, walk_in_pool, walk_in_pool_checked};
 
+pub use audit::{Audit, AuditFailure, audit};
+pub use check::{Check, CheckError, CheckRef, Entry, NoCheck, Purpose, Side};
 pub use error::Error;
 pub use model::{AddedRemoved, ChangedAddedRemoved, DirDiff, EntryCounts, Execution, ScanState, Summary, WalkOptions};
 #[doc(hidden)]
 #[cfg(feature = "parallel-bench")]
 pub use walk::walk_per_frame;
-pub use walk::{Walk, walk, walk_with_options};
+pub use walk::{Walk, walk, walk_checked, walk_with_options, walk_with_options_checked};
 
 #[cfg(all(test, feature = "parallel"))]
 extern crate self as diff_dirs;

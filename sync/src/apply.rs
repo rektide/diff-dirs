@@ -6,34 +6,39 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use diff_dirs::{Check, Entry, NoCheck, Purpose, Side};
+
 use crate::model::merge;
 use crate::paths::{self, ADD_DIR, ADD_LEAF, CHANGED, REMOVE_DIR, REMOVE_LEAF};
 use crate::{Applier, CopyPolicy, Failure, Progress, platform};
 
-impl Applier {
+impl<C: Check> Applier<C> {
     pub(crate) fn apply_with(&self, diff: &diff_dirs::DirDiff, parallel: bool) -> Result<Progress, Failure> {
         let names = paths::names(diff)?;
-        let from = paths::relative(&self.original, &diff.dir)?;
-        let to = paths::relative(&self.target, &diff.dir)?;
+        let context = Context::checked(self.policy, parallel, &self.original, &self.target, &self.check);
+        let from = context.relative(&self.original, &diff.dir, Side::Original, Purpose::Copy)?;
+        let to = context.relative(&self.target, &diff.dir, Side::Target, Purpose::Remove)?;
         // Validate actual immediate types before any chmod, staging or removal.
+        let mut validated = Vec::with_capacity(names.len());
         for (name, mask) in &names {
-            validate_entry(&from.join(name), &to.join(name), *mask)?;
+            validated.push(validate_entry(&context, &from.join(name), &to.join(name), *mask)?);
         }
         if names.is_empty() {
             return Ok(Progress::default());
         }
-        let context = Context::new(self.policy, parallel);
         let (permissions, relaxed) = relax(&to)?;
         let arena = Staging::new(&to, names.iter().map(|(name, _)| name.as_os_str()));
         let result = context.batch(&names, |index, (name, mask)| {
-            context.named(&from.join(name), &to.join(name), *mask, &arena, index)
+            context.named_with(&from.join(name), &to.join(name), *mask, &arena, index, &validated[index])
         });
         let result = arena.finish(result, &context);
         finish_permissions(result, &to, permissions, relaxed, true)
     }
 
     pub(crate) fn initialize_with(&self, parallel: bool) -> Result<Progress, Failure> {
-        paths::directory(&self.original)?;
+        let metadata = paths::directory(&self.original)?;
+        let context = Context::checked(self.policy, parallel, &self.original, &self.target, &self.check);
+        context.observe(&self.original, Side::Original, Purpose::Copy, &metadata, None)?;
         // Recheck the bound path's ancestors before mutation.
         let rebound = paths::root(&self.target, true)?;
         if rebound != self.target {
@@ -45,8 +50,34 @@ impl Applier {
         let parent = self.target.parent().expect("bound root has parent");
         paths::directory(parent)?;
         let (permissions, relaxed) = relax(parent)?;
-        let context = Context::new(self.policy, parallel);
-        let result = context.copy_directory(&self.original, &self.target);
+        let result = context.copy_directory_with(&self.original, &self.target, &metadata);
+        finish_permissions(result, parent, permissions, relaxed, true)
+    }
+
+    pub(crate) fn replace_root_with(&self, parallel: bool) -> Result<Progress, Failure> {
+        if !self.replace_root {
+            return Err(Failure::invalid("replace root", &self.target, "requires explicit replacing root binding"));
+        }
+        let rebound = paths::root_with_leaf(&self.target, false, true)?;
+        if rebound != self.target {
+            return Err(Failure::invalid("replace root", &self.target, "target root changed"));
+        }
+        let context = Context::checked(self.policy, parallel, &self.original, &self.target, &self.check);
+        let metadata = paths::directory(&self.original)?;
+        context.observe(&self.original, Side::Original, Purpose::Copy, &metadata, None)?;
+        let target = fs::symlink_metadata(&self.target).map_err(|error| Failure::io("inspect target root", &self.target, error))?;
+        context.observe(&self.target, Side::Target, Purpose::Remove, &target, None)?;
+        if !matches!(metadata_kind(&self.target, &target)?, Kind::File | Kind::Symlink) {
+            return Err(Failure::invalid("replace root", &self.target, "expected existing target leaf"));
+        }
+        let parent = self.target.parent().expect("bound leaf root has parent");
+        let (permissions, relaxed) = relax(parent)?;
+        let arena = Staging::new(parent, std::iter::once(self.target.file_name().expect("leaf root has name")));
+        let result = (|| {
+            let staged = arena.entry(0, &self.target)?;
+            context.staged_directory(&self.original, &self.target, &staged)
+        })();
+        let result = arena.finish(result, &context);
         finish_permissions(result, parent, permissions, relaxed, true)
     }
 }
@@ -58,9 +89,18 @@ enum Kind {
     Symlink,
 }
 
-fn kind(path: &Path) -> Result<Option<Kind>, Failure> {
+fn inspect<C: Check>(context: &Context<'_, C>, path: &Path, side: Side, purpose: Purpose) -> Result<Option<Observed>, Failure> {
     match fs::symlink_metadata(path) {
-        Ok(metadata) => Ok(Some(metadata_kind(path, &metadata)?)),
+        Ok(metadata) => {
+            let link = if metadata.is_symlink() && side == Side::Original {
+                Some(fs::read_link(path).map_err(|error| Failure::io("read symlink", path, error))?)
+            } else {
+                None
+            };
+            context.observe(path, side, purpose, &metadata, link.as_deref())?;
+            metadata_kind(path, &metadata)?;
+            Ok(Some(Observed { metadata, link }))
+        }
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(Failure::io("inspect entry", path, error)),
     }
@@ -78,9 +118,23 @@ fn metadata_kind(path: &Path, metadata: &Metadata) -> Result<Kind, Failure> {
     }
 }
 
-fn validate_entry(from: &Path, to: &Path, mask: u8) -> Result<(), Failure> {
-    let source = kind(from)?;
-    let target = kind(to)?;
+struct Observed {
+    metadata: Metadata,
+    link: Option<PathBuf>,
+}
+
+struct Validated {
+    source: Option<Observed>,
+    target: Option<Observed>,
+}
+
+fn validate_entry<C: Check>(context: &Context<'_, C>, from: &Path, to: &Path, mask: u8) -> Result<Validated, Failure> {
+    let validated = Validated {
+        source: inspect(context, from, Side::Original, Purpose::Copy)?,
+        target: inspect(context, to, Side::Target, Purpose::Remove)?,
+    };
+    let source = validated.source.as_ref().map(|entry| metadata_kind(from, &entry.metadata)).transpose()?;
+    let target = validated.target.as_ref().map(|entry| metadata_kind(to, &entry.metadata)).transpose()?;
     let leaf = |kind| matches!(kind, Some(Kind::File | Kind::Symlink));
     let source_valid = if mask & ADD_DIR != 0 {
         source == Some(Kind::Directory)
@@ -102,13 +156,16 @@ fn validate_entry(from: &Path, to: &Path, mask: u8) -> Result<(), Failure> {
     if !target_valid {
         return Err(Failure::invalid("validate target entry", to, "entry type does not match record"));
     }
-    Ok(())
+    Ok(validated)
 }
 
-struct Context {
+struct Context<'a, C = NoCheck> {
     policy: CopyPolicy,
     parallel: bool,
     stopped: AtomicBool,
+    original: &'a Path,
+    target: &'a Path,
+    check: &'a C,
 }
 
 // Keep usable descriptors alive through final metadata and rename. A path-only
@@ -119,13 +176,53 @@ struct PreparedLeaf {
     _output: Option<File>,
 }
 
-impl Context {
+impl Context<'static> {
     fn new(policy: CopyPolicy, parallel: bool) -> Self {
+        Self::checked(policy, parallel, Path::new(""), Path::new(""), &NoCheck)
+    }
+}
+
+impl<'a, C: Check> Context<'a, C> {
+    fn checked(policy: CopyPolicy, parallel: bool, original: &'a Path, target: &'a Path, check: &'a C) -> Self {
         Self {
             policy,
             parallel,
             stopped: AtomicBool::new(false),
+            original,
+            target,
+            check,
         }
+    }
+
+    #[inline]
+    fn observe(&self, path: &Path, side: Side, purpose: Purpose, metadata: &Metadata, link_target: Option<&Path>) -> Result<(), Failure> {
+        if C::ENABLED {
+            let root = if side == Side::Original { self.original } else { self.target };
+            Entry {
+                root,
+                relative: path.strip_prefix(root).expect("checked operation stays under bound root"),
+                side,
+                purpose,
+                metadata,
+                link_target,
+            }
+            .check(self.check)
+            .map_err(Failure::checked)?;
+        }
+        Ok(())
+    }
+
+    fn relative(&self, root: &Path, dir: &Path, side: Side, purpose: Purpose) -> Result<PathBuf, Failure> {
+        // Record syntax was validated before any path lookup.
+        let mut path = root.to_path_buf();
+        let metadata = paths::directory(&path)?;
+        self.observe(&path, side, purpose, &metadata, None)?;
+        for component in dir.components() {
+            path.push(component);
+            let metadata = paths::directory(&path)?;
+            self.observe(&path, side, purpose, &metadata, None)?;
+        }
+        Ok(path)
     }
 
     fn batch<T: Sync>(&self, items: &[T], operation: impl Fn(usize, &T) -> Result<Progress, Failure> + Sync) -> Result<Progress, Failure> {
@@ -152,7 +249,22 @@ impl Context {
         merge(items.iter().enumerate().map(run))
     }
 
+    #[cfg(test)]
     fn named(&self, from: &Path, to: &Path, mask: u8, arena: &Staging<'_>, index: usize) -> Result<Progress, Failure> {
+        if mask & ADD_DIR != 0 {
+            if mask & REMOVE_LEAF != 0 {
+                return self.staged_directory(from, to, &arena.entry(index, to)?);
+            }
+            self.copy_directory(from, to)
+        } else if mask & (ADD_LEAF | CHANGED) != 0 {
+            let metadata = fs::symlink_metadata(from).map_err(|error| Failure::io("inspect source leaf", from, error))?;
+            self.copy_leaf_with(from, to, mask & REMOVE_DIR != 0, &metadata, None, &arena.entry(index, to)?)
+        } else {
+            self.remove(to)
+        }
+    }
+
+    fn named_with(&self, from: &Path, to: &Path, mask: u8, arena: &Staging<'_>, index: usize, observed: &Validated) -> Result<Progress, Failure> {
         #[cfg(all(test, feature = "parallel"))]
         tests::observe(to);
         if mask & ADD_DIR != 0 {
@@ -161,11 +273,19 @@ impl Context {
                 // A failed strict reflink must not destroy that leaf.
                 return self.staged_directory(from, to, &arena.entry(index, to)?);
             }
-            self.copy_directory(from, to)
+            self.copy_directory_with(from, to, &observed.source.as_ref().expect("validated source directory").metadata)
         } else if mask & (ADD_LEAF | CHANGED) != 0 {
-            self.copy_leaf(from, to, mask & REMOVE_DIR != 0, &arena.entry(index, to)?)
+            let source = observed.source.as_ref().expect("validated source leaf");
+            self.copy_leaf_with(
+                from,
+                to,
+                mask & REMOVE_DIR != 0,
+                &source.metadata,
+                source.link.as_deref(),
+                &arena.entry(index, to)?,
+            )
         } else {
-            self.remove(to)
+            self.remove_with(to, &observed.target.as_ref().expect("validated target entry").metadata)
         }
     }
 
@@ -175,6 +295,7 @@ impl Context {
     }
 
     fn copy_directory_with(&self, from: &Path, to: &Path, metadata: &Metadata) -> Result<Progress, Failure> {
+        self.observe(from, Side::Original, Purpose::Copy, metadata, None)?;
         fs::create_dir(to).map_err(|error| Failure::io("create directory", to, error))?;
         let created = Progress {
             directories_created: 1,
@@ -192,9 +313,10 @@ impl Context {
                 #[cfg(all(test, feature = "parallel"))]
                 tests::observe(&to);
                 let metadata = fs::symlink_metadata(&from).map_err(|error| Failure::io("inspect source entry", &from, error))?;
-                match metadata_kind(&from, &metadata)? {
-                    Kind::Directory => self.copy_directory_with(&from, &to, &metadata),
-                    _ => self.copy_leaf_with(&from, &to, false, &metadata, &arena.entry(index, &to)?),
+                if metadata.is_dir() {
+                    self.copy_directory_with(&from, &to, &metadata)
+                } else {
+                    self.copy_leaf_with(&from, &to, false, &metadata, None, &arena.entry(index, &to)?)
                 }
             });
             arena.finish(result, self)
@@ -235,19 +357,29 @@ impl Context {
         }
     }
 
-    fn copy_leaf(&self, from: &Path, to: &Path, remove_directory: bool, staged: &Path) -> Result<Progress, Failure> {
-        let metadata = fs::symlink_metadata(from).map_err(|error| Failure::io("inspect source leaf", from, error))?;
-        self.copy_leaf_with(from, to, remove_directory, &metadata, staged)
-    }
-
-    fn copy_leaf_with(&self, from: &Path, to: &Path, remove_directory: bool, metadata: &Metadata, staged: &Path) -> Result<Progress, Failure> {
+    fn copy_leaf_with(
+        &self,
+        from: &Path,
+        to: &Path,
+        remove_directory: bool,
+        metadata: &Metadata,
+        link: Option<&Path>,
+        staged: &Path,
+    ) -> Result<Progress, Failure> {
+        let read_link;
+        let link = if metadata.is_symlink() && link.is_none() {
+            read_link = fs::read_link(from).map_err(|error| Failure::io("read symlink", from, error))?;
+            Some(read_link.as_path())
+        } else {
+            link
+        };
+        self.observe(from, Side::Original, Purpose::Copy, metadata, link)?;
         let kind = metadata_kind(from, metadata)?;
         if kind == Kind::Directory {
             return Err(Failure::invalid("copy leaf", from, "expected a regular file or symlink"));
         }
         let prepared = if kind == Kind::Symlink {
-            let link = fs::read_link(from).map_err(|error| Failure::io("read symlink", from, error))?;
-            platform::symlink(&link, staged, metadata).map_err(|error| Failure::io("prepare symlink", to, error))?;
+            platform::symlink(link.expect("observed symlink text"), staged, metadata).map_err(|error| Failure::io("prepare symlink", to, error))?;
             PreparedLeaf {
                 progress: Progress {
                     symlinks_created: 1,
@@ -352,9 +484,14 @@ impl Context {
 
     fn remove(&self, path: &Path) -> Result<Progress, Failure> {
         let metadata = fs::symlink_metadata(path).map_err(|error| Failure::io("inspect removal", path, error))?;
-        match metadata_kind(path, &metadata)? {
+        self.remove_with(path, &metadata)
+    }
+
+    fn remove_with(&self, path: &Path, metadata: &Metadata) -> Result<Progress, Failure> {
+        self.observe(path, Side::Target, Purpose::Remove, metadata, None)?;
+        match metadata_kind(path, metadata)? {
             Kind::Directory => {
-                let (permissions, relaxed) = relax(path)?;
+                let (permissions, relaxed) = relax_with(path, metadata.permissions())?;
                 let result = (|| {
                     let mut progress = Progress::default();
                     for name in children(path)? {
@@ -392,7 +529,7 @@ impl Context {
                 }
             }
             kind => {
-                platform::remove_leaf(path, &metadata).map_err(|error| Failure::io("remove leaf", path, error))?;
+                platform::remove_leaf(path, metadata).map_err(|error| Failure::io("remove leaf", path, error))?;
                 Ok(if kind == Kind::Symlink {
                     Progress {
                         symlinks_removed: 1,
@@ -499,7 +636,7 @@ impl<'a> Staging<'a> {
         Ok(temporary.as_ref().unwrap().path().join(index.to_string()))
     }
 
-    fn finish(self, result: Result<Progress, Failure>, context: &Context) -> Result<Progress, Failure> {
+    fn finish<C: Check>(self, result: Result<Progress, Failure>, context: &Context<'_, C>) -> Result<Progress, Failure> {
         match self.temporary.into_inner().unwrap() {
             Some(temporary) => {
                 // A stopped sibling can leave a successfully prepared directory
@@ -534,6 +671,10 @@ fn cleanup(temporary: tempfile::TempDir, mut result: Result<Progress, Failure>, 
 
 fn relax(path: &Path) -> Result<(Permissions, bool), Failure> {
     let permissions = paths::directory(path)?.permissions();
+    relax_with(path, permissions)
+}
+
+fn relax_with(path: &Path, permissions: Permissions) -> Result<(Permissions, bool), Failure> {
     let writable = platform::writable(permissions.clone(), true);
     let changed = !platform::same_permissions(&permissions, &writable);
     if changed {

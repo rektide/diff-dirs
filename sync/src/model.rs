@@ -104,12 +104,18 @@ impl Failure {
     }
 
     pub(crate) fn comparison(cause: diff_dirs::Error) -> Self {
-        let path = match &cause {
-            diff_dirs::Error::Io { path, .. } | diff_dirs::Error::NotDirectory { path } | diff_dirs::Error::UnsupportedEntry { path } => path.clone(),
-        };
+        Self::from_check_error("compare", cause)
+    }
+
+    pub(crate) fn checked(cause: diff_dirs::Error) -> Self {
+        Self::from_check_error("check", cause)
+    }
+
+    fn from_check_error(operation: &'static str, cause: diff_dirs::Error) -> Self {
+        let path = cause.path().to_path_buf();
         Self {
             primary: Box::new(Issue {
-                operation: "compare",
+                operation,
                 path,
                 cause: Box::new(cause),
             }),
