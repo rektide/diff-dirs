@@ -595,35 +595,52 @@ mod staging_tests {
     #[test]
     fn cleanup_failure_retains_installations_and_primary_error() {
         let owned = scratch();
+        let source = owned.path().join("source");
+        let missing = owned.path().join("absent-source");
+        fs::write(&source, b"actual installed payload").unwrap();
         for primary in [false, true] {
-            let temporary = tempfile::tempdir_in(owned.path()).unwrap();
-            let path = temporary.path().to_owned();
-            // A proven-empty arena cannot be removed through a readonly parent.
-            fs::set_permissions(owned.path(), Permissions::from_mode(0o500)).unwrap();
+            let target = owned.path().join(if primary { "with-primary" } else { "cleanup-only" });
+            fs::create_dir(&target).unwrap();
+            let names = if primary { &['a', 'b'][..] } else { &['a'][..] };
+            let arena = Staging::new(&target, std::iter::empty());
+            let context = Context::new(CopyPolicy::Copy, false);
+            let result = context.batch(names, |index, name| {
+                context.named(
+                    if index == 0 { &source } else { &missing },
+                    &target.join(name.to_string()),
+                    ADD_LEAF,
+                    &arena,
+                    index,
+                )
+            });
+            let path = arena.temporary.lock().unwrap().as_ref().unwrap().path().to_owned();
+            // Fail arena cleanup AFTER a real installation and an optional
+            // started sibling error, testing both fast and recursive finalizers.
+            fs::set_permissions(&target, Permissions::from_mode(0o500)).unwrap();
             let progress = Progress {
-                files_reflinked: 2,
-                bytes_reflinked: 8192,
+                files_copied: 1,
+                bytes_copied: b"actual installed payload".len() as u64,
                 ..Progress::default()
             };
-            let result = if primary {
-                let mut error = Failure::invalid("original operation", &path, "primary fault");
-                error.completed = progress.clone();
-                Err(error)
-            } else {
-                Ok(progress.clone())
-            };
-            let result = cleanup(temporary, result, true);
-            fs::set_permissions(owned.path(), Permissions::from_mode(0o700)).unwrap();
+            let result = arena.finish(result, &context);
+            fs::set_permissions(&target, Permissions::from_mode(0o700)).unwrap();
+            assert_eq!(fs::read(target.join("a")).unwrap(), b"actual installed payload");
             if let Err(failure) = result {
                 assert_eq!(failure.completed, progress);
                 if primary {
-                    assert_eq!(failure.primary.operation, "original operation");
-                    assert_eq!(failure.secondary.len(), 1);
-                    assert_eq!(failure.secondary[0].operation, "clean private staging directory");
+                    assert_eq!(failure.primary.operation, "inspect source leaf");
+                    if path.exists() {
+                        assert_eq!(failure.secondary.len(), 1);
+                        assert_eq!(failure.secondary[0].operation, "clean private staging directory");
+                    } else {
+                        assert!(File::open("/root").is_ok(), "unprivileged cleanup fault did not fire");
+                    }
                 } else {
                     assert_eq!(failure.primary.operation, "clean private staging directory");
                 }
-                fs::remove_dir(path).unwrap();
+                if path.exists() {
+                    fs::remove_dir(path).unwrap();
+                }
             } else {
                 assert!(File::open("/root").is_ok(), "unprivileged cleanup fault did not fire");
             }
@@ -725,6 +742,11 @@ mod staging_tests {
         let external = tempfile::tempdir_in("/tmp/opencode").unwrap();
         let local = owned.path().join("local");
         fs::write(&local, vec![b'x'; 4097]).unwrap();
+        if let Err(error) = reflink_copy::reflink(&local, owned.path().join("clone-probe")) {
+            assert!(std::env::var_os("DIFF_DIRS_SYNC_REQUIRE_REFLINK").is_none(), "real reflink required: {error}");
+            eprintln!("shared-arena real-clone test unavailable: {error}");
+            return;
+        }
         let remote = external.path().join("remote");
         fs::write(&remote, b"cross-filesystem failure").unwrap();
         let target = owned.path().join("target");
