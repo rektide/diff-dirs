@@ -1,0 +1,4 @@
+command=["python3", "perf/resources.py", "--", "target/frontier-timing/release/examples/perf", "backend-once", "serial", ".test-agent/perf/frontier-wide/original", ".test-agent/perf/frontier-wide/target", "4", "4", "256"]
+scenario,iteration,elapsed_ns,records,examined_directories,files_changed,files_added,files_removed,dirs_added,dirs_removed,pruned,first_record_ns
+serial,0,78874022,0,1,0,0,0,0,0,0,
+{"exit_code": 0, "process_wall_seconds": 0.08276930503780022, "rss_samples": 16, "sampled_child_vmhwm_kib": 14004, "sampling_seconds": 0.005, "system_seconds": 0.056306999999999996, "user_seconds": 0.024131}

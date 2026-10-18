@@ -1,0 +1,4 @@
+command=["python3", "perf/resources.py", "--", "target/frontier-timing/release/examples/perf", "backend-once", "per-frame", "/home/rektide/a/a/opencode/node_modules", "/home/rektide/src/opencode-export-qa/node_modules", "4", "4", "256"]
+scenario,iteration,elapsed_ns,records,examined_directories,files_changed,files_added,files_removed,dirs_added,dirs_removed,pruned,first_record_ns
+per-frame,0,749252341,0,22828,0,0,0,0,0,0,
+{"exit_code": 0, "process_wall_seconds": 0.7508051889599301, "rss_samples": 143, "sampled_child_vmhwm_kib": 4104, "sampling_seconds": 0.005, "system_seconds": 0.6988219999999999, "user_seconds": 0.246643}

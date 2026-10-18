@@ -1,0 +1,4 @@
+root="/home/rektide/a/a/opencode" files=222281 directories=26367 symlinks=9607 specials=0 file_bytes=17693137723 entries=258255
+root="/home/rektide/src/opencode-export-qa" files=180812 directories=25312 symlinks=9604 specials=0 file_bytes=11500520536 entries=215728
+root="/home/rektide/a/a/opencode/node_modules" files=160407 directories=22827 symlinks=8571 specials=0 file_bytes=8291060621 entries=191805
+root="/home/rektide/src/opencode-export-qa/node_modules" files=160407 directories=22827 symlinks=8571 specials=0 file_bytes=8291060621 entries=191805

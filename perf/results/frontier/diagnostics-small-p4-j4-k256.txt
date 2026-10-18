@@ -1,0 +1,24 @@
+command=["target/frontier-instrumented/release/examples/perf", "diagnose", ".test-agent/perf/frontier-small/original", ".test-agent/perf/frontier-small/target", "4", "4", "256"]
+instrumented,0,121159583,0,16252,0,0,0,0,0,0,
+P=4 J=4 K=256 wall_ns=121159583 first_record_ns=None physical=ParallelDiagnostics {
+    epochs: 1,
+    admitted: 16252,
+    completed: 16252,
+    committed: 16252,
+    peak_outstanding: 4,
+    peak_active: 4,
+    peak_speculative: 256,
+    peak_uncommitted: 257,
+    peak_retained_name_bytes: 14056,
+    demand_reserve_uses: 0,
+    speculative_budget_stalls: 3,
+    active_job_nanoseconds: 409059957,
+    drain_nanoseconds: 2100,
+    max_drain_nanoseconds: 2100,
+    worker_ids: {
+        0,
+        1,
+        2,
+        3,
+    },
+}

@@ -375,6 +375,10 @@ explain the ordering, demand reservation, seals, and test evidence. The old
 controls, not measurements of this scheduler. `parallel-bench` exposes a hidden
 temporary predecessor control; `parallel-diagnostics` instruments physical
 jobs separately from committed coverage. Neither is needed for embedding.
+The [frontier measurements](/design/performance/parallel1.sol61x.md) show a
+repeatable live single-root win with explicit P4/J4/K256, but also saturation
+of the conservative default K, root-wide serialization, and CPU/memory/latency
+costs. Limits are caller policy; enabling Rayon alone promises no speedup.
 
 ## Non-goals
 

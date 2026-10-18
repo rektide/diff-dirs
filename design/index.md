@@ -4,8 +4,10 @@ title: diff-dirs design and implementation evidence
 description: Reading paths through consumer fit, I/O research, implementation decisions, and measured performance.
 resource: /design/index.md
 status: maintained
-generated: { by: "model:openai/gpt-6-astra", at: 2026-10-18 }
+generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: "opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg"
+    title: Linked accepted frontier implementation, bounds/liveness verification, and measured single-root scale-out while preserving independent designs and baseline reports
   - resource: "opencode://ses_eb37f1883ffeZ8HgL0aFBFJf4R"
     title: Added the post-handoff bounded-directory-frontier design proposal to the reading path
   - resource: "opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY"
@@ -37,25 +39,36 @@ The [root specification](../README.md) owns the current public contract.
   deterministic output, and the initial multi-head design analysis.
 - [Parent implementation decisions](fit/decisions0.gpt6a.md): the original
   build brief and subsequent generic sync/shared-pool direction. The narrow
-  per-frame scheduling choice is under redesign following live measurements.
+   per-frame scheduling choice is superseded by the accepted frontier below.
 
-## Implemented baseline and measurements
+## Preserved baseline and measurements
 
 - [Implementation account](implementation/implementation0.sol61x.md): generic
   diff state machine, native filenames, summary coverage, CLI, and tests.
 - [Parallel measurements and handoff](performance/parallel0.sol61x.md):
   same-build sequential versus 1/2/4/8-worker results on synthetic and live
-  trees; explicit limitations of current-frame-only concurrency. The separate
+  trees; explicit limitations of predecessor current-frame-only concurrency. The separate
   sync crate is still pending.
 - [Initial performance evidence](performance/performance0.sol61x.md): fixture
   census, live-tree census, environment, and the sequential baseline.
 - [Reproduction commands](../perf/README.md): harness usage and retained raw
   observations.
 
-## Concurrency redesign — proposed for review
+## Directory frontier — accepted design, implemented checkpoint
 
 - [Bounded directory frontier](concurrency/design0.gpt6am.md): separates parallel
   directory inspection from deterministic DFS commitment; specifies explicit
   caller-pool borrowing, divergence seals, demand-reserved admission bounds,
   prefix summaries, joined epochs, and discriminating verification experiments.
-  Revisits the earlier per-frame choice; not implemented or performance-proven.
+  Revisits the earlier per-frame choice. The independent proposal retains its
+  original standing; parent acceptance and implementation evidence are recorded
+  in the maintained specification and accounts below.
+- [Frontier implementation](implementation/implementation1.sol61x.md): borrowed
+  pools, reusable arena, global J/K admission, reserved demand, divergence seals,
+  prefix-only summaries, completion permutations, lifecycle, and apply tests.
+- [Frontier measurements](performance/parallel1.sol61x.md): interleaved controls
+  on actual live roots and small/skewed/dense/wide fixtures; physical concurrency,
+  budget saturation, CPU, sampled RSS, first-record/drain costs, and default-policy
+  review choices. Includes a repeatable many-small-directory single-root win.
+- [Raw frontier observations](../perf/results/frontier/README.md): all 495 timing
+  observations plus separate physical diagnostics, resources, and fresh census.

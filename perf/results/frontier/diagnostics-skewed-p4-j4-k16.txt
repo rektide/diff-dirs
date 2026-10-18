@@ -1,0 +1,24 @@
+command=["target/frontier-instrumented/release/examples/perf", "diagnose", ".test-agent/perf/frontier-skewed/original", ".test-agent/perf/frontier-skewed/target", "4", "4", "16"]
+instrumented,0,62739576,0,8130,0,0,0,0,0,0,
+P=4 J=4 K=16 wall_ns=62739576 first_record_ns=None physical=ParallelDiagnostics {
+    epochs: 1,
+    admitted: 8130,
+    completed: 8130,
+    committed: 8130,
+    peak_outstanding: 4,
+    peak_active: 4,
+    peak_speculative: 16,
+    peak_uncommitted: 17,
+    peak_retained_name_bytes: 4091,
+    demand_reserve_uses: 0,
+    speculative_budget_stalls: 274,
+    active_job_nanoseconds: 200969843,
+    drain_nanoseconds: 760,
+    max_drain_nanoseconds: 760,
+    worker_ids: {
+        0,
+        1,
+        2,
+        3,
+    },
+}

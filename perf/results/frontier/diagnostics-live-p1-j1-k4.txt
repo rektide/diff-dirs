@@ -1,0 +1,21 @@
+command=["target/frontier-instrumented/release/examples/perf", "diagnose", "/home/rektide/a/a/opencode/node_modules", "/home/rektide/src/opencode-export-qa/node_modules", "1", "1", "4"]
+instrumented,0,837795566,0,22828,0,0,0,0,0,0,
+P=1 J=1 K=4 wall_ns=837795566 first_record_ns=None physical=ParallelDiagnostics {
+    epochs: 1,
+    admitted: 22828,
+    completed: 22828,
+    committed: 22828,
+    peak_outstanding: 1,
+    peak_active: 1,
+    peak_speculative: 0,
+    peak_uncommitted: 1,
+    peak_retained_name_bytes: 72027,
+    demand_reserve_uses: 0,
+    speculative_budget_stalls: 0,
+    active_job_nanoseconds: 815756208,
+    drain_nanoseconds: 1190,
+    max_drain_nanoseconds: 1190,
+    worker_ids: {
+        0,
+    },
+}

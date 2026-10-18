@@ -3,11 +3,11 @@ type: ImplementationAccount
 title: Joined directory frontier with ordered prefix commitment
 description: Implementation of the accepted bounded J/K scheduler, reusable arena, reserved demand, speculative divergence seals, borrowed pool API, and discriminating correctness experiments.
 resource: /design/implementation/implementation1.sol61x.md
-status: implemented-awaiting-measurement
+status: implemented-verified-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
-    title: Resumed after accepted Astra design; extracted inspection kernel and implemented/reviewed bounded completion-driven frontier, explicit borrowed sharing, prefix reducer, and correctness experiments
+    title: Resumed after accepted Astra design; implemented and verified bounded frontier/pool/prefix contracts, then measured actual single-root scale-out, budget limits, and costs
   - resource: /design/concurrency/design0.gpt6am.md
     title: Parent-accepted design and correctness/measurement gates
   - resource: /README.md
@@ -117,11 +117,30 @@ to run against the ambient frontier as well as serial mode. New experiments:
   target subtree, then use the cached sibling. Early drop starts no new work.
 - **Pools:** P=1/2/4 and K=0/1/4P, outside/inside same pool, same-pool concurrent
   walkers through nested join, and cross-pool invocation all progress and match
-  serial output. No application locks are held by these tests.
+  serial output. Explicit queued budgets above P (including P1/J3) also progress.
+  No application locks are held by these tests.
 - **Apply:** test-side unlink/create and subtree copy across all six kind
   transitions, literal links, non-UTF-8 names, and a nested changed file; the
   next explicit-pool walk is clean. No mutation of supplied live roots occurs.
 
-Performance is the next checkpoint, not inferred from the successful gates.
-Dense seals, bounded lookahead saturation, root-wide listings, mutex/spawn cost,
-and filesystem contention remain concrete possible throughput limits.
+## Verified and measured checkpoint
+
+Final checks passed: 53 all-feature tests (also on actual Rust 1.88), 33 default
+tests, default/all-feature clippy with `-D warnings`, formatting, and two compiled
+all-feature doctests. Added checks distinguish a real K admission stall from a
+fully occupied J budget, include late drained sibling names in physical memory
+diagnostics without committing their coverage, and preserve component DFS order
+where flat encoded full-path sorting would differ. Default dependency tree is
+still empty beyond diff-dirs itself; no Windows/macOS test execution is claimed.
+One-sided subtrees and symlink-to-directory leaves containing unsupported socket
+descendants are also explicitly tested as opaque: they expose no child jobs.
+
+The [frontier measurement report](/design/performance/parallel1.sol61x.md) and
+[raw observations](/perf/results/frontier/README.md) establish actual single-root
+scale-out rather than inferring it from pool installation. Final live P4/J4/K256
+median was 247 ms versus 723 ms serial; conservative K=4P often saturates this
+topology and is not the fastest measured policy. Wide-root comparison remains
+one serial directory job and loses to the old per-frame control. The report
+preserves CPU, sampled RSS, first-record, scope-drain, dense, and skewed costs.
+Default tuning and any future shared-budget wide-entry chunks remain for parent
+architectural review; sync remains the next distinct slice, not implemented here.

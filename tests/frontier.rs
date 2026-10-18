@@ -39,6 +39,14 @@ fn explicit_pool_outside_inside_nested_and_concurrent_walks_progress() {
             assert_eq!(a, expected);
             assert_eq!(b, expected);
         }
+        // Queued work may exceed available workers; in particular P=1/J=3
+        // must not turn admission into a worker waiting on a producer/token.
+        let queued = pool.install(|| {
+            let mut walk = walk_in_pool(&f.original, &f.target, &pool, limits(2 * p + 1, 4 * p)).unwrap();
+            let records = walk.by_ref().collect::<Result<Vec<_>, _>>().unwrap();
+            (records, walk.into_summary())
+        });
+        assert_eq!(queued, expected);
         let outer = rayon::ThreadPoolBuilder::new().num_threads(1).build().unwrap();
         assert_eq!(outer.install(|| gather(&f, &pool, 4 * p)), expected);
     }
@@ -62,6 +70,23 @@ fn summaries_after_each_early_stop_equal_the_serial_prefix_not_lookahead() {
     }
 }
 
+#[test]
+fn component_dfs_order_is_not_flat_encoded_full_path_sorting() {
+    let f = Fixture::new();
+    for dir in ["a/z", "a-b", "a0"] {
+        f.both_dir(dir);
+        file(&f.original.join(dir).join("new"), b"");
+    }
+    let pool = rayon::ThreadPoolBuilder::new().num_threads(4).build().unwrap();
+    for k in [0, 1, 16] {
+        let (records, _) = gather(&f, &pool, k);
+        assert_eq!(
+            records.iter().map(|record| record.dir.as_path()).collect::<Vec<_>>(),
+            [Path::new("a/z"), Path::new("a-b"), Path::new("a0")]
+        );
+    }
+}
+
 #[cfg(unix)]
 #[test]
 fn earlier_dfs_error_wins_and_later_speculative_errors_do_not_leak_into_prefix() {
@@ -82,6 +107,30 @@ fn earlier_dfs_error_wins_and_later_speculative_errors_do_not_leak_into_prefix()
     assert!(parallel.next().is_none());
     assert!(!parallel.prune_here());
     assert_eq!(serial.into_summary(), parallel.into_summary());
+}
+
+#[cfg(unix)]
+#[test]
+fn opaque_subtrees_and_symlink_directories_do_not_expose_special_descendants() {
+    use std::os::unix::fs::symlink;
+    use std::os::unix::net::UnixListener;
+    let f = Fixture::new();
+    fs::create_dir_all(f.original.join("source-tree/deep")).unwrap();
+    fs::create_dir_all(f.target.join("target-tree/deep")).unwrap();
+    fs::create_dir(f.root.join("outside")).unwrap();
+    let _a = UnixListener::bind(f.original.join("source-tree/deep/socket")).unwrap();
+    let _b = UnixListener::bind(f.target.join("target-tree/deep/socket")).unwrap();
+    let _outside = UnixListener::bind(f.root.join("outside/socket")).unwrap();
+    for root in [&f.original, &f.target] {
+        symlink("../outside", root.join("directory-link")).unwrap();
+    }
+    let pool = rayon::ThreadPoolBuilder::new().num_threads(4).build().unwrap();
+    let (records, summary) = gather(&f, &pool, 16);
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].dirs.added, [std::ffi::OsString::from("source-tree")]);
+    assert_eq!(records[0].dirs.removed, [std::ffi::OsString::from("target-tree")]);
+    assert_eq!(summary.examined_directories, 1);
+    assert!(f.root.join("outside/socket").exists());
 }
 
 #[cfg(unix)]

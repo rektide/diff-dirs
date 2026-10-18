@@ -1,0 +1,24 @@
+command=["target/frontier-instrumented/release/examples/perf", "diagnose", "/home/rektide/a/a/opencode", "/home/rektide/src/opencode-export-qa", "4", "4", "256"]
+instrumented,0,291153149,132,25243,524,1123,126,36,7,0,366159
+P=4 J=4 K=256 wall_ns=291153149 first_record_ns=Some(366159) physical=ParallelDiagnostics {
+    epochs: 133,
+    admitted: 25243,
+    completed: 25243,
+    committed: 25243,
+    peak_outstanding: 4,
+    peak_active: 4,
+    peak_speculative: 256,
+    peak_uncommitted: 257,
+    peak_retained_name_bytes: 79581,
+    demand_reserve_uses: 158,
+    speculative_budget_stalls: 173,
+    active_job_nanoseconds: 954496216,
+    drain_nanoseconds: 23499290,
+    max_drain_nanoseconds: 7676414,
+    worker_ids: {
+        0,
+        1,
+        2,
+        3,
+    },
+}
