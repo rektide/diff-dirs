@@ -26,6 +26,8 @@ pub struct ParallelDiagnostics {
     pub peak_uncommitted: usize,
     pub peak_retained_name_bytes: usize,
     pub demand_reserve_uses: u64,
+    /// Admission observations with a free J slot and an eligible child, but K
+    /// full. Counts opportunities, not distinct intervals or stalled time.
     pub speculative_budget_stalls: u64,
     pub active_job_nanoseconds: u128,
     pub drain_nanoseconds: u128,
@@ -542,7 +544,11 @@ impl Frontier {
 
     #[cfg(any(test, feature = "parallel-diagnostics"))]
     fn sample_diagnostics(&mut self) {
-        if self.stop == Stop::Running && self.speculative == self.limits.max_speculative_directories && self.candidate().is_some() {
+        if self.stop == Stop::Running
+            && self.outstanding < self.limits.max_directory_jobs.get()
+            && self.speculative == self.limits.max_speculative_directories
+            && self.candidate().is_some()
+        {
             self.stats.speculative_budget_stalls += 1;
         }
         let mut bytes = self

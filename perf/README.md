@@ -178,6 +178,10 @@ demand-reserve use, budget-stall events, cumulative active-job duration, and
 epoch drain duration. Active jobs span inspection through completion publication;
 they are not a kernel-syscall overlap profiler. Dividing their cumulative duration
 by instrumented wall time gives mean active-job occupancy, not CPU utilization.
+Budget-stall counts require an available J slot and eligible child blocked by
+full K; they are admission observations, not time or distinct stalled intervals.
+Drain measures ordered stop selection through scope join, not just filesystem
+tail time (and excludes the final outer `install` return to its caller).
 Retained-name bytes count paths/child basenames in scheduler state, **not** raw
 listing allocations, diff records, allocator overhead, or whole process RSS.
 Instrumentation itself adds work and is never substituted for timing samples.

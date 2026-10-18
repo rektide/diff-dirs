@@ -212,6 +212,22 @@ fn drained_sibling_names_count_as_private_memory_but_not_public_coverage() {
 }
 
 #[test]
+fn budget_stall_counter_requires_free_job_capacity_not_just_full_k() {
+    let mut state = Frontier::new(limits(2, 1));
+    state.begin_epoch();
+    let root = state.pump().pop().unwrap();
+    state.start(root.id);
+    let mut jobs = state.complete(root.id, Ok(pair(Path::new(""), &["a", "b", "c"], false)));
+    assert_eq!(state.stats.speculative_budget_stalls, 0); // J is fully reserved
+    let b = jobs.pop().unwrap();
+    state.start(b.id);
+    assert!(state.complete(b.id, Ok(pair(&b.dir, &[], false))).is_empty());
+    assert_eq!(state.outstanding, 1);
+    assert_eq!(state.speculative, 1);
+    assert_eq!(state.stats.speculative_budget_stalls, 1); // J free, eligible c, K full
+}
+
+#[test]
 fn k_zero_and_reclaimed_arena_do_not_accumulate_finished_tree_nodes() {
     for k in [0, 1, 8] {
         let mut state = Frontier::new(limits(4, k));
