@@ -1,5 +1,6 @@
 //! Explicit filesystem synchronization; see the crate README for the stable-tree
 //! safety model, metadata contract, partial failures, and caller-pool execution.
+#![doc = include_str!("../README.md")]
 
 mod apply;
 mod model;

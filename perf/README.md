@@ -6,6 +6,8 @@ resource: /perf/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb3033c79ffeRIkn14uSNhs7O6
+    title: Added separate marked-owned-fixture synchronization benchmark method and retained copy/reflink/no-op/delta measurements without changing read-only live comparison commands
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
     title: Built reproducible fixtures/live tests, then same-build serial/per-frame/frontier comparisons, interleaved repeats, physical diagnostics, and process resource sampling
   - resource: /examples/perf.rs
@@ -218,3 +220,30 @@ VmHWM observed at 5ms intervals. That RSS measure excludes the Python parent's
 memory but may miss a peak confined to the final sampling gap; it is explicitly
 sampled, not a strict allocator or peak-memory bound. Resource observations are
 separate from the interleaved timing matrix.
+
+## Filesystem synchronization — separate owned-fixture harness
+
+The `sync/` consumer has its own `sync_perf` example; it is **mutating**, unlike
+the arbitrary-pair read-only commands above. It accepts only a freshly generated
+marked fixture for benchmark runs and never offers an arbitrary-root sync mode.
+
+```sh
+cargo +1.88.0 build --release -p diff-dirs-sync --example sync_perf --features parallel --target-dir target/sync-perf
+mkdir -p .test-agent/sync
+target/sync-perf/release/examples/sync_perf setup .test-agent/sync/btrfs-30k-new 300 100
+target/sync-perf/release/examples/sync_perf run .test-agent/sync/btrfs-30k-new 3
+```
+
+Setup refuses an existing root. Its 30,000 × 4 KiB files are **nonempty**;
+setup/scenario edits/private-target cleanup and complete post-sync verification
+are outside timing. Each configuration initializes a fresh owned target, then
+runs clean sync, diff-only control, sparse delta, and subtree delta. Four
+serial/P4 × Copy/Required-reflink configurations rotate across repetitions after
+one warmup each. The pool is caller-owned with explicit J4/K256. All reports
+separate observed immediate diff counts from completed recursive operations and
+logical copied/cloned bytes. No live tree or jj-waltz mutation is involved.
+
+See [measured sync results](/design/performance/sync0.sol61x.md) and the
+[60-observation bundle](/perf/results/sync/README.md) for raw data, exact commands,
+environment, operation counts, and limits. These do not replace the preserved
+read-only frontier measurements or establish end-to-end consumer speedup.

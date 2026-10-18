@@ -6,6 +6,8 @@ resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb3033c79ffeRIkn14uSNhs7O6
+    title: Implemented the optional filesystem synchronization crate and documented staged replacement, copy policy, partial progress, and borrowed-pool application without changing the read-only core
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
     title: Implemented generic comparison/CLI and measured baselines, then implemented accepted borrowed-pool directory-frontier concurrency with sealed decisions and committed-prefix summaries
   - resource: /design/fit/fit0.glm53m.md
@@ -34,8 +36,9 @@ and code disagree, the README wins until deliberately revised.
 - It does not reconcile by itself. It produces precise, ordered, deterministic
   differences; the caller's loop applies policy.
 - Actual copy/sync procedures belong in a **separate optional crate**, not the
-  diff core. That component is authorized but not yet implemented; no sync API
-  is promised here.
+  diff core. [`diff-dirs-sync`](sync/README.md) now supplies root-bound record
+  application and mirror convenience operations, with explicit ordinary-copy,
+  required-reflink, or fallback policy. It is a consumer, never a core dependency.
 
 Historical motivation inherited with the original spec (Linux/btrfs, warm
 cache, 192k-entry `node_modules`): ~0.24s single-tree enumeration, ~1–2s
@@ -300,15 +303,32 @@ minimum; embedding does not require a runtime, CLI dependencies, or sync
 component. Optional `parallel` adds Rayon; `walk()` remains sequential even
 when the feature is compiled in.
 The separate `cli/` workspace member owns standalone rendering dependencies.
+The separate `sync/` member owns optional filesystem mutation and its dependencies.
 Path dependency vs vendoring vs publishing remains an integration decision.
 
 jj-waltz is a prospective consumer, not changed by this library implementation.
 Its integration must preserve selected payload roots through earlier cleanup
 before an incremental final payload loop can help; changing only that final
-loop does not establish end-to-end benefit. Missing target roots still need
-whole-root handling. Copy/create-new APIs may require unlinking a changed leaf
-first; deletions precede copies, and copying preserves mtimes. Confinement,
-mode policy, reflinks, and final verification remain the consumer's concerns.
+loop does not establish end-to-end benefit. The optional sync crate handles
+absent-target initialization, exact deletions, type transitions, staged
+leaf replacement, copied permissions/mtime, and caller-pool application. It adds
+no jj-waltz integration or CLI mutation mode. Confinement, alias stability,
+repository-specific policy, and final verification remain consumer concerns.
+
+### Optional filesystem synchronization
+
+```rust,ignore
+let report = diff_dirs_sync::mirror(original, target,
+                                    diff_dirs_sync::CopyPolicy::ReflinkRequired)?;
+// Or bind Applier once and apply each DirDiff in the caller's existing loop.
+```
+
+[`sync/README.md`](sync/README.md) owns the API and safety contract, including
+borrowed Rayon pools, whole-subtree operations, read-only-directory handling,
+exact supported timestamps, and joined partial failures. Mirror includes
+target-only deletion; it is not an unconditional metadata-repair sweep or a
+whole-tree transaction. Clean repeat synchronization performs zero writes.
+Observed diff counts remain distinct from completed recursive filesystem work.
 
 ### Optional shared-pool parallel execution
 
@@ -382,7 +402,7 @@ costs. Limits are caller policy; enabling Rayon alone promises no speedup.
 
 ## Non-goals
 
-- No mutation, no rename detection (a rename is add+remove), no ignore-rule
+- No mutation **in the diff core**, no rename detection (a rename is add+remove), no ignore-rule
   handling (compare exactly the roots given), no content hashing.
 
 Settled during spec review (recorded so they don't resurface as questions):
