@@ -454,6 +454,8 @@ impl Frontier {
 
     fn pump(&mut self) -> Vec<Job> {
         if self.stop != Stop::Running {
+            #[cfg(any(test, feature = "parallel-diagnostics"))]
+            self.sample_diagnostics();
             return Vec::new();
         }
         self.reduce();

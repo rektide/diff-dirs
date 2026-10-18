@@ -189,6 +189,29 @@ fn ready_later_sibling_saturates_k_but_cannot_steal_demand_slot() {
 }
 
 #[test]
+fn drained_sibling_names_count_as_private_memory_but_not_public_coverage() {
+    let mut state = Frontier::new(limits(2, 1));
+    state.begin_epoch();
+    let root = state.pump().pop().unwrap();
+    state.start(root.id);
+    let mut jobs = state.complete(root.id, Ok(pair(Path::new(""), &["a", "z"], false)));
+    let z = jobs.pop().unwrap();
+    let a = jobs.pop().unwrap();
+    state.start(z.id);
+    state.start(a.id);
+    assert!(state.complete(a.id, Ok(pair(&a.dir, &[], true))).is_empty());
+    assert_eq!(state.stop, Stop::Yield);
+    let names = (0..100).map(|i| format!("late-child-{i:03}")).collect::<Vec<_>>();
+    assert!(
+        state
+            .complete(z.id, Ok(pair(&z.dir, &names.iter().map(String::as_str).collect::<Vec<_>>(), false)))
+            .is_empty()
+    );
+    assert!(state.stats.peak_retained_name_bytes >= names.iter().map(String::len).sum::<usize>());
+    assert_eq!(state.into_summary().examined_directories, 2);
+}
+
+#[test]
 fn k_zero_and_reclaimed_arena_do_not_accumulate_finished_tree_nodes() {
     for k in [0, 1, 8] {
         let mut state = Frontier::new(limits(4, k));

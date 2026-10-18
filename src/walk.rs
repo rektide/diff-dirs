@@ -26,7 +26,8 @@ pub fn walk_with_options(original: impl AsRef<Path>, target: impl AsRef<Path>, o
     })
 }
 
-/// Paired DFS retaining pending child names on the active descent plus summary.
+/// Deterministic pull walk. Sequential by default; optional ambient frontier
+/// execution also retains count-bounded private lookahead.
 #[derive(Debug)]
 pub struct Walk {
     roots: Roots,

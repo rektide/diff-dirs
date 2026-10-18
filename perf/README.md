@@ -1,13 +1,13 @@
 ---
 type: PerformanceMethod
-title: Reproducible metadata-shape walk harness
-description: Separately generated synthetic trees and warmed in-process release walks with clean, sparse, one-sided, and explicitly pruned scenarios.
+title: Reproducible directory-walk and frontier harness
+description: Separately generated trees, strictly read-only live comparisons, same-build interleaved controls, and separate physical scheduler diagnostics.
 resource: /perf/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
-    title: Built reproducible fixtures, release-walk timing, read-only live commands, shared-pool matrix, and syscall auditing
+    title: Built reproducible fixtures/live tests, then same-build serial/per-frame/frontier comparisons, interleaved repeats, physical diagnostics, and process resource sampling
   - resource: /examples/perf.rs
     title: Executable fixture setup, scenarios, validation, and timing boundaries
   - resource: /README.md
@@ -16,12 +16,13 @@ sources:
     title: Initial request for warmed 30k and roughly 192k representative cases
 ---
 
-# Metadata-shape walk harness
+# Directory-walk harness
 
 This measures the generic comparison library, **not copy/sync or jj-waltz**.
-It does not reproduce the historical 8 GB `node_modules` tree. Payload files
-are empty; only metadata shape, native syscall cost, and symlink handling are
-representative. All setup and scenario mutation are outside timing intervals.
+Owned metadata-shape fixtures do not reproduce the historical 8 GB workload.
+Their payloads are empty except the tiny deliberately dense size differences.
+Actual supplied live trees are a separate, explicitly labeled read-only scope.
+All setup and scenario mutation are outside timing intervals.
 
 ## Reproduce
 
@@ -64,7 +65,9 @@ Every scenario gets one full untimed warmup, followed by `N` timed observations
 in the same process. Timing begins before root validation and ends after normal
 iterator exhaustion and `into_summary()`. Output formatting and assertion of
 expected results happen after the timer stops. CSV records raw nanoseconds,
-records yielded, examined directory pairs, entry counts, and prunes.
+records yielded, committed directory pairs, entry counts, prunes, and (in new
+observations) first-record latency. Blank first-record latency means no record,
+not zero latency.
 
 - **clean:** identical fixture trees; all paired directories examined, no records.
 - **sparse:** target has one changed-size leaf, original has one added leaf,
@@ -132,3 +135,82 @@ It emits raw per-command CSV/stderr plus a consolidated `combined.csv`.
 Report with `python3 perf/report.py perf/results/parallel.csv`.
 The [parallel report](/design/performance/parallel0.sol61x.md) preserves actual
 results, counts, scheduling limits, and the selected default policy.
+
+**Revision note:** that retained 150-observation report used the old per-frame
+backend at its recorded revision/hash. `Execution::Parallel` and the `parallel`
+harness prefix now use the accepted directory frontier. The explicit controls
+below reproduce the predecessor alongside the new scheduler in one build.
+
+## Joined frontier versus retained controls
+
+Build timing and instrumented executables separately. Do not use an all-features
+instrumented binary for the timing table:
+
+```sh
+cargo +1.88.0 build --release --example perf --features parallel-bench --target-dir target/frontier-timing
+cargo +1.88.0 build --release --example perf --features parallel-diagnostics --target-dir target/frontier-instrumented
+target/frontier-timing/release/examples/perf compare /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 4 5 4 256 live-node
+target/frontier-instrumented/release/examples/perf diagnose /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 4 4 256
+```
+
+`compare ORIGINAL TARGET P N J K [LABEL]` is always **read-only**. It builds one
+caller pool before timing, checks complete record vectors and summaries across
+serial/per-frame/frontier outside timing, then warms each once. It rotates
+backend order each iteration rather than timing one backend's entire group
+first. Timing includes root validation, all `next()`/pool-install operations,
+and summary consumption; printing/parity checks are excluded. The public
+borrowed-pool API drives frontier, while per-frame uses the retained hidden
+measurement control. No output is gathered during a timed walk.
+
+`perf/frontier.py` invokes these comparisons on explicit labeled pairs and
+P:J:K configurations, preserving raw CSV/stderr and a combined CSV. It alternates
+pair order between configurations; each subprocess still rotates backend order.
+For example, append multiple `--pair` and `--config` arguments:
+
+```sh
+python3 perf/frontier.py --binary target/frontier-timing/release/examples/perf --pair live-node /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules --config 2:2:8 --config 4:4:16 --config 4:4:256 --output .test-agent/perf/frontier-matrix -n 5
+```
+
+`diagnose ORIGINAL TARGET P J K` performs a separate instrumented frontier walk,
+reporting admitted/completed/committed work, queued+running/active high-water
+jobs, speculative and total private node high-water counts, worker IDs,
+demand-reserve use, budget-stall events, cumulative active-job duration, and
+epoch drain duration. Active jobs span inspection through completion publication;
+they are not a kernel-syscall overlap profiler. Dividing their cumulative duration
+by instrumented wall time gives mean active-job occupancy, not CPU utilization.
+Retained-name bytes count paths/child basenames in scheduler state, **not** raw
+listing allocations, diff records, allocator overhead, or whole process RSS.
+Instrumentation itself adds work and is never substituted for timing samples.
+
+## Owned topology fixtures and process resources
+
+```sh
+target/frontier-timing/release/examples/perf shape .test-agent/perf/frontier-small small 16000
+target/frontier-timing/release/examples/perf shape .test-agent/perf/frontier-skewed skewed 8000
+target/frontier-timing/release/examples/perf shape .test-agent/perf/frontier-dense dense 4000
+target/frontier-timing/release/examples/perf shape .test-agent/perf/frontier-wide wide 30000
+```
+
+Only `shape ROOT KIND COUNT` creates these fixtures and requires a nonexistent
+owned root. `small` groups 64 leaf directories per parent, each with two empty
+files (below the previous metadata cutoff). `skewed` puts that tree under the
+first `a` branch with three tiny sibling directories. `dense` makes one source
+file per leaf one byte larger, yielding a record at every leaf. `wide` has only
+COUNT immediate regular files and no child directories: directory-only
+parallelism has no fanout to exploit. `compare` thereafter changes none of them.
+The command prints an independent census for both sides after setup.
+
+For a separate process-resource observation, use one backend without the
+outside-timing whole-record parity collector:
+
+```sh
+python3 perf/resources.py -- target/frontier-timing/release/examples/perf backend-once frontier /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 4 4 256
+```
+
+`backend-once serial|per-frame|frontier ORIGINAL TARGET P J K` builds its pool
+outside the internal timer and compares read-only once. The Linux helper emits
+exact child CPU accounting including startup, plus the largest child `/proc`
+VmHWM observed at 5ms intervals. That RSS measure excludes the Python parent's
+memory but may miss a peak confined to the final sampling gap; it is explicitly
+sampled, not a strict allocator or peak-memory bound. Resource observations are
+separate from the interleaved timing matrix.
