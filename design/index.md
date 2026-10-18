@@ -53,7 +53,7 @@ The [root specification](../README.md) owns the current public contract.
   stream. Posed for deliberation, not ratified.
 - [Inline inspection policy](fit/policy0.gpt6a.md): independent Astra proposal —
   a constrained directory prefilter shared by comparison and recursive sync,
-  pre-admission parallel placement, explicit mount facts, frozen/batched ignore
+  pre-admission parallel placement, batch mount-topology front guards, frozen/batched ignore
   proofs in jw, and alternatives for strict preflight, caller-owned cursors,
   uniform tree execution, and source-to-many streaming. Includes a linked
   jj-waltz call-site map; proposed, not an amendment to the active specification.

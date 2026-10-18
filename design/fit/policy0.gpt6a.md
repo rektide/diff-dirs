@@ -7,7 +7,9 @@ status: proposed
 generated: { by: "model:openai/gpt-6-astra", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
-    title: Independently designed the shared inspection gate and caller integration after tracing both repositories; compared alternatives and failure semantics
+    title: Designed the shared inspection gate, then revised mount handling to batch topology preflight and operation-time reflink failure following human performance direction
+  - resource: "https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html"
+    title: Verified namespace-local mount records, bind roots, parent IDs, stacked mounts, and process-root-relative paths
   - resource: /design/fit/policy0.glm53m.md
     title: Commissioned starting inquiry and prefilter alternative
   - resource: /design/fit/handoff0.glm53m.md
@@ -53,8 +55,10 @@ from that view. It does not freely rewrite a `DirDiff`.
 
 On the jj-waltz side, separately create one immutable **selection context** for
 the command: frozen ignore inputs, tracked membership, selected roots, and target
-scope. Native ignore queries become batched or session-based. Payload interiors
-then use the shared gate rather than independent validation traversals.
+scope. Native ignore queries become batched or session-based. **Check mount topology
+up front from the process mount table, not per entry.** Payload interiors then
+use the shared gate for cheap name/type checks rather than independent validation
+traversals. Actual reflink errors surface during copying.
 
 The important extension beyond a walker hook is **guarded recursive copy and
 removal**. Without it, the most dangerous paths still bypass the policy.
@@ -87,7 +91,7 @@ coordinates, not claims about future integration branches.
 | `pair.rs::one_sided` reports a directory as one opaque name. | A walk-only gate cannot inspect `new-package/deep/.git` or `obsolete-package/deep/mount`. |
 | `sync::Context::{copy_directory_with,remove}` recursively visits those opaque units. | Put the same inspection contract here; initialization and type transitions must use it too. |
 | `frontier.rs::children` permits descendants of a ready, clean speculative node. | A filter run only at ordered commitment is too late to prevent speculative descent. |
-| `cow::validate_same_mount` repeats parent/child metadata and Linux mount-ID calls. | Sharing ordinary stat data helps, but mount IDs require an explicit inspection capability. |
+| `cow::validate_same_mount` repeats parent/child metadata and Linux mount-ID calls. | Replace this per-entry work with a batch mount-topology front guard; it does not belong in the default gate. |
 | `engine.rs::validate_source` reconstructs ignore rules repeatedly. | Reusing frozen semantic facts is a different optimization from combining filesystem walks. |
 | `execute` removes selected roots both before and during final payload copying. | Preserve those roots through tracked refill before expecting incremental sync to help. |
 
@@ -116,6 +120,8 @@ Keep repository meaning here:
 - root eligibility under both source and desired policies, tracked disjointness,
   and configured-link disjointness;
 - the paths that tracked clearing/materialization can actually touch.
+- a mount-topology assessment covering source traversal and target mutation
+  footprints, including selected roots and ordinary tracked refill.
 
 Share equal contexts across targets. Source policy and desired-target policy are
 not necessarily equal: `--at` may choose a different tree, and effective excludes
@@ -137,7 +143,6 @@ struct EntryFacts<'a> {
     kind: EntryKind,                    // includes unsupported kinds for refusal
     metadata: &'a Metadata,
     link_target: Option<&'a OsStr>,     // literal; never followed
-    mount: Option<MountId>,            // present only when requested/available
 }
 
 struct NamePair<'a> {
@@ -202,8 +207,9 @@ small, execution-only `WalkOptions` a generic policy container.
   version promises no descent below preserved entries, not zero stat calls on
   their root names. A pre-stat name filter is a separate, measurable extension.
 
-jj-waltz's payload gate should **refuse**, not preserve, nested `.git`/`.jj`,
-unsupported special entries, and mounted boundaries. At the workspace orchestration
+jj-waltz's payload gate should **refuse**, not preserve, nested `.git`/`.jj` and
+unsupported special entries. Mounted boundaries are rejected by the batch front
+guard described below. At the workspace orchestration
 level it deliberately leaves `.jj` and authorized donor `.git` to their owners.
 Those are different scopes; do not install a universal “ignore admin names” rule.
 
@@ -250,29 +256,94 @@ The first usable jw integration can expose an accept/refuse guarded sync and
 reserve pair-preservation for read-only comparison and explicit scope partitioning.
 That is a coherent smaller implementation, not an exclusion hole.
 
-### Observation requirements and mount checking
+### Mount topology belongs in the front guard
 
-The caller requests facts, rather than issuing fresh path queries in its gate.
-For jw: kinds, basic metadata, literal link text for source warnings, and Linux
-mount identity. Parent facts are carried down, not re-read for every child.
+**Revised after human direction:** the first version proposed per-entry mount-ID
+observations. That spends hot-loop work on a condition the operating system can
+describe globally. Prefer one `/proc/self/mountinfo` read per batch, before recursive
+selection/inspection and destructive work, once workspace roots are bound. Check
+all selected workspace footprints against that in-memory topology. This covers
+root discovery too; do not retain a mount syscall on every glob candidate.
 
-Initially, obtain mount IDs with a no-follow `statx` supplement and reuse ordinary
-metadata already collected. Later test a Linux inspection backend requesting
-basic fields and `STATX_MNT_ID` together, so one syscall supplies both. Verify
-returned masks, timestamp precision and symlink semantics; the optimization is
-not established merely by choosing `statx`.
+On Linux, mountinfo describes the current process's mount namespace, including
+same-device bind mounts, mount IDs/parents, mount points, and each mount's root
+within its filesystem. Use it rather than `st_dev` equality or parsing `mount`
+command output. A front guard can:
 
-Compare each present side to its own authorized parent/root mount. Source and
-target need not have equal mount IDs. Check regular files too: a bind-mounted
-file is a boundary. Never inspect a symlink's referent. Explicitly document the
-existing symlink exception if retaining it; `cow::validate_directory` currently
-continues before mount checking symlink leaves.
+1. Bind existing workspace roots and their identities using current confinement
+   checks. Missing payload roots are located under a verified existing ancestor;
+   symlink leaves remain leaves.
+2. Parse the namespace mount table once. Decode escaped path bytes (spaces, tabs,
+   newlines, backslashes), use component-aware containment, and handle optional
+   fields via the `-` separator. Do not require UTF-8 or treat `/repo2` as under
+   `/repo`. Unknown optional fields are allowed; malformed records are errors.
+3. Reject mount points strictly beneath an operated workspace root, excluding
+   only genuinely untouched administrative scopes. This includes mounted regular
+   files and mounts exactly at a selected payload root. A mount at the workspace
+   root itself is allowed, matching the existing contract. Assess any authorized
+   narrower footprint against its workspace boundary, not merely against itself.
+4. Preserve source/target alias guards. Mount roots and containing mount points
+   also expose ordinary bind aliases: translate workspace paths to their
+   filesystem-relative locations and reject evident overlapping source/target
+   storage. Different pathnames or mount IDs alone do not establish separation.
+5. Pass the completed topology assessment to orchestration. The payload loop
+   performs **no mount lookup, no per-entry mount-ID syscall, and no mount-table
+   prefix query**. No matching mount in the entire footprint is already the proof.
 
-Linux support can be feature-gated so the default core remains std-only. An
-unsupported requested capability fails at setup; do not silently substitute
-device equality for mount identity. macOS's current device-based policy is a
-separately named platform guarantee. This is still stable-tree traversal, not a
-sandbox against concurrent hostile path replacement.
+For a first implementation, conservatively rejecting every reported descendant
+mount avoids incorrectly admitting a covered/stacked mount. It can reject an
+inaccessible mount hidden under an overmount; support that configuration later
+using mount-ID/parent visibility. Longest lexical prefix alone does not resolve
+stacked mounts. A few root-level `statx` queries can disambiguate root bindings if
+needed without turning this into O(payload entries) work.
+
+The scope is the process's visible namespace, not every mount on the host. Keep
+that namespace, relevant mount topology, and path bindings stable for the run,
+alongside the existing paused-writer contract. This excludes automount activation
+inside the footprint; reject an encountered autofs region at preflight. A second
+table read at a real external-command boundary can establish a new assessment;
+there is no default per-directory polling or mount watcher. A topology snapshot
+does not protect against later concurrent mounts.
+
+If mountinfo is unavailable or the topology cannot be interpreted, reject the
+mount-preflight request up front or use an explicitly selected slower backend.
+Other platforms need their native front-guard implementation; retain their current
+checks until one exists. The generic diff core needs no Linux mount dependency.
+
+### Reflink feasibility: let the actual operation answer
+
+Mount confinement and clone capability are separate questions. Reject dangerous
+traversal/deletion boundaries up front; **do not attempt to prove that every clone
+will succeed**. Keep basic root/type/ownership guards, then stage the actual
+reflink and propagate its error with the path and completed progress. An unchanged
+payload needs no clone capability probe at all.
+
+The fast path drops the mandatory synthetic `probe_between` call. A small probe
+can remain an explicit early-diagnostic option, outside the walk, for callers that
+want it. It still cannot guarantee later success. Do not substitute source/target
+device equality for the real clone operation; filesystem clone support and mount
+boundaries are distinct. Retain staged leaf replacement so a failed clone does
+not destroy the old leaf. Earlier unrelated work may have completed.
+
+This preserves `ReflinkRequired`: an unsupported clone is an operation failure,
+not silent ordinary-copy fallback. Most importantly, **clone failure cannot be the
+mount guard for removal**. Recursive unlink can damage mounted contents without
+ever attempting a reflink; even a successful reflink does not prove confinement.
+
+Reserve a cheap extension point immediately after roots/scope are bound, before
+destructive work. Include this implementation comment there:
+
+```rust,ignore
+// INSERT MORE CHECKS HERE: batch/root front guards, before traversal or mutation.
+// Mount topology is checked once for the operated scopes; keep topology stable.
+// Add stronger checks here when justified, not per-entry statx/probes in the loop.
+// Actual reflink failures are handled by staged application and partial progress.
+```
+
+The entry gate consumes only facts needed by ordinary comparison/application:
+names, kinds, existing metadata, and literal link text. Future checks should state
+their incremental I/O cost; this comment is not a mandate to fill the loop with
+speculative verification.
 
 ## 5. Parallel placement: gate before admission
 
@@ -346,7 +417,8 @@ work. This also keeps the generic filesystem library independent of Git and JJ.
 **Recommend streaming payload checks after complete scope/ownership preflight.**
 Accept that a deep policy violation may be discovered after earlier payload or
 tracked mutations. The offending entry is not copied/deleted, but preceding work
-is not rolled back. A deep mounted path must be refused before entering it.
+is not rolled back. Mounted boundaries are a front-guard refusal instead; they
+do not require a deep walk to discover.
 
 This changes more than an error string. Today jw advertises real whole-batch
 preflight: it does not knowingly start a valid subset of a blocked batch. Under
@@ -469,7 +541,7 @@ policy adapter, not the generic walker.
 For one target, the intended filesystem cost becomes:
 
 ```text
-scope checks outside payload interiors
+scope checks and one mount-topology assessment outside payload interiors
 + one observation per existing side of each paired payload directory
 + one recursive gated visit per one-sided copy/removal unit
 + actual divergent leaf/subtree work
@@ -477,9 +549,9 @@ scope checks outside payload interiors
 
 There are still syscall/type checks at public record application boundaries.
 The target is **no redundant payload-wide validation pass**, not literally one
-stat of every inode for every possible execution. Parent mount observations are
-reused, selected ignore answers are reused, and a clean payload creates no staging
-directory and performs no writes. Some JJ snapshot work remains independently.
+stat of every inode for every possible execution. Mount checks have no per-entry
+cost, selected ignore answers are reused, and a clean payload creates no staging
+directory or probe and performs no writes. Some JJ snapshot work remains independently.
 
 The policy inquiry reports a ~9 s planning dry-run and ~159 children; those are
 prior reported measurements, not reproduced here. Its costs include process
@@ -490,8 +562,8 @@ Build controls with the same compiler and separate:
 
 1. current jw; incremental sync with existing preflights;
 2. frozen/batched ignores only;
-3. shared inline gate with ordinary metadata + mount supplement;
-4. combined Linux metadata/mount inspection;
+3. batch mount-topology front guard replacing recursive mount checks;
+4. shared inline name/type gate and operation-time reflink failure, without probes;
 5. strict retained-plan alternative if refusal timing remains contested.
 
 Use clean, sparse-delta, large added/removed subtree, absent target, and dense
@@ -504,7 +576,10 @@ owned fixtures; a live tree can supply read-only comparison measurements.
 Discriminating correctness cases:
 
 - identical nested `.git` on both sides; nested `.git` in each one-sided direction;
-- deep special entry and same-device bind mounts on both directories and files;
+- deep special entry; upfront refusal of same-device bind mounts on directories
+  and files, with zero payload enumeration required for mount discovery;
+- mount-table escaped/native paths, optional fields, stacked/hidden mounts,
+  process-root-relative paths, root mounts, bind aliases, and unavailable procfs;
 - source/target symlink leaves, mounted selected roots, and absent targets;
 - deep refusal after some successful siblings: offender untouched, partial work
   reported, surviving permissions restored, no false complete summary;
@@ -530,7 +605,8 @@ Discriminating correctness cases:
 5. **Remove the replaced payload-interior checks**, including early whole-checkout
    scans that would otherwise keep paying the same cost. Preserve tracked-phase
    obstruction and ownership checks through explicit scope partitioning.
-6. Measure combined statx and source-to-many-target sharing as independent follow-ons.
+6. Measure source-to-many-target sharing independently. Keep mount checks in the
+   batch front guard; do not make a richer per-entry metadata backend a prerequisite.
 
 The [GLM inquiry](policy0.glm53m.md) contributes the useful prefilter instinct.
 This proposal narrows its editing surface, extends its reach through recursive
