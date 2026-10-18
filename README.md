@@ -3,11 +3,11 @@ type: Specification
 title: diff-dirs
 description: Generic deterministic directory comparison, consumer-driven reconciliation, and explicit scan coverage.
 resource: /README.md
-status: implemented-core
+status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
-    title: Implemented generic std-only comparison core, resolved record and summary contracts, and verified consumer-driven application
+    title: Implemented generic std-only comparison core and lossless thin CLI, resolved record and summary contracts, and verified consumer-driven application
   - resource: /design/fit/fit0.glm53m.md
     title: Initial fit research and contract contradictions, subsequently resolved by parent direction
 ---
@@ -256,6 +256,31 @@ its cheap keys.
 Exit codes: `0` no differences, `1` differences found, `2` usage/IO error
 (never silently truncate; unreadable directories abort naming the path).
 
+Build/run with `cargo run -p diff-dirs-cli -- ORIGINAL TARGET --format json`,
+or `cargo build --release -p diff-dirs-cli` and use `target/release/diff-dirs`.
+Default format is text. `--` terminates options for dash-prefixed paths.
+
+Each output record has `type: "diff"`, `dir`, `files`, and `dirs`. A final
+`type: "summary"` line includes counts, directory aggregates, scan state,
+`complete`, and `clean`. An IO failure after construction emits a failed-prefix
+summary and diagnostic on stderr, then exits 2; invalid roots/arguments fail
+before records. Streamed records before an error are **not** a complete scan.
+Output write failures also exit 2.
+
+Text uses Rust debug escaping for all native paths/names, including control
+characters and invalid bytes. JSONL uses strings for valid Unicode and tagged
+native representations otherwise; it never substitutes replacement characters:
+
+```json
+{"encoding":"unix-bytes","bytes":[120,255]}
+```
+
+On Windows the tag is `windows-wide` with a `units` array of native UTF-16
+code units. Other platforms use `rust-native` and encoded `bytes`, meaningful
+only on the same platform/toolchain. Tags may occur anywhere a path or name
+appears, including summary lists; clients must handle string-or-tagged values.
+Root-relative `dir` is the empty string for the root pair.
+
 ## Embedding
 
 The root `diff-dirs` package is std-only, edition 2024, Rust 1.88 minimum;
@@ -280,8 +305,9 @@ Settled during spec review (recorded so they don't resurface as questions):
 single always-descending walk — no stat pruning, no mode flags; the consumer
 drives the walk as a pull iterator in its own loop (`prune_here()` for
 wholesale subtrees, `break` to stop, `into_summary()` for the aggregate);
-records carry names and classification only, never stats; `dirs.changed`
-lives in the summary, not streamed records; clean comparisons are silent.
+records carry names and classification only, never stats; aggregate directory
+changes live in summary `changed_dirs`, not streamed records; clean comparisons
+are silent in the library (the CLI still prints its final summary).
 
 ## Development and evidence
 

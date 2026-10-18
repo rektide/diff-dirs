@@ -7,7 +7,7 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
-    title: Built and verified generic comparison core; ratified direction, literal symlink, coverage, and consumer mutation contracts under parent direction
+    title: Built and verified generic comparison core and lossless thin CLI; ratified direction, literal symlink, coverage, and consumer mutation contracts under parent direction
   - resource: /README.md
     title: Specification, deliberately amended alongside implementation
   - resource: /design/fit/fit0.glm53m.md
@@ -18,6 +18,10 @@ sources:
     title: Public record and summary types
   - resource: /tests/walk.rs
     title: Contract tests, including test-side immediate-child application
+  - resource: /cli/src/render.rs
+    title: Text escaping and string-or-tagged native JSON representation
+  - resource: /cli/tests/cli.rs
+    title: Exit codes, JSONL, failed summaries, non-UTF-8 output, and argument handling
 ---
 
 # Generic paired directory comparison
@@ -83,7 +87,18 @@ steady-state. Mode-only divergence is deliberately demonstrated as invisible.
 Cross-platform code uses `std`; Unix-specific tests are gated. Windows and
 macOS behavior is not claimed to have been exercised. Nanosecond/pre-epoch
 fixtures establish support on this test filesystem, not every filesystem.
-Performance and CLI verification are separate follow-on checkpoints.
+The CLI follow-on checkpoint adds eight passing process-level tests (30 total)
+and passes full-workspace clippy with `-D warnings`, formatting, and Rust 1.88.0
+tests/doctests. Only the CLI depends on `serde_json`; no dependency or runtime
+was introduced into the core. Rendering is streaming, always followed by a
+coverage-bearing summary when a walk was constructed; it does not gather the
+whole record stream. IO errors are exit 2 even after partial output.
+
+JSON uses normal strings where valid, native byte tags on Unix, and native
+UTF-16 unit tags on Windows otherwise. Text escapes names rather than rendering
+newlines or silently replacing invalid native encodings. Windows rendering code
+exists behind `cfg(windows)` but has not been run on Windows. Performance is a
+separate follow-on checkpoint.
 
 ## Relationships and limits
 
