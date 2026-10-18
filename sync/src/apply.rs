@@ -162,10 +162,11 @@ impl Context {
             ..Progress::default()
         };
         // A restrictive process umask must not block our own child creation.
+        let mut relaxed = false;
         let result = (|| {
-            let (_, relaxed) = relax(to)?;
+            relaxed = relax(to)?.1;
             let children = children(from)?;
-            let mut result = self.batch(&children, |name| {
+            self.batch(&children, |name| {
                 let from = from.join(name);
                 let to = to.join(name);
                 #[cfg(all(test, feature = "parallel"))]
@@ -175,19 +176,11 @@ impl Context {
                     Kind::Directory => self.copy_directory(&from, &to),
                     _ => self.copy_leaf(&from, &to, false),
                 }
-            });
-            if relaxed {
-                add_progress(
-                    &mut result,
-                    Progress {
-                        directory_permissions_set: 1,
-                        ..Progress::default()
-                    },
-                );
-            }
-            result
+            })
         })();
-        let mut result = finish_permissions(result, to, metadata.permissions(), false, false);
+        // Account for a successful relaxation even if listing failed before
+        // child admission; finalization still follows every joined result.
+        let mut result = finish_permissions(result, to, metadata.permissions(), relaxed, false);
         add_progress(&mut result, created);
         result
     }
