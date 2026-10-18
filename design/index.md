@@ -7,7 +7,7 @@ status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb3033c79ffeRIkn14uSNhs7O6"
-    title: Added implemented filesystem synchronization, independent operation semantics, verification, and owned-fixture measurements to the reading path
+    title: Added filesystem synchronization and owned-fixture evidence, then investigated current and historical std syscall behavior as ground for a research-only optimization inventory
   - resource: "opencode://ses_eb335933bffeUeaPkxqOtKDOWi"
     title: Linked the paused runtime refactor assessment and smaller two-crate option without changing the implemented contract
   - resource: "opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg"
@@ -99,3 +99,13 @@ The [root specification](../README.md) owns the current public contract.
   fresh/copy/reflink/no-op/sparse/subtree operations, comparison-only controls,
   actual operation counts, and retained raw observations. No live-root mutation
   or jj-waltz speedup claim.
+
+## Performance opportunities — research, not implementation selection
+
+- [Source/syscall ground truth](performance/inspection0.sol61x.md): verifies
+  that both historical Rust 1.88 and the configured 1.101 nightly already use
+  fd-relative DirEntry metadata and kernel-assisted ordinary copying; identifies
+  remaining full-path/duplicate/staging work. Records current experimental std
+  directory handles, the user's unpinned-toolchain override, raw-data checks,
+  and owned-only probe scope. This qualifies future hypotheses; it does not
+  change defaults or promote a new backend.
