@@ -6,9 +6,13 @@ resource: /design/fit/fit0.glm53m.md
 tags: [diff-dirs, jj-waltz, reseed, payload, reflink, integration, performance]
 status: draft
 generated: { by: "model:zai-coding-plan/glm-5.3#max", at: 2026-10-18 }
+updated:
+  - by: "model:zai-coding-plan/glm-5.3#max"
+    at: 2026-10-18
+    note: Parent review corrected the seam analysis — the payload is deleted EARLY (engine.rs 1438–1452), not only in the final clone loop; integration requirements rewritten and the missing-target-root claim fixed.
 sources:
   - resource: opencode://ses_eb39c53ccffeOncs3vs6bocqfU
-    title: Fit-research session — read the spec and the embedder's native source/docs/measurements, assessed libraries vs std, and wrote this assessment
+    title: Fit-research session — spec and embedder research, first assessment, then parent-reviewed correction of the seam analysis and missing-root semantics
   - resource: /README.md
     title: The diff-dirs specification under assessment (the README wins over code until deliberately revised)
   - resource: "jj-waltz:src/reseed/engine.rs"
@@ -19,6 +23,10 @@ sources:
     title: Payload root selection walk — one compiled pattern set, outermost-root pruning, confinement policy
   - resource: "jj-waltz:src/cow/payload.rs"
     title: Frozen ignore rules, tracked-entry listing, directory identity, relative-path confinement, confined_parents
+  - resource: "jj-waltz:src/jj.rs"
+    title: JjClient subprocess adapter — run_at pins --at-operation + --ignore-working-copy; jj is a CLI child process, not an embedded library
+  - resource: "jj-waltz:design/workspace-reseed/reseed0.gpt6a.md"
+    title: Original reseed design — the materialization algorithm prescribing early ignored-root clearing before prefill and tracked verification before payload copy
   - resource: "jj-waltz:Cargo.toml"
     title: Embedder dependency set, edition 2024, rust-version 1.88, and the dist target matrix including Windows and musl
   - resource: "jj-waltz:design/up-performance/handoff0.glm53m.md"
@@ -52,36 +60,54 @@ choose dependencies, pressure-test the walk/record/summary contract, surface the
 README's internal contradictions with minimal resolutions, and leave a credible
 benchmark plan. Scope held: no library implementation, no jj-waltz changes.
 
-## The embedder seam today (evidence)
+## The embedder seam today (evidence, corrected after parent review)
 
-The payload phase lives in `jj-waltz:src/reseed/engine.rs`, `execute()`. After
-sparse reset and tracked-tree materialization, for every selected ignored root
-(lines ~1484–1490):
+The payload phase is **two-phased, and the deletion happens early**. In
+`jj-waltz:src/reseed/engine.rs`, `execute()` runs this order (line numbers from
+the inspected checkout):
 
-```rust
-for path in &plan.ignored {
-    confined_parents(&plan.root, path)?;
-    cow::remove_path(&plan.root.join(path))?;          // rm -rf, validated
-    fs::create_dir_all(plan.root.join(path).parent()...)?;
-    confined_parents(&plan.root, path)?;
-    cow::clone_tree(&plan.source.join(path), &plan.root.join(path))?; // full reflink copy
-}
-```
+1. Identity/quiescence checks; `validate_contents(&plan.root, false)` (line
+   ~1387) — note this recursively validates the *entire* target tree including
+   payload (admin/special/mount checks) before anything is mutated.
+2. `jj sparse set --clear` (line ~1403) — tracked files vanish from disk.
+3. `remove_recorded_file` for old and desired tracked paths (line ~1415).
+4. `jj new <base>` when syncing (line ~1423) — all snapshot configs pinned.
+5. **Early cleanup (lines 1438–1452):**
+   - `plan.replace_content`: remove **every** non-`.jj` child of the target
+     root (the flag's wipe contract);
+   - else: for each `plan.ignored` root, `confined_parents` +
+     `cow::remove_path` — **the previous payload generation is deleted here,
+     before the tracked phase**.
+6. Tracked prefill `cow::clone_files(&plan.source, &plan.clones, …)` (line
+   ~1457), `jj sparse reset` (line ~1463), then `verify_disk` (line ~1472) —
+   tracked tree proven before payload exists.
+7. `IgnoreRules::new(desired)` + `require_ignored` per root (lines 1476–79),
+   `validate_source` again (line 1483).
+8. **Final loop (lines 1484–1490):** per ignored root, a defensive
+   `remove_path` (a no-op after step 5 — kept idempotent for the
+   missing-root case), `create_dir_all(parent)`, then
+   `cow::clone_tree(donor → target)` — the wholesale reflink copy.
+9. Links, final `verify_disk`, `require_full`, exact-empty-child proof.
 
-That is exactly the "blind delete-and-recopy" the spec's Positioning section
-exists to prevent: cost is proportional to tree size (192k entries ≈ 8.1 GB per
-workspace, per the spec) even at zero divergence. Everything around the seam is
-already the right shape for an in-loop applier and stays untouched:
+This ordering is *designed*, not accidental:
+`jj-waltz:design/workspace-reseed/reseed0.gpt6a.md` ("Public-CLI
+materialization algorithm") prescribes exactly it — "clear selected ignored
+roots (or all non-administrative contents if requested)" before the reflink
+prefill, and "snapshot and verify the intended tracked revision **before**
+copying ignored data". Its content contract #3 defines payload handling as
+*replacement* ("replacing means obsolete entries under those roots disappear
+too"), which the early removal implements.
 
-- **Preflight, once per run, shared by all targets**: pattern selection
-  (`cow/ignored.rs`, outermost-root pruning), donor-side payload validation
-  `cow::validate_payload_root` (inline admin-entry/special-file/mount checks plus
-  absolute-symlink warnings), and the real-CoW proof `cow::probe_between`.
-- **Identity and quiescence**: `validate_source`/`validate_identities`
-  (device+inode pinning) re-checked around the payload phase; ignored roots
-  re-asserted under frozen ignore rules after refill.
-- **Post-conditions**: `verify_disk` tracked-tree proof and `require_full`
-  unchanged — payload is ignored, so jj never sees it.
+**Consequence for diff-dirs integration:** swapping only the final loop (step 8)
+for walk+apply cannot yield delta sync — by then the target payload is already
+gone (step 5 deleted it). The integration must address step 5 as well; see the
+corrected requirements below.
+
+Everything around the seam is already the right shape for an in-loop applier:
+preflight (pattern selection, donor-side `validate_payload_root`, real-CoW
+`probe_between`), identity rechecks (`validate_source`/`validate_identities`
+device+inode pinning around the payload phase), and post-conditions
+(`verify_disk`, `require_full`) stay untouched.
 
 The apply primitives the spec's use case 1 names all exist as private functions
 in `jj-waltz:src/cow.rs`:
@@ -230,11 +256,19 @@ real payload audits show whether (a) is coarse enough. Parent decision.
 
 **C5 — root-pair validation and missing-root policy are unspecified.**
 `walk(original, target)?` returns `Result` but the README never says what is
-checked. *Minimal resolution*: one sentence — both roots must exist as real
-directories (`symlink_metadata().is_dir()`), symlinked or missing roots are
-errors naming the path. A missing target root is an error, not
-"whole-tree-added": jj-waltz's creation flow uses `clone_tree` for fresh
-payload; reseed always has a previous generation.
+checked. *Minimal resolution*: the **original** root must exist as a real
+directory (`symlink_metadata().is_dir()`), else error naming the path. The
+**target** root may be missing and is then treated as an empty side — the whole
+original tree reports through ordinary records (`files.added` everywhere,
+one-sided subdirs as `dirs.added` wholesale units). A target root that exists
+but is not a real directory is an error naming what was found (the caller
+removes the obstruction deliberately). Correction of this document's first
+version, which claimed "reseed always has a previous generation": false —
+today's single-forward-pass failures leave the payload *absent* (early removal
+ran, final clone did not), first-time `--copy-ignored` adoption starts from
+nothing, and `--replace-content` wipes; all three produce missing target roots
+that a retry must handle, and today's final loop tolerates them only because
+`remove_path(missing)` succeeds and `clone_tree` creates fresh.
 
 **C6 — type transitions are implied but never specified.**
 The standing rules ("deletions before copies … so file→dir type transitions
@@ -261,6 +295,63 @@ error basis = exit 2). Also state that the walk itself never special-cases
 jj-waltz's preflight (`validate_payload_root`, `validate_tree`) already
 rejects those inside selected payload trees, and `remove_path` fails closed on
 the target side.
+
+## Corrected integration requirements (supersedes the first-wave seam advice)
+
+The first version of this document recommended replacing only the final loop.
+After parent review and re-reading of the early cleanup, the requirements are:
+
+1. **The else-branch early removal (engine.rs 1448–1451) must be removed or
+   relocated** — it deletes the previous payload generation before the tracked
+   phase, so no later walk can compute a delta. Two placements exist:
+   - **Option B (recommended): delta sync at the final-loop position.** Delete
+     the early else-branch removal entirely; keep the previous payload through
+     the tracked phase; replace the final loop (1484–1490) with
+     walk+apply per root pair. This *preserves* the designed ordering
+     ("snapshot and verify the tracked revision before copying ignored data")
+     and keeps the designed invariant that tracked-tree verification never
+     depends on payload state. Safety of retaining payload through the tracked
+     phase, verified against source: every snapshot-capable jj command inside
+     the window pins `snapshot.auto-track=none()` plus fsmonitor/stale configs
+     (sparse clear 1403–1410, `jj new` 1423–1429, sparse reset 1463–1469,
+     `verify_disk`'s diff 996–1006), and `current_commit`/`operation_id`/
+     `resolve_*` go through `run_at` (`jj.rs` 333–353) which pins
+     `--at-operation --ignore-working-copy` — no unconfigured snapshot exists
+     while payload is present. Tracked/payload disjointness is already proven at
+     planning: selected roots are ignored under the desired tree's frozen rules
+     and disjoint from its tracked paths (engine.rs 434–441), and unselected
+     content obstructing desired tracked paths is refused by
+     `preflight_obstructions` (1036–1072).
+   - **Option A (fallback): delta sync at the early-cleanup position.** Replace
+     the early else-branch removal with walk+apply there, tracked phase
+     afterwards. This keeps the current code shape but inverts the designed
+     verify-tracked-before-payload ordering, and a later tracked-phase failure
+     would leave payload already synced (still donor-authoritative, so
+     semantically acceptable). Prefer B unless the parent wants the tracked
+     phase to observe a payload-free tree.
+2. **`--replace-content` stays wholesale.** Its contract is wipe-everything;
+   delta sync does not apply. Keep the replace branch (1439–1446) and the final
+   clone_tree loop for that mode (or gate the walk on `!plan.replace_content`).
+3. **The defensive second `remove_path` inside the final loop disappears**; the
+   apply loop's per-record removals replace it. Missing target roots become the
+   walk's concern (below), not a pre-removal.
+4. **Failure semantics change, deliberately.** Today a failed execute leaves
+   the target payload *absent* (early removal ran; the copy never did) — and
+   that is exactly why "reseed always has a previous generation" (this
+   document's first version) is wrong. Failure modes that produce a missing
+   target root: (a) retry after any failed single-forward-pass run under
+   today's code; (b) first-time `--copy-ignored` adoption on an existing
+   workspace that never had payload; (c) `--replace-content` runs. With delta
+   sync (Option B), a mid-apply failure instead leaves a *mixed-generation*
+   payload. Both heal on retry because the walk re-derives records from current
+   state — record this as a blessed property: **apply is convergent, not
+   transactional**.
+5. **Donor mid-apply exposure is unchanged**: `validate_source` pins donor
+   identity + commit immediately before the loop (1483), same window
+   clone_tree has today; quiescence demands stay with jw.
+6. `validate_contents` at execute start (1387) still pre-validates the whole
+   target tree including payload, so the walk's target-side inputs are already
+   proven free of admin/special/mount surprises.
 
 ## Contract-to-seam mapping (integration test surface)
 
@@ -339,9 +430,13 @@ Implement to the README as amended by C1–C8 minimal resolutions, in this order
    exit 0/1/2, JSONL via its own serde_json dependency.
 4. **Benchmark fixture + harness** per the plan above; record the 192k
    measurement method alongside the results.
-5. Do **not** touch jj-waltz. Integration (the seam mapped above, the
-   single-entry clone helper with unlink-before-reflink, and the prune
-   threshold) is a separate, parent-reviewed change on the jj-waltz side.
+5. Do **not** touch jj-waltz. Integration follows the *corrected* requirements
+   above — Option B: delete the early else-branch removal (engine.rs
+   1448–1451), keep `--replace-content` wholesale, replace the final loop with
+   walk+apply including the single-entry clone helper with
+   unlink-before-reflink, and the prune threshold — a separate, parent-reviewed
+   change on the jj-waltz side. General IO/backend choices for an optional
+   separate sync crate live in [the IO assessment](/design/fit/io0.glm53m.md).
 
 Verification bar for the builder: `cargo nextest` green, clippy clean,
 `strace -c` shows no content `read()` during a clean-tree walk, and the
