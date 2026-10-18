@@ -2,19 +2,19 @@ use crate::{
     Result,
     artifacts::{self, Control},
     fixture::{self, Fixture},
-    host_lock, report,
+    host_lock, process, report,
     scenario::{self, Scenario},
     scheduling::schedule,
     source_identity, write_json,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{Value, json};
 use std::{
     fs::{self, OpenOptions},
     io::Write,
-    path::Path,
-    process::{Command, Stdio},
-    time::{Duration, Instant},
+    path::{Path, PathBuf},
+    process::Command,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -28,18 +28,211 @@ pub struct Sample {
     pub process_ns: u128,
     pub verification_ns: u128,
     pub api_ns: Option<u128>,
+    #[serde(default)]
+    pub native_ns: Option<u128>,
     pub exit_code: Option<i32>,
     pub error: Option<String>,
     #[serde(default)]
     pub started_unix_ns: u128,
     #[serde(default)]
-    pub details: serde_json::Value,
+    pub details: Value,
+}
+
+/// Only the domain owns setup/operation/verification. The shared engine owns chronology,
+/// artifacts, failure retention and pairing. This is a compile-time Rust interface, not plugins.
+pub trait Workload {
+    fn initialize(&mut self) -> Result<Value>;
+    fn sample(&mut self, control: &Control, stem: &Path, sample: &mut Sample) -> Result<()>;
+    fn finish(&mut self) -> Result<Value>;
+}
+
+pub fn balanced(output: &Path, controls: &[Control], blocks: usize, seed: u64, workload: &mut impl Workload) -> Result<bool> {
+    let _lock = host_lock()?;
+    let order = schedule(controls.len(), blocks, seed)?;
+    fs::create_dir(output)?;
+    let output = fs::canonicalize(output)?;
+    let start = Instant::now();
+    let controls = artifacts::preserve(controls, &output)?;
+    let preservation = start.elapsed().as_nanos();
+    let initial = Instant::now();
+    let initialized = workload.initialize().map_err(|e| e.to_string());
+    write_json(
+        &output.join("campaign.json"),
+        &json!({"schema":2,"controls":controls,"seed":seed,"blocks":order,
+        "artifact_preservation_ns":preservation,"runner":source_identity(),"runner_sha256":artifacts::sha256(&std::env::current_exe()?)?,
+        "initial_verification_ns":initial.elapsed().as_nanos(),"initial_error":initialized.as_ref().err(),"workload":initialized.as_ref().ok(),
+        "sampling":"seeded mirrored blocks; setup/reset/verification excluded; no cache dropping or load correction"}),
+    )?;
+    initialized.map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+    let mut raw = OpenOptions::new().write(true).create_new(true).open(output.join("samples.jsonl"))?;
+    let mut samples = Vec::new();
+    for (block, indices) in order.iter().enumerate() {
+        for (position, &index) in indices.iter().enumerate() {
+            let control = &controls[index];
+            let sequence = samples.len();
+            let stem = output.join(format!("sample-{sequence:04}-{}", control.label));
+            let mut sample = Sample {
+                sequence,
+                block,
+                position,
+                label: control.label.clone(),
+                argv: Vec::new(),
+                preparation_ns: 0,
+                process_ns: 0,
+                verification_ns: 0,
+                api_ns: None,
+                native_ns: None,
+                exit_code: None,
+                error: None,
+                started_unix_ns: SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos(),
+                details: json!({"io_pressure_before":fs::read_to_string("/proc/pressure/io").ok()}),
+            };
+            let start = Instant::now();
+            let checked = artifacts::verify(control);
+            sample.preparation_ns = start.elapsed().as_nanos();
+            let attempt = checked.and_then(|()| workload.sample(control, &stem, &mut sample));
+            if let Err(e) = attempt {
+                sample.error = Some(e.to_string());
+                sample.api_ns = None;
+                sample.native_ns = None;
+            }
+            sample.details["io_pressure_after"] = json!(fs::read_to_string("/proc/pressure/io").ok());
+            serde_json::to_writer(&mut raw, &sample)?;
+            raw.write_all(b"\n")?;
+            raw.flush()?;
+            raw.sync_data()?;
+            samples.push(sample);
+        }
+    }
+    let start = Instant::now();
+    let final_check = workload.finish().map_err(|e| e.to_string());
+    let passed = final_check.is_ok() && samples.iter().all(|s| s.error.is_none());
+    let pairs = report::pairs(&samples, &controls);
+    write_json(
+        &output.join("summary.json"),
+        &json!({"passed":passed,"final_verification_ns":start.elapsed().as_nanos(),
+        "final_error":final_check.as_ref().err(),"final_checks":final_check.as_ref().ok(),"paired_spreads":report::spreads(&pairs),"pairs":pairs,
+        "failed_samples":samples.iter().filter(|s|s.error.is_some()).count(),"interpretation":"descriptive paired spreads only; failures excluded; no significance or causal load correction"}),
+    )?;
+    println!("{}", output.join("summary.json").display());
+    Ok(passed)
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
 pub enum Task {
     FrozenClean,
     Operation { scenario: Scenario, destinations: usize },
+}
+
+struct LibraryWorkload {
+    root: PathBuf,
+    fixture: Option<Fixture>,
+    task: Task,
+    threads: usize,
+    starting: Option<Vec<Option<String>>>,
+}
+
+pub fn run(root: &Path, output: &Path, controls: &[Control], blocks: usize, seed: u64, threads: usize) -> Result<bool> {
+    run_task(root, output, controls, blocks, seed, threads, Task::FrozenClean)
+}
+pub fn run_task(root: &Path, output: &Path, controls: &[Control], blocks: usize, seed: u64, threads: usize, task: Task) -> Result<bool> {
+    balanced(
+        output,
+        controls,
+        blocks,
+        seed,
+        &mut LibraryWorkload {
+            root: root.into(),
+            fixture: None,
+            task,
+            threads,
+            starting: None,
+        },
+    )
+}
+
+impl Workload for LibraryWorkload {
+    fn initialize(&mut self) -> Result<Value> {
+        self.root = fs::canonicalize(&self.root)?;
+        let fixture: Fixture = serde_json::from_slice(&fs::read(self.root.join("fixture.json"))?)?;
+        fixture::verify(&self.root, &fixture, true)?;
+        let value = json!({"fixture":fixture,"task":self.task,"threads":self.threads,"scope":"child-owned API timer; process scope retained separately"});
+        self.fixture = Some(fixture);
+        Ok(value)
+    }
+    fn sample(&mut self, control: &Control, stem: &Path, sample: &mut Sample) -> Result<()> {
+        let fixture = self.fixture.as_ref().ok_or("uninitialized workload")?;
+        let start = Instant::now();
+        let prepared = (|| -> Result<Option<scenario::Case>> {
+            fixture::verify(&self.root, fixture, false)?;
+            if let Task::Operation { scenario, destinations } = self.task {
+                let case = scenario::prepare(fixture, &stem.with_extension("case"), scenario, destinations)?;
+                if let Some(expected) = &self.starting {
+                    if expected != &case.starting_equivalence {
+                        return Err("unmatched reset starting state".into());
+                    }
+                } else {
+                    self.starting = Some(case.starting_equivalence.clone());
+                }
+                sample.argv = vec!["sample".into(), case.root.display().to_string(), control.mode.clone(), self.threads.to_string()];
+                sample.details["reset"] = json!(case);
+                Ok(Some(case))
+            } else {
+                sample.argv = vec![
+                    "clean-repeat".into(),
+                    self.root.display().to_string(),
+                    control.label.clone(),
+                    control.mode.clone(),
+                    self.threads.to_string(),
+                    "reflink".into(),
+                    "1".into(),
+                ];
+                Ok(None)
+            }
+        })();
+        sample.preparation_ns += start.elapsed().as_nanos();
+        let case = prepared?;
+        let child = process::run(Command::new(&control.binary).args(&sample.argv), stem, Duration::from_secs(1800))?;
+        sample.process_ns = child.elapsed_ns;
+        sample.exit_code = child.code;
+        let success = child.code == Some(0) && !child.timed_out;
+        sample.details["child_process"] = json!(child);
+        if !success {
+            return Err("native instrument failed; see retained stderr/process record".into());
+        }
+        let start = Instant::now();
+        let checked = (|| -> Result<u128> {
+            let text = fs::read_to_string(stem.with_extension("stdout"))?;
+            let ns = if let Some(case) = &case {
+                let row: Value = serde_json::from_str(&text)?;
+                let ns = row["api_ns"].as_u64().ok_or("missing API time")? as u128;
+                if row["schema"] != 1
+                    || row["mode"] != control.mode
+                    || row["threads"] != self.threads
+                    || row["destinations"] != case.destinations
+                    || row["scenario"] != serde_json::to_value(case.scenario)?
+                    || ns == 0
+                    || (case.scenario == Scenario::Clean && row["zero_operations"] != true)
+                {
+                    return Err("invalid operation observation identity".into());
+                }
+                case.verify()?;
+                sample.details["observation"] = row;
+                ns
+            } else {
+                clean_ns(&text, &control.label, &control.mode, self.threads)?
+            };
+            fixture::verify(&self.root, fixture, false)?;
+            Ok(ns)
+        })();
+        sample.verification_ns = start.elapsed().as_nanos();
+        sample.api_ns = Some(checked?);
+        Ok(())
+    }
+    fn finish(&mut self) -> Result<Value> {
+        fixture::verify(&self.root, self.fixture.as_ref().ok_or("uninitialized workload")?, true)?;
+        Ok(json!({"fixture_unchanged":true}))
+    }
 }
 
 pub fn clean_ns(stdout: &str, label: &str, mode: &str, threads: usize) -> Result<u128> {
@@ -64,166 +257,6 @@ pub fn clean_ns(stdout: &str, label: &str, mode: &str, threads: usize) -> Result
         return Err("zero API time".into());
     }
     Ok(ns)
-}
-
-pub fn invoke(binary: &Path, args: &[String], stem: &Path) -> Result<(Option<i32>, u128)> {
-    let out = OpenOptions::new().write(true).create_new(true).open(stem.with_extension("stdout"))?;
-    let err = OpenOptions::new().write(true).create_new(true).open(stem.with_extension("stderr"))?;
-    let start = Instant::now();
-    let mut child = Command::new(binary).args(args).stdin(Stdio::null()).stdout(out).stderr(err).spawn()?;
-    loop {
-        if let Some(status) = child.try_wait()? {
-            return Ok((status.code(), start.elapsed().as_nanos()));
-        }
-        if start.elapsed().as_secs() >= 1800 {
-            child.kill()?;
-            child.wait()?;
-            return Err("native control timed out after 1800 seconds".into());
-        }
-        std::thread::sleep(Duration::from_millis(2));
-    }
-}
-
-pub fn run(root: &Path, output: &Path, controls: &[Control], blocks: usize, seed: u64, threads: usize) -> Result<bool> {
-    run_task(root, output, controls, blocks, seed, threads, Task::FrozenClean)
-}
-
-pub fn run_task(root: &Path, output: &Path, controls: &[Control], blocks: usize, seed: u64, threads: usize, task: Task) -> Result<bool> {
-    let _lock = host_lock()?;
-    let order = schedule(controls.len(), blocks, seed)?;
-    let root = fs::canonicalize(root)?;
-    let fixture: Fixture = serde_json::from_slice(&fs::read(root.join("fixture.json"))?)?;
-    fs::create_dir(output)?;
-    let output = fs::canonicalize(output)?;
-    let start = Instant::now();
-    let controls = artifacts::preserve(controls, &output)?;
-    let preservation = start.elapsed().as_nanos();
-    let initial = Instant::now();
-    let check = fixture::verify(&root, &fixture, true).map_err(|e| e.to_string());
-    write_json(
-        &output.join("campaign.json"),
-        &json!({"schema":1,"fixture":fixture,"controls":controls,
-        "seed":seed,"blocks":order,"threads":threads,"task":task,"artifact_preservation_ns":preservation,
-        "runner":source_identity(),"runner_sha256":artifacts::sha256(&std::env::current_exe()?)?,
-        "initial_verification_ns":initial.elapsed().as_nanos(),"initial_error":check.as_ref().err(),
-        "scope":"API from checked-bench; process includes startup/pool/untimed initialization and 2ms polling",
-        "sampling":"mirrored blocks; child warms outside API timer; no cache dropping"}),
-    )?;
-    check.map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
-    let mut raw = OpenOptions::new().write(true).create_new(true).open(output.join("samples.jsonl"))?;
-    let mut samples = Vec::new();
-    let mut starting_equivalence = None;
-    for (block, indices) in order.iter().enumerate() {
-        for (position, &index) in indices.iter().enumerate() {
-            let control = &controls[index];
-            let sequence = samples.len();
-            let stem = output.join(format!("sample-{sequence:04}-{}", control.label));
-            let argv = vec![
-                "clean-repeat".into(),
-                root.display().to_string(),
-                control.label.clone(),
-                control.mode.clone(),
-                threads.to_string(),
-                "reflink".into(),
-                "1".into(),
-            ];
-            let mut sample = Sample {
-                sequence,
-                block,
-                position,
-                label: control.label.clone(),
-                argv,
-                preparation_ns: 0,
-                process_ns: 0,
-                verification_ns: 0,
-                api_ns: None,
-                exit_code: None,
-                error: None,
-                started_unix_ns: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_nanos(),
-                details: serde_json::Value::Null,
-            };
-            let attempt = (|| -> Result<()> {
-                let start = Instant::now();
-                let prep = (|| -> Result<Option<scenario::Case>> {
-                    artifacts::verify(control)?;
-                    fixture::verify(&root, &fixture, false)?;
-                    if let Task::Operation { scenario, destinations } = task {
-                        let case = scenario::prepare(&fixture, &output.join(format!("case-{sequence:04}")), scenario, destinations)?;
-                        if let Some(expected) = &starting_equivalence {
-                            if expected != &case.starting_equivalence {
-                                return Err("unmatched reset starting state".into());
-                            }
-                        } else {
-                            starting_equivalence = Some(case.starting_equivalence.clone());
-                        }
-                        sample.argv = vec!["sample".into(), case.root.display().to_string(), control.mode.clone(), threads.to_string()];
-                        sample.details = json!({"reset":case,"io_pressure_before":fs::read_to_string("/proc/pressure/io").ok()});
-                        Ok(Some(case))
-                    } else {
-                        Ok(None)
-                    }
-                })();
-                sample.preparation_ns = start.elapsed().as_nanos();
-                let case = prep?;
-                let (exit, ns) = invoke(&control.binary, &sample.argv, &stem)?;
-                sample.process_ns = ns;
-                sample.exit_code = exit;
-                if exit != Some(0) {
-                    return Err(format!("child failed: {exit:?}").into());
-                }
-                let start = Instant::now();
-                let verify = (|| -> Result<u128> {
-                    let text = fs::read_to_string(stem.with_extension("stdout"))?;
-                    let ns = if let Some(case) = &case {
-                        let row: serde_json::Value = serde_json::from_str(&text)?;
-                        let ns = row["api_ns"].as_u64().ok_or("missing API time")? as u128;
-                        if row["schema"] != 1
-                            || row["mode"] != control.mode
-                            || row["threads"] != threads
-                            || row["destinations"] != case.destinations
-                            || row["scenario"] != serde_json::to_value(case.scenario)?
-                            || ns == 0
-                            || (case.scenario == Scenario::Clean && row["zero_operations"] != true)
-                        {
-                            return Err("invalid operation observation identity".into());
-                        }
-                        case.verify()?;
-                        sample.details["observation"] = row;
-                        sample.details["io_pressure_after"] = json!(fs::read_to_string("/proc/pressure/io").ok());
-                        ns
-                    } else {
-                        clean_ns(&text, &control.label, &control.mode, threads)?
-                    };
-                    fixture::verify(&root, &fixture, false)?;
-                    Ok(ns)
-                })();
-                sample.verification_ns = start.elapsed().as_nanos();
-                sample.api_ns = Some(verify?);
-                Ok(())
-            })();
-            if let Err(e) = attempt {
-                sample.error = Some(e.to_string());
-                sample.api_ns = None;
-            }
-            serde_json::to_writer(&mut raw, &sample)?;
-            raw.write_all(b"\n")?;
-            raw.flush()?;
-            raw.sync_data()?;
-            samples.push(sample);
-        }
-    }
-    let start = Instant::now();
-    let check = fixture::verify(&root, &fixture, true).map_err(|e| e.to_string());
-    let passed = check.is_ok() && samples.iter().all(|s| s.error.is_none());
-    let pairs = report::pairs(&samples, &controls);
-    write_json(
-        &output.join("summary.json"),
-        &json!({"passed":passed,"final_verification_ns":start.elapsed().as_nanos(),"final_error":check.err(),
-        "paired_spreads":report::spreads(&pairs),"pairs":pairs,"failed_samples":samples.iter().filter(|s|s.error.is_some()).count(),
-        "interpretation":"plumbing evidence only; descriptive pairs, no significance/load correction; failed samples excluded"}),
-    )?;
-    println!("{}", output.join("summary.json").display());
-    Ok(passed)
 }
 
 #[test]
@@ -258,7 +291,7 @@ fn artifact_corruption_is_retained_and_not_paired() {
     let raw = fs::read_to_string(output.join("samples.jsonl")).unwrap();
     assert_eq!(raw.lines().count(), 4);
     assert!(raw.lines().all(|line| line.contains("SHA-256 mismatch")));
-    let summary: serde_json::Value = serde_json::from_slice(&fs::read(output.join("summary.json")).unwrap()).unwrap();
+    let summary: Value = serde_json::from_slice(&fs::read(output.join("summary.json")).unwrap()).unwrap();
     assert_eq!(summary["failed_samples"], 4);
     assert_eq!(summary["pairs"], json!([]));
 }

@@ -7,10 +7,16 @@ pub fn pairs(samples: &[Sample], controls: &[Control]) -> Vec<Value> {
     let mut result = Vec::new();
     for before in samples.iter().filter(|s| &s.label == baseline && s.error.is_none()) {
         for after in samples.iter().filter(|s| s.block == before.block && &s.label != baseline && s.error.is_none()) {
-            if let (Some(old), Some(new)) = (before.api_ns, after.api_ns) {
+            let old = before.api_ns.or(before.native_ns);
+            let new = after.api_ns.or(after.native_ns);
+            if before.api_ns.is_some() != after.api_ns.is_some() {
+                continue;
+            }
+            if let (Some(old), Some(new)) = (old, new) {
                 result.push(json!({"block":before.block,
                 "baseline_sample":before.sequence,"candidate_sample":after.sequence,"candidate":after.label,
-                "baseline_api_ns":old,"candidate_api_ns":new,"relative_percent":(new as f64/old as f64-1.0)*100.0}));
+                    "scope":if before.api_ns.is_some(){"api"}else{"native-process"},
+                    "baseline_ns":old,"candidate_ns":new,"relative_percent":(new as f64/old as f64-1.0)*100.0}));
             }
         }
     }

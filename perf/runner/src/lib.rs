@@ -3,6 +3,7 @@ pub mod artifacts;
 pub mod build_operation;
 pub mod execution;
 pub mod fixture;
+pub mod process;
 pub mod report;
 pub mod scenario;
 pub mod scheduling;
@@ -32,6 +33,7 @@ pub fn source_identity() -> serde_json::Value {
         ("scheduling.rs", include_str!("scheduling.rs")),
         ("execution.rs", include_str!("execution.rs")),
         ("report.rs", include_str!("report.rs")),
+        ("process.rs", include_str!("process.rs")),
         ("scenario.rs", include_str!("scenario.rs")),
         ("build_operation.rs", include_str!("build_operation.rs")),
     ] {
