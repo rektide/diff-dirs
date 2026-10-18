@@ -104,6 +104,14 @@ struct Context {
     stopped: AtomicBool,
 }
 
+// Keep usable descriptors alive through final metadata and rename. A path-only
+// clone helper cannot return the descriptor it has already closed.
+struct PreparedLeaf {
+    progress: Progress,
+    _source: Option<File>,
+    _output: Option<File>,
+}
+
 impl Context {
     fn new(policy: CopyPolicy, parallel: bool) -> Self {
         Self {
@@ -228,12 +236,16 @@ impl Context {
         let temporary = staging(to)?;
         let staged = temporary.path().join("entry");
         let result = (|| {
-            let mut progress = if kind == Kind::Symlink {
+            let prepared = if kind == Kind::Symlink {
                 let link = fs::read_link(from).map_err(|error| Failure::io("read symlink", from, error))?;
                 platform::symlink(&link, &staged, &metadata).map_err(|error| Failure::io("prepare symlink", to, error))?;
-                Progress {
-                    symlinks_created: 1,
-                    ..Progress::default()
+                PreparedLeaf {
+                    progress: Progress {
+                        symlinks_created: 1,
+                        ..Progress::default()
+                    },
+                    _source: None,
+                    _output: None,
                 }
             } else {
                 self.prepare_file(from, &staged, to, &metadata)?
@@ -244,6 +256,7 @@ impl Context {
                 failure.completed = removed;
                 return Err(failure);
             }
+            let mut progress = prepared.progress;
             progress += removed;
             Ok(progress)
         })();
@@ -251,20 +264,45 @@ impl Context {
         cleanup(temporary, result, installed)
     }
 
-    fn prepare_file(&self, from: &Path, staged: &Path, to: &Path, metadata: &Metadata) -> Result<Progress, Failure> {
-        let copied = match self.policy {
-            CopyPolicy::Copy => {
-                // Keep our usable descriptor through restrictive final chmod.
-                let mut source = File::open(from).map_err(|error| Failure::io("open source file", from, error))?;
+    fn prepare_file(&self, from: &Path, staged: &Path, to: &Path, metadata: &Metadata) -> Result<PreparedLeaf, Failure> {
+        let (copied, source, output) = match self.policy {
+            policy if policy == CopyPolicy::Copy || cfg!(target_os = "linux") => {
+                let operation = if policy == CopyPolicy::Copy { "copy file" } else { "prepare reflink" };
+                let mut source = File::open(from).map_err(|error| Failure::io(operation, from, error))?;
                 let mut output = OpenOptions::new()
                     .read(true)
                     .write(true)
                     .create_new(true)
                     .open(staged)
                     .map_err(|error| Failure::io("prepare file", to, error))?;
-                let written = io::copy(&mut source, &mut output).map_err(|error| Failure::io("copy file", from, error))?;
+                let copied = if policy == CopyPolicy::Copy {
+                    Some(io::copy(&mut source, &mut output).map_err(|error| Failure::io(operation, from, error))?)
+                } else {
+                    #[cfg(target_os = "linux")]
+                    {
+                        match rustix::fs::ioctl_ficlone(&output, &source).map_err(io::Error::from) {
+                            Ok(()) => None,
+                            Err(error)
+                                if policy == CopyPolicy::ReflinkOrCopy
+                                    && !matches!(
+                                        error.kind(),
+                                        io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied | io::ErrorKind::AlreadyExists
+                                    ) =>
+                            {
+                                // Whole-file cloning does not consume either
+                                // cursor. Discard any output before fallback;
+                                // io::copy retains std's kernel offload/EOF rules.
+                                output.set_len(0).map_err(|error| Failure::io(operation, to, error))?;
+                                Some(io::copy(&mut source, &mut output).map_err(|error| Failure::io(operation, from, error))?)
+                            }
+                            Err(error) => return Err(Failure::io(operation, to, error)),
+                        }
+                    }
+                    #[cfg(not(target_os = "linux"))]
+                    unreachable!()
+                };
                 preserve_file(&output, metadata, to)?;
-                Some(written)
+                (copied, Some(source), output)
             }
             policy => {
                 let copied = match policy {
@@ -284,10 +322,10 @@ impl Context {
                     .open(staged)
                     .map_err(|error| Failure::io("open prepared file", to, error))?;
                 preserve_file(&output, metadata, to)?;
-                copied
+                (copied, None, output)
             }
         };
-        Ok(match copied {
+        let progress = match copied {
             Some(bytes) => Progress {
                 files_copied: 1,
                 bytes_copied: bytes,
@@ -298,6 +336,11 @@ impl Context {
                 bytes_reflinked: metadata.len(),
                 ..Progress::default()
             },
+        };
+        Ok(PreparedLeaf {
+            progress,
+            _source: source,
+            _output: Some(output),
         })
     }
 

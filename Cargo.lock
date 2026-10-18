@@ -61,6 +61,7 @@ dependencies = [
  "diff-dirs",
  "rayon",
  "reflink-copy",
+ "rustix",
  "tempfile",
 ]
 
