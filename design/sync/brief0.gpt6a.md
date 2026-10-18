@@ -3,11 +3,11 @@ type: ImplementationBrief
 title: Separate filesystem synchronization crate
 description: Proposed scope, application contract, copy policies, replacement discipline, concurrency boundary, and verification for the optional sync crate.
 resource: /design/sync/brief0.gpt6a.md
-status: proposed-for-builder
+status: selected-for-implementation
 generated: { by: "model:openai/gpt-6-astra", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY"
-    title: User requested the separate sync crate and good guidance before dispatching a Sol xhigh builder; parent inspected current APIs and copy primitives
+    title: Prepared the sync builder contract, verified current APIs and copy primitives, and clarified filesystem synchronization versus execution with caller-owned Rayon
   - resource: /README.md
     title: Comparison direction, opacity, metadata trust, and apply/prune contract
   - resource: /src/model.rs
@@ -128,25 +128,39 @@ completed diff must be clean after successful sync on compatible filesystems.
 If a destination cannot represent a source timestamp exactly, document or
 report that limitation rather than promising exact convergence universally.
 
-## Concurrency scope to settle before dispatch
+## Execution is separate from filesystem synchronization
+
+The user's clarification is that **sync means filesystem synchronization**, not
+synchronous execution. It does not require a new concurrency design. Select
+ordinary and optional caller-pool entry points sharing the same filesystem
+operation logic. The pool is an execution dependency supplied by the caller,
+not a runtime the sync crate creates or configures.
 
 Use the existing caller-owned Rayon pool for optional parallel comparison.
 The diff's epoch has joined before application starts. Every application batch
 must join before `next()` acknowledges the record; no apply operation may race
 with descendant inspection or mutate a cached sibling through an alias.
 
-The proportionate first parallel application scope is **independent named
-operations within a record**, sharing that same pool and an explicit bounded
-apply budget. Complete each same-name removal/replacement sequence together.
-Do not create a pool per operation or queue an unbounded detached task tree.
-Whole-subtree operations may initially execute serially inside their task;
-that limitation must be explicit and measured, not described as fully parallel
-recursive synchronization. A single newly initialized root will not gain
-whole-tree copy parallelism from this limited policy.
+Use Rayon to execute **independent named operations within a record** and, where
+straightforward, independent children of a copied subtree. Complete each
+same-name removal/replacement sequence together. Structured parallel iterators
+and joins can implement this; a second frontier scheduler, executor-trait
+framework, admission semaphore, or detached per-file task queue is unnecessary.
+New directory creation precedes its child work, and final permissions follow
+the joined children. Subtree removal may use a serial platform primitive;
+independent removals can still share the caller's pool.
 
-Sequential application with parallel comparison is an even smaller first slice.
-The user's scope choice should settle this before the builder implements it.
-Neither choice requires changing the diff scheduler or introducing async I/O.
+The pool bounds active worker execution across diff and apply. Do not equate
+that with a constant-byte-memory bound: sorted/read child listings and nested
+pending work still consume memory. Use lazy splitting over current child work,
+not a precomputed whole-tree operation list. There is no separate user-facing
+apply-worker count: applications size/reuse their pool. Keep the existing diff
+J/K limits available to callers because those govern a different problem,
+ordered speculative comparison.
+
+Retain a dependency-light ordinary execution path, with Rayon integration
+optional. Both paths should share operation semantics; avoid two independently
+implemented copiers. No change to the diff scheduler or async I/O is needed.
 
 ## Errors and reports
 
