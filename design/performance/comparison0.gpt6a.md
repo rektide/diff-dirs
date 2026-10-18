@@ -7,7 +7,7 @@ status: proposed-for-assessment
 generated: { by: "model:openai/gpt-6-astra", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY"
-    title: Commissioned independent inventories and Astra's architecture-sensitive ranking, then compared their findings and experiment controls
+    title: Compared independent inventories and experiment controls, then recorded selection of leaf-pipeline work and future streaming multi-destination traversal
   - resource: /design/performance/opportunities0.gpt6am.md
     title: Forty independently assessed candidates and the appended architectural-value experiment order
   - resource: /design/performance/opportunities0.sol61x.md
@@ -102,3 +102,18 @@ for discriminating controls. At the return checkpoint, compare counted work,
 timing, memory/FD costs, and semantic changes before combining results. Do not
 add independent speedup estimates together. Live opencode paths remain read-only;
 sync experiments use separately owned disposable fixtures.
+
+## Subsequent user selection
+
+The user selected **leaf-pipeline optimization (#2)** for a Sol xhigh builder.
+Descriptor ownership and staging variants are being tested against the existing
+operation contract. The broader prepared-mirror proposal (#3) remains unselected:
+duplicated work is evidenced, but useful end-to-end speedup from carrying
+comparison information into application is not yet established.
+
+Multiple destinations are recorded in the [README's future enhancements](../../README.md#coordinated-multiple-destinations).
+The user's direction is an ordered, coordinated **streaming** walk of the source
+and several destinations, sharing current source observations. A whole-source
+catalog is not the selected design or a prerequisite. This refines the donor
+reuse opportunity while preserving the independent catalog proposals above as
+research alternatives.

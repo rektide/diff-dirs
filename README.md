@@ -7,7 +7,7 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY
-    title: Applied user direction to remove the Rust 1.88 baseline and use the configured unpinned compiler, including Rust 1.101 nightly
+    title: Applied unpinned toolchain direction, commissioned leaf-pipeline optimization, and recorded the user's future coordinated multi-destination streaming direction
   - resource: opencode://ses_eb3033c79ffeRIkn14uSNhs7O6
     title: Implemented the optional filesystem synchronization crate and documented staged replacement, copy policy, partial progress, and borrowed-pool application without changing the read-only core
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
@@ -16,6 +16,10 @@ sources:
     title: Initial fit research and contract contradictions, subsequently resolved by parent direction
   - resource: /design/concurrency/design0.gpt6am.md
     title: Parent-accepted directory frontier, ordered reducer, divergence seals, borrowed pool, and J/K demand reservation design
+  - resource: /design/performance/opportunities0.gpt6am.md
+    title: Independent optimization inventory and architecture-sensitive experiment ranking
+  - resource: /design/performance/opportunities0.sol61x.md
+    title: Source-grounded optimization inventory, multi-target alternatives, and experiment controls
 ---
 
 # diff-dirs
@@ -401,6 +405,30 @@ The [frontier measurements](/design/performance/parallel1.sol61x.md) show a
 repeatable live single-root win with explicit P4/J4/K256, but also saturation
 of the conservative default K, root-wide serialization, and CPU/memory/latency
 costs. Limits are caller policy; enabling Rayon alone promises no speedup.
+
+## Future enhancements
+
+These are prospective capabilities, not current API promises.
+
+### Coordinated multiple destinations
+
+Plan a **streaming walk of one original and several destinations together**,
+advancing their comparisons through the same ordered directory/name sequence.
+Inspect the current source directory once and share that observation across the
+participating destinations, rather than independently walking the full source
+for each target. Keep per-destination differences, progress, and errors distinct.
+
+This should retain live, directory-at-a-time processing: a persistent cache or
+whole-source catalog is not required. The design needs bounded lookahead and a
+deliberate policy for slow, stopped, or failed destinations, with source stability
+defined for the shared observations. Test one, two, and several destinations to
+establish where the extra coordination pays off. Multiple destinations are a
+future extension; the current API compares one pair.
+
+The [optimization comparison](/design/performance/comparison0.gpt6a.md) connects
+the independent inventories and their experiment briefs. Other ideas remain
+research candidates, including cross-boundary metadata reuse whose end-to-end
+benefit has not yet been measured.
 
 ## Non-goals
 
