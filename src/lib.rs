@@ -26,6 +26,7 @@
 
 mod error;
 mod model;
+mod pair;
 mod walk;
 
 pub use error::Error;

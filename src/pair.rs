@@ -1,0 +1,228 @@
+//! Immediate directory inspection. No traversal, summary access, or child jobs.
+
+use std::cmp::Ordering;
+use std::ffi::OsString;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
+
+use crate::{DirDiff, Error, Execution};
+
+#[derive(Debug)]
+pub(crate) struct Roots {
+    pub original: PathBuf,
+    pub target: PathBuf,
+}
+
+impl Roots {
+    pub fn new(original: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Self, Error> {
+        let roots = Self {
+            original: original.as_ref().to_path_buf(),
+            target: target.as_ref().to_path_buf(),
+        };
+        for path in [&roots.original, &roots.target] {
+            let metadata = fs::symlink_metadata(path).map_err(|e| Error::io(path.clone(), "inspect root", e))?;
+            if !metadata.is_dir() {
+                return Err(Error::NotDirectory { path: path.clone() });
+            }
+        }
+        Ok(roots)
+    }
+
+    pub fn inspect(&self, dir: PathBuf, execution: Execution) -> Result<ComparedPair, Error> {
+        let (original, target) = entries(&self.original.join(&dir), &self.target.join(&dir), execution)?;
+        Ok(compare(dir, original, target))
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct ComparedPair {
+    pub diff: DirDiff,
+    pub children: Vec<OsString>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Kind {
+    Directory,
+    File { size: u64, modified: SystemTime },
+    Symlink(OsString),
+}
+
+struct Entry {
+    name: OsString,
+    kind: Kind,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Side {
+    Original,
+    Target,
+}
+
+struct RawEntry {
+    entry: fs::DirEntry,
+    name: OsString,
+    side: Side,
+}
+
+fn list(dir: &Path, side: Side, entries: &mut Vec<RawEntry>) -> Result<(), Error> {
+    let read = fs::read_dir(dir).map_err(|e| Error::io(dir.to_path_buf(), "read directory", e))?;
+    for entry in read {
+        let entry = entry.map_err(|e| Error::io(dir.to_path_buf(), "read directory entry", e))?;
+        entries.push(RawEntry {
+            name: entry.file_name(),
+            entry,
+            side,
+        });
+    }
+    Ok(())
+}
+
+fn entries(original: &Path, target: &Path, execution: Execution) -> Result<(Vec<Entry>, Vec<Entry>), Error> {
+    let mut raw = Vec::new();
+    list(original, Side::Original, &mut raw)?;
+    list(target, Side::Target, &mut raw)?;
+    raw.sort_unstable_by(|a, b| a.name.as_encoded_bytes().cmp(b.name.as_encoded_bytes()).then(a.side.cmp(&b.side)));
+    #[cfg(feature = "parallel")]
+    if execution == Execution::Parallel && raw.len() >= 64 {
+        use rayon::prelude::*;
+        let results: Vec<_> = raw.into_par_iter().with_min_len(16).map(inspect_entry).collect();
+        return split_entries(results.into_iter());
+    }
+    let _ = execution;
+    split_entries(raw.into_iter().map(inspect_entry))
+}
+
+fn inspect_entry(raw: RawEntry) -> Result<(Side, Entry), Error> {
+    #[cfg(all(test, feature = "parallel"))]
+    tests::observe_worker();
+    let path = raw.entry.path();
+    let metadata = raw.entry.metadata().map_err(|e| Error::io(path.clone(), "inspect entry", e))?;
+    let kind = if metadata.is_dir() {
+        Kind::Directory
+    } else if metadata.is_file() {
+        Kind::File {
+            size: metadata.len(),
+            modified: metadata.modified().map_err(|e| Error::io(path.clone(), "read modification time", e))?,
+        }
+    } else if metadata.is_symlink() {
+        Kind::Symlink(fs::read_link(&path).map_err(|e| Error::io(path, "read symlink", e))?.into_os_string())
+    } else {
+        return Err(Error::UnsupportedEntry { path });
+    };
+    Ok((raw.side, Entry { name: raw.name, kind }))
+}
+
+fn split_entries(results: impl Iterator<Item = Result<(Side, Entry), Error>>) -> Result<(Vec<Entry>, Vec<Entry>), Error> {
+    let (mut original, mut target) = (Vec::new(), Vec::new());
+    for result in results {
+        let (side, entry) = result?;
+        match side {
+            Side::Original => original.push(entry),
+            Side::Target => target.push(entry),
+        }
+    }
+    Ok((original, target))
+}
+
+fn compare(dir: PathBuf, original: Vec<Entry>, target: Vec<Entry>) -> ComparedPair {
+    let mut diff = DirDiff { dir, ..DirDiff::default() };
+    let mut children = Vec::new();
+    let mut original = original.into_iter().peekable();
+    let mut target = target.into_iter().peekable();
+    loop {
+        match (original.peek(), target.peek()) {
+            (Some(a), Some(b)) => match a.name.as_encoded_bytes().cmp(b.name.as_encoded_bytes()) {
+                Ordering::Less => one_sided(&mut diff, original.next().unwrap(), true),
+                Ordering::Greater => one_sided(&mut diff, target.next().unwrap(), false),
+                Ordering::Equal => {
+                    let a = original.next().unwrap();
+                    let b = target.next().unwrap();
+                    match (&a.kind, &b.kind) {
+                        (Kind::Directory, Kind::Directory) => children.push(a.name),
+                        (Kind::Directory, _) | (_, Kind::Directory) => {
+                            one_sided(&mut diff, a, true);
+                            one_sided(&mut diff, b, false);
+                        }
+                        _ if a.kind != b.kind => diff.files.changed.push(a.name),
+                        _ => {}
+                    }
+                }
+            },
+            (Some(_), None) => one_sided(&mut diff, original.next().unwrap(), true),
+            (None, Some(_)) => one_sided(&mut diff, target.next().unwrap(), false),
+            (None, None) => break,
+        }
+    }
+    ComparedPair { diff, children }
+}
+
+fn one_sided(diff: &mut DirDiff, entry: Entry, added: bool) {
+    match (entry.kind, added) {
+        (Kind::Directory, true) => diff.dirs.added.push(entry.name),
+        (Kind::Directory, false) => diff.dirs.removed.push(entry.name),
+        (_, true) => diff.files.added.push(entry.name),
+        (_, false) => diff.files.removed.push(entry.name),
+    }
+}
+
+#[cfg(all(test, feature = "parallel"))]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Condvar, Mutex};
+
+    static WORKERS: Mutex<Vec<(String, usize)>> = Mutex::new(Vec::new());
+    static GATE: Mutex<Option<Arc<Gate>>> = Mutex::new(None);
+
+    #[derive(Default)]
+    struct Gate {
+        arrivals: Mutex<usize>,
+        changed: Condvar,
+    }
+
+    impl Gate {
+        fn wait(&self) {
+            let mut arrivals = self.arrivals.lock().unwrap();
+            *arrivals += 1;
+            self.changed.notify_all();
+            let (arrivals, _) = self
+                .changed
+                .wait_timeout_while(arrivals, std::time::Duration::from_secs(5), |n| *n < 2)
+                .unwrap();
+            assert!(*arrivals >= 2, "no concurrent metadata job entered within five seconds");
+        }
+    }
+
+    pub(super) fn observe_worker() {
+        let gate = {
+            let mut workers = WORKERS.lock().unwrap();
+            workers.push((std::thread::current().name().unwrap_or("unnamed").to_string(), rayon::current_num_threads()));
+            if workers.len() <= 2 { GATE.lock().unwrap().clone() } else { None }
+        };
+        if let Some(gate) = gate {
+            gate.wait();
+        }
+    }
+
+    #[test]
+    fn per_frame_metadata_jobs_use_the_callers_named_pool() {
+        let f = crate::test_support::Fixture::new();
+        for i in 0..256 {
+            f.both_file(format!("file-{i:03}"), b"");
+        }
+        let roots = Roots::new(&f.original, &f.target).unwrap();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(4)
+            .thread_name(|i| format!("diff-dirs-caller-{i}"))
+            .build()
+            .unwrap();
+        WORKERS.lock().unwrap().clear();
+        *GATE.lock().unwrap() = Some(Arc::new(Gate::default()));
+        pool.install(|| assert!(roots.inspect(PathBuf::new(), Execution::Parallel).unwrap().diff.is_empty()));
+        *GATE.lock().unwrap() = None;
+        let workers = WORKERS.lock().unwrap();
+        assert_eq!(workers.len(), 512);
+        assert!(workers.iter().all(|(name, size)| name.starts_with("diff-dirs-caller-") && *size == 4));
+        assert_ne!(workers[0].0, workers[1].0);
+    }
+}
