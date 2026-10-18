@@ -6,6 +6,8 @@ resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6-astra", at: 2026-10-18 }
 sources:
+  - resource: "opencode://ses_eb37f1883ffeZ8HgL0aFBFJf4R"
+    title: Added the post-handoff bounded-directory-frontier design proposal to the reading path
   - resource: "opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY"
     title: Coordinated research and implementation, reviewed the measured concurrency limits, and assembled the reading index
   - resource: /design/fit/fit0.glm53m.md
@@ -49,3 +51,11 @@ The [root specification](../README.md) owns the current public contract.
   census, live-tree census, environment, and the sequential baseline.
 - [Reproduction commands](../perf/README.md): harness usage and retained raw
   observations.
+
+## Concurrency redesign — proposed for review
+
+- [Bounded directory frontier](concurrency/design0.gpt6am.md): separates parallel
+  directory inspection from deterministic DFS commitment; specifies explicit
+  caller-pool borrowing, divergence seals, demand-reserved admission bounds,
+  prefix summaries, joined epochs, and discriminating verification experiments.
+  Revisits the earlier per-frame choice; not implemented or performance-proven.
