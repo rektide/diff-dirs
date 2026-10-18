@@ -7,11 +7,15 @@ status: implementation-direction
 generated: { by: "model:openai/gpt-6-astra", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY"
-    title: Commissioned G research and Sol xhigh implementation; resolved comparison ambiguities and incorporated generic I/O, separate synchronization, and shared Rayon pool direction
+    title: Coordinated G research and Sol implementation, then commissioned and selected Astra medium's bounded directory-frontier redesign after weak live-tree scaling
   - resource: /README.md
     title: Initial tree-comparison specification and conflicting application examples
   - resource: /design/fit/fit0.glm53m.md
     title: G assessment of dependencies, native filesystem requirements, and contract ambiguities
+  - resource: /design/performance/parallel0.sol61x.md
+    title: Same-build live measurements and the limitation of current-directory-only parallelism
+  - resource: /design/concurrency/design0.gpt6am.md
+    title: Astra medium proposal for bounded directory jobs and an ordered commitment cursor
   - resource: "file:///home/rektide/src/jj-waltz/Cargo.toml"
     title: Rust 1.88, edition 2024, dependency set, and distribution platforms
   - resource: "file:///home/rektide/src/jj-waltz/src/reseed/engine.rs"
@@ -99,7 +103,7 @@ requirements; jj-waltz additionally owns its workspace confinement and
 quiescence checks. The core is not a filesystem security boundary under
 concurrent mutation.
 
-### Shared Rayon execution
+### Initial shared Rayon execution
 
 The user subsequently requested Rayon and investigation of sharing its runtime.
 The implementation direction is an optional `parallel` feature and an explicit
@@ -119,6 +123,48 @@ questions: compare sequential and shared-pool execution on fixtures and the
 user-selected live source/destination trees. Tokio's use of blocking filesystem
 operations establishes neither that parallelism is useless nor that Rayon
 necessarily improves this workload.
+
+### Selected redesign: directory frontier and ordered commitment
+
+The initial per-frame implementation is now a measured baseline. On the supplied
+live `node_modules`, its best retained median improved roughly 690 to 636 ms;
+the many small directory comparisons still ran serially. The user requested
+Astra medium to redesign traversal after Sol completed that work.
+
+The parent selects [Astra's directory-frontier proposal](../concurrency/design0.gpt6am.md)
+for the next implementation. This supersedes the initial restriction to one
+current directory pair; it does not claim the new scheduler has been verified
+or accepted by the human. The selected properties are:
+
+- Whole directory-pair jobs execute concurrently on a borrowed caller-owned
+  Rayon pool. Completion supplies further jobs dynamically; workers do not
+  permanently own subtrees.
+- A separate DFS cursor commits records, errors, and summary effects in the
+  established order. Speculatively inspected siblings do not enter an early
+  summary. The public wording becomes **ordered committed prefix**.
+- A differing directory seals its descendants until the caller advances past
+  its record. Pruning therefore discards unadmitted children rather than racing
+  already-running descendant work.
+- One global per-walk limit bounds queued/running directory jobs, another
+  bounds retained speculative nodes, and an additional demand slot ensures
+  progress when later siblings fill the speculative budget. Pool workers,
+  jobs, retained results, and width-sensitive memory are distinct bounds.
+- Every `next()` epoch joins before returning. No pool construction, global
+  pool configuration, blocked receiver worker, or background task lifecycle is
+  introduced. Multiple walks share workers but retain separate memory budgets.
+- An explicit `walk_in_pool` / borrowed-pool walker makes pool ownership clear;
+  the existing ambient entry point remains usable. The old per-frame path is
+  retained as a measurement control while the new path is verified.
+
+The mutation contract must also state that applying one record cannot modify
+other pending paths through hard-link or mount aliases. Unlink-and-create
+replacement fits that contract. The separate sync crate remains the subsequent
+implementation slice; diff workers have joined before the applier runs.
+
+Verification requires genuine concurrent small-directory jobs, adversarial
+demand-budget and error-order cases, prefix parity, prune/drop quiescence, and
+repeatable read-only measurements of the same live trees. Architecture alone
+does not establish the expected speedup.
 
 The parent found **two payload deletion points** in the inspected reseed
 execution: the cleanup before tracked materialization and the final payload
