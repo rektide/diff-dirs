@@ -6,7 +6,7 @@ use rayon::ThreadPool;
 
 use crate::frontier::Frontier;
 use crate::pair::Roots;
-use crate::{Check, DirDiff, Error, NoCheck, Summary};
+use crate::{Check, DirDiff, Error, NoCheck, NoScope, Scope, Summary};
 
 /// Per-walk admission budgets, not worker counts or a byte-memory bound.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,9 +40,10 @@ impl ParallelLimits {
 /// `next()` installs its work in this pool, including when called outside it.
 /// No jobs run between calls; drop and `into_summary` do no IO or joining.
 #[derive(Debug)]
-pub struct ParallelWalk<'pool, C = NoCheck> {
+pub struct ParallelWalk<'pool, C = NoCheck, S = NoScope> {
     roots: Roots,
     check: C,
+    scope: S,
     pool: &'pool ThreadPool,
     frontier: Frontier,
 }
@@ -84,15 +85,27 @@ pub fn walk_in_pool_checked<C: Check>(
     limits: ParallelLimits,
     check: C,
 ) -> Result<ParallelWalk<'_, C>, Error> {
+    walk_in_pool_scoped(original, target, pool, limits, check, NoScope)
+}
+
+pub fn walk_in_pool_scoped<C: Check, S: Scope>(
+    original: impl AsRef<Path>,
+    target: impl AsRef<Path>,
+    pool: &ThreadPool,
+    limits: ParallelLimits,
+    check: C,
+    scope: S,
+) -> Result<ParallelWalk<'_, C, S>, Error> {
     Ok(ParallelWalk {
         roots: Roots::new_checked(original, target, &check)?,
         check,
+        scope,
         pool,
         frontier: Frontier::new(limits),
     })
 }
 
-impl<C: Check> ParallelWalk<'_, C> {
+impl<C: Check, S: Scope> ParallelWalk<'_, C, S> {
     pub fn prune_here(&mut self) -> bool {
         self.frontier.prune_here()
     }
@@ -109,12 +122,18 @@ impl<C: Check> ParallelWalk<'_, C> {
     }
 }
 
-impl<C: Check> Iterator for ParallelWalk<'_, C> {
+impl<C: Check, S: Scope> Iterator for ParallelWalk<'_, C, S> {
     type Item = Result<DirDiff, Error>;
     fn next(&mut self) -> Option<Self::Item> {
-        let Self { roots, check, pool, frontier } = self;
-        pool.install(|| frontier.next_with(|dir| roots.inspect_checked(dir.to_path_buf(), crate::Execution::Sequential, check)))
+        let Self {
+            roots,
+            check,
+            scope,
+            pool,
+            frontier,
+        } = self;
+        pool.install(|| frontier.next_with(|dir| roots.inspect_scoped(dir.to_path_buf(), crate::Execution::Sequential, check, scope)))
     }
 }
 
-impl<C: Check> FusedIterator for ParallelWalk<'_, C> {}
+impl<C: Check, S: Scope> FusedIterator for ParallelWalk<'_, C, S> {}

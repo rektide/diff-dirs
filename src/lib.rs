@@ -29,6 +29,7 @@ mod check;
 mod error;
 mod model;
 mod pair;
+mod scope;
 mod walk;
 
 #[cfg(feature = "parallel")]
@@ -38,16 +39,17 @@ mod parallel;
 #[cfg(feature = "parallel-diagnostics")]
 pub use frontier::ParallelDiagnostics;
 #[cfg(feature = "parallel")]
-pub use parallel::{ParallelLimits, ParallelWalk, walk_in_pool, walk_in_pool_checked};
+pub use parallel::{ParallelLimits, ParallelWalk, walk_in_pool, walk_in_pool_checked, walk_in_pool_scoped};
 
-pub use audit::{Audit, AuditFailure, audit};
+pub use audit::{Audit, AuditFailure, audit, audit_scoped};
 pub use check::{Check, CheckError, CheckRef, Entry, NoCheck, Purpose, Side};
 pub use error::Error;
 pub use model::{AddedRemoved, ChangedAddedRemoved, DirDiff, EntryCounts, Execution, ScanState, Summary, WalkOptions};
+pub use scope::{NoScope, Scope, ScopeRef, Visit};
 #[doc(hidden)]
 #[cfg(feature = "parallel-bench")]
 pub use walk::walk_per_frame;
-pub use walk::{Walk, walk, walk_checked, walk_with_options, walk_with_options_checked};
+pub use walk::{Walk, walk, walk_checked, walk_scoped, walk_with_options, walk_with_options_checked, walk_with_options_scoped};
 
 #[cfg(all(test, feature = "parallel"))]
 extern crate self as diff_dirs;

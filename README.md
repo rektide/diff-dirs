@@ -6,6 +6,8 @@ resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eaecf188affeV49Iu6kJOeHgsX
+    title: Implemented pair-wide static name scope before observation and frontier admission, scoped audit and honest coverage summaries
   - resource: opencode://ses_eb24f98a3ffewdVqa9lao6tXQu
     title: Implemented static accept/refuse checks across comparison, recursive sync and read-only audit, retaining streaming records and frontier semantics
   - resource: opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY
@@ -233,7 +235,8 @@ root) **lazily**; name/type checks need not parse root prefixes or allocate.
 `link_target` is literal text where comparison/copy needs it;
 removal does not add `readlink` solely for a hook. Audit deliberately observes
 literal links too. No mount facts, syscall-request interface, rule vectors,
-skip/preserve engine, or retained inspection catalog are added.
+or retained inspection catalog are added. Preservation is a separate name-stage
+scope, not a successful check or a refusal.
 
 Closures with `Fn(Entry<'_>) -> Result<(), CheckError> + Sync` implement `Check`.
 Annotate a closure's argument as `Entry<'_>` for lifetime inference. A concrete
@@ -262,6 +265,33 @@ the root; `AuditFailure` carries the successfully checked prefix. It neither
 compares roots nor builds a plan. Sync's audit binds roots and combines both sides.
 
 ## Use cases
+
+### Pair-wide scope
+
+`walk_scoped(original, target, check, scope)`, `walk_with_options_scoped`, and
+`walk_in_pool_scoped` use the same traversal and scheduler as the plain APIs.
+`Scope: Sync` returns `Visit::Reconcile` or `Visit::PreserveTree` for a logical
+root-relative path. Closures implement the trait; `NoScope` compiles away the
+selection. `Scope::borrowed()` preserves static specialization.
+
+Scope is pure and stable, like Check. It selects each sorted union **name before
+metadata, readlink, checks, or child admission**, symmetrically on both sides.
+Preserved source names never become apparent source absence. Preserved ancestors
+cannot be reopened. Root identity/type checks still run; preserving the empty
+relative root prevents listing its contents. No repository-specific names exist
+in the library. Parallel scope runs in the inspection worker, outside scheduler
+locks, before the result can expose children; joined epochs, divergence seals,
+J/K budgets, and committed-prefix reporting are unchanged.
+
+`Summary.scoped` identifies scoped coverage; `excluded` counts committed union
+boundaries, not their hidden contents. `state == Complete` means the scoped walk
+exhausted. `is_complete()` and `is_clean()` remain **full-root** certificates and
+are false for scoped walks, even when no excluded name was encountered.
+`audit_scoped(root, side, &check, &scope)` also skips before observation, including
+one-sided interiors. Its `Audit.excluded` counts side-local excluded boundaries.
+Public records remain names/classification only, not policy certificates. The
+[sync specification](sync/README.md#scope-and-absence-authority) covers recursive
+scope enforcement, retained ancestors, and source-absence authority.
 
 ### 1. Apply-in-loop — jj-waltz payload sync
 

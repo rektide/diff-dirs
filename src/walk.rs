@@ -3,7 +3,7 @@ use std::iter::FusedIterator;
 use std::path::{Path, PathBuf};
 
 use crate::pair::Roots;
-use crate::{Check, DirDiff, Error, NoCheck, ScanState, Summary, WalkOptions};
+use crate::{Check, DirDiff, Error, NoCheck, NoScope, ScanState, Scope, Summary, WalkOptions};
 
 /// Validate two existing real directory roots and construct a lazy walker.
 pub fn walk(original: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Walk, Error> {
@@ -23,9 +23,24 @@ pub fn walk_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<Pat
 }
 
 pub fn walk_with_options_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<Path>, options: WalkOptions, check: C) -> Result<Walk<C>, Error> {
+    walk_with_options_scoped(original, target, options, check, NoScope)
+}
+
+pub fn walk_scoped<C: Check, S: Scope>(original: impl AsRef<Path>, target: impl AsRef<Path>, check: C, scope: S) -> Result<Walk<C, S>, Error> {
+    walk_with_options_scoped(original, target, WalkOptions::default(), check, scope)
+}
+
+pub fn walk_with_options_scoped<C: Check, S: Scope>(
+    original: impl AsRef<Path>,
+    target: impl AsRef<Path>,
+    options: WalkOptions,
+    check: C,
+    scope: S,
+) -> Result<Walk<C, S>, Error> {
     Ok(Walk {
         roots: Roots::new_checked(original, target, &check)?,
         check,
+        scope,
         frames: Vec::new(),
         start: true,
         prune_eligible: false,
@@ -41,9 +56,10 @@ pub fn walk_with_options_checked<C: Check>(original: impl AsRef<Path>, target: i
 /// Deterministic pull walk. Sequential by default; optional ambient frontier
 /// execution also retains count-bounded private lookahead.
 #[derive(Debug)]
-pub struct Walk<C = NoCheck> {
+pub struct Walk<C = NoCheck, S = NoScope> {
     roots: Roots,
     check: C,
+    scope: S,
     frames: Vec<Frame>,
     start: bool,
     prune_eligible: bool,
@@ -63,7 +79,7 @@ struct Frame {
     subtree_changed: bool,
 }
 
-impl<C: Check> Walk<C> {
+impl<C: Check, S: Scope> Walk<C, S> {
     /// Skip pending children once immediately after a successful yielded record.
     pub fn prune_here(&mut self) -> bool {
         #[cfg(feature = "parallel")]
@@ -103,9 +119,11 @@ impl<C: Check> Walk<C> {
     }
 
     fn examine(&mut self, dir: PathBuf, direct_ancestor: bool) -> Result<Option<DirDiff>, Error> {
-        let pair = self.roots.inspect_checked(dir, self.options.execution, &self.check)?;
+        let pair = self.roots.inspect_scoped(dir, self.options.execution, &self.check, &self.scope)?;
         let changed = !pair.diff.is_empty();
         self.summary.examined_directories += 1;
+        self.summary.scoped |= pair.scoped;
+        self.summary.excluded += pair.excluded;
         self.summary.counts.add(&pair.diff);
         if changed && !direct_ancestor {
             self.summary.topmost_divergent.push(pair.diff.dir.clone());
@@ -142,7 +160,7 @@ impl<C: Check> Walk<C> {
     }
 }
 
-impl<C: Check> Iterator for Walk<C> {
+impl<C: Check, S: Scope> Iterator for Walk<C, S> {
     type Item = Result<DirDiff, Error>;
     fn next(&mut self) -> Option<Self::Item> {
         #[cfg(feature = "parallel")]
@@ -150,7 +168,10 @@ impl<C: Check> Iterator for Walk<C> {
             let frontier = self
                 .frontier
                 .get_or_insert_with(|| Box::new(crate::frontier::Frontier::new(crate::ParallelLimits::for_threads(rayon::current_num_threads()))));
-            return frontier.next_with(|dir| self.roots.inspect_checked(dir.to_path_buf(), crate::Execution::Sequential, &self.check));
+            return frontier.next_with(|dir| {
+                self.roots
+                    .inspect_scoped(dir.to_path_buf(), crate::Execution::Sequential, &self.check, &self.scope)
+            });
         }
         self.prune_eligible = false;
         if self.summary.state != ScanState::Incomplete {
@@ -170,7 +191,7 @@ impl<C: Check> Iterator for Walk<C> {
     }
 }
 
-impl<C: Check> FusedIterator for Walk<C> {}
+impl<C: Check, S: Scope> FusedIterator for Walk<C, S> {}
 
 /// Temporary measurement control for the predecessor per-frame backend.
 /// Not part of the supported embedding API; requires `parallel-bench`.

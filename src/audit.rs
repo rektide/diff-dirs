@@ -4,11 +4,12 @@ use std::fmt;
 use std::fs;
 use std::path::Path;
 
-use crate::{Check, Entry, Error, Purpose, Side};
+use crate::{Check, Entry, Error, NoScope, Purpose, Scope, Side};
 
 /// Successfully checked observations, including the root. Not diff counts.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Audit {
+    pub excluded: u64,
     pub directories: u64,
     pub files: u64,
     pub symlinks: u64,
@@ -39,7 +40,15 @@ impl std::error::Error for AuditFailure {
 /// a leaf, never followed. The caller owns ancestor confinement and stability.
 /// This is an explicit audit, not an implicit phase of checked synchronization.
 pub fn audit<C: Check>(root: impl AsRef<Path>, side: Side, check: &C) -> Result<Audit, AuditFailure> {
-    fn visit<C: Check>(root: &Path, path: &Path, side: Side, check: &C, inspected: &mut Audit) -> Result<(), Error> {
+    audit_scoped(root, side, check, &NoScope)
+}
+
+pub fn audit_scoped<C: Check, S: Scope>(root: impl AsRef<Path>, side: Side, check: &C, scope: &S) -> Result<Audit, AuditFailure> {
+    fn visit<C: Check, S: Scope>(root: &Path, path: &Path, side: Side, check: &C, scope: &S, inspected: &mut Audit) -> Result<(), Error> {
+        if path != root && !scope.includes(path.strip_prefix(root).expect("audit descendant")) {
+            inspected.excluded += 1;
+            return Ok(());
+        }
         let metadata = fs::symlink_metadata(path).map_err(|e| Error::io(path.to_path_buf(), "inspect audit entry", e))?;
         let link = if metadata.is_symlink() {
             Some(fs::read_link(path).map_err(|e| Error::io(path.to_path_buf(), "read symlink", e))?)
@@ -58,6 +67,10 @@ pub fn audit<C: Check>(root: impl AsRef<Path>, side: Side, check: &C) -> Result<
         .check(check)?;
         if metadata.is_dir() {
             inspected.directories += 1;
+            if path == root && !scope.includes(Path::new("")) {
+                inspected.excluded += 1;
+                return Ok(());
+            }
             let mut children = fs::read_dir(path)
                 .map_err(|e| Error::io(path.to_path_buf(), "read audit directory", e))?
                 .map(|entry| {
@@ -68,7 +81,7 @@ pub fn audit<C: Check>(root: impl AsRef<Path>, side: Side, check: &C) -> Result<
                 .collect::<Result<Vec<_>, _>>()?;
             children.sort_unstable_by(|a, b| a.as_encoded_bytes().cmp(b.as_encoded_bytes()));
             for name in children {
-                visit(root, &path.join(name), side, check, inspected)?;
+                visit(root, &path.join(name), side, check, scope, inspected)?;
             }
         } else if metadata.is_file() {
             inspected.files += 1;
@@ -82,7 +95,7 @@ pub fn audit<C: Check>(root: impl AsRef<Path>, side: Side, check: &C) -> Result<
 
     let root = root.as_ref();
     let mut inspected = Audit::default();
-    match visit(root, root, side, check, &mut inspected) {
+    match visit(root, root, side, check, scope, &mut inspected) {
         Ok(()) => Ok(inspected),
         Err(error) => Err(AuditFailure { error, inspected }),
     }

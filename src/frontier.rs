@@ -119,6 +119,8 @@ enum NodeState {
 
 #[derive(Debug)]
 struct ReadyPair {
+    excluded: u64,
+    scoped: bool,
     diff: DirDiff,
     children: Children,
 }
@@ -329,6 +331,8 @@ impl Frontier {
                         let changed = !pair.diff.is_empty();
                         let direct_ancestor = self.frames.last().is_some_and(|frame| frame.direct_ancestor);
                         self.summary.examined_directories += 1;
+                        self.summary.excluded += pair.excluded;
+                        self.summary.scoped |= pair.scoped;
                         self.summary.counts.add(&pair.diff);
                         if changed && !direct_ancestor {
                             self.summary.topmost_divergent.push(node.dir.clone());
@@ -528,6 +532,8 @@ impl Frontier {
         self.active -= 1;
         self.outstanding -= 1;
         self.nodes.get_mut(id).state = NodeState::Ready(result.map(|pair| ReadyPair {
+            excluded: pair.excluded,
+            scoped: pair.scoped,
             diff: pair.diff,
             children: Children::from_names(pair.children),
         }));

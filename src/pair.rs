@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use crate::{Check, DirDiff, Entry as Observation, Error, Execution, Purpose, Side};
+use crate::{Check, DirDiff, Entry as Observation, Error, Execution, Purpose, Scope, Side};
 
 #[derive(Debug)]
 pub(crate) struct Roots {
@@ -49,9 +49,17 @@ impl Roots {
         Ok(roots)
     }
 
+    #[cfg(all(test, feature = "parallel"))]
     pub fn inspect_checked<C: Check>(&self, dir: PathBuf, execution: Execution, check: &C) -> Result<ComparedPair, Error> {
-        let (original, target) = entries(self, &dir, execution, check)?;
-        Ok(compare(dir, original, target))
+        self.inspect_scoped(dir, execution, check, &crate::NoScope)
+    }
+
+    pub fn inspect_scoped<C: Check, S: Scope>(&self, dir: PathBuf, execution: Execution, check: &C, scope: &S) -> Result<ComparedPair, Error> {
+        let (original, target, excluded) = entries(self, &dir, execution, check, scope)?;
+        let mut pair = compare(dir, original, target);
+        pair.excluded = excluded;
+        pair.scoped = S::ENABLED;
+        Ok(pair)
     }
 }
 
@@ -59,6 +67,8 @@ impl Roots {
 pub(crate) struct ComparedPair {
     pub diff: DirDiff,
     pub children: Vec<OsString>,
+    pub excluded: u64,
+    pub scoped: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -92,7 +102,10 @@ fn list(dir: &Path, side: Side, entries: &mut Vec<RawEntry>) -> Result<(), Error
     Ok(())
 }
 
-fn entries<C: Check>(roots: &Roots, dir: &Path, execution: Execution, check: &C) -> Result<(Vec<Entry>, Vec<Entry>), Error> {
+fn entries<C: Check, S: Scope>(roots: &Roots, dir: &Path, execution: Execution, check: &C, scope: &S) -> Result<(Vec<Entry>, Vec<Entry>, u64), Error> {
+    if !scope.includes(dir) {
+        return Ok((Vec::new(), Vec::new(), 1));
+    }
     let mut raw = Vec::new();
     list(&roots.original.join(dir), Side::Original, &mut raw)?;
     list(&roots.target.join(dir), Side::Target, &mut raw)?;
@@ -102,6 +115,20 @@ fn entries<C: Check>(roots: &Roots, dir: &Path, execution: Execution, check: &C)
             .cmp(b.name.as_encoded_bytes())
             .then((a.side as u8).cmp(&(b.side as u8)))
     });
+    // Decide once per union name, symmetrically, before any entry observation.
+    let mut excluded = 0;
+    if S::ENABLED {
+        let mut previous = None;
+        let mut include = true;
+        raw.retain(|entry| {
+            if previous.as_ref() != Some(&entry.name) {
+                include = scope.includes(&dir.join(&entry.name));
+                excluded += u64::from(!include);
+                previous = Some(entry.name.clone());
+            }
+            include
+        });
+    }
     #[cfg(feature = "parallel")]
     if execution == Execution::Parallel && raw.len() >= 64 {
         use rayon::prelude::*;
@@ -114,10 +141,10 @@ fn entries<C: Check>(roots: &Roots, dir: &Path, execution: Execution, check: &C)
                 inspect_entry(entry, roots, check)
             })
             .collect();
-        return split_entries(results.into_iter());
+        return split_entries(results.into_iter()).map(|(a, b)| (a, b, excluded));
     }
     let _ = execution;
-    split_entries(raw.into_iter().map(|entry| inspect_entry(entry, roots, check)))
+    split_entries(raw.into_iter().map(|entry| inspect_entry(entry, roots, check))).map(|(a, b)| (a, b, excluded))
 }
 
 fn inspect_entry<C: Check>(raw: RawEntry, roots: &Roots, check: &C) -> Result<(Side, Entry), Error> {
@@ -200,7 +227,12 @@ fn compare(dir: PathBuf, original: Vec<Entry>, target: Vec<Entry>) -> ComparedPa
             (None, None) => break,
         }
     }
-    ComparedPair { diff, children }
+    ComparedPair {
+        diff,
+        children,
+        excluded: 0,
+        scoped: false,
+    }
 }
 
 fn one_sided(diff: &mut DirDiff, entry: Entry, added: bool) {

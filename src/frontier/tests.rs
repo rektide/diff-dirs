@@ -20,6 +20,8 @@ fn pair(dir: &Path, children: &[&str], changed: bool) -> ComparedPair {
         diff.files.added.push("new".into());
     }
     ComparedPair {
+        excluded: 0,
+        scoped: false,
         diff,
         children: children.iter().map(OsString::from).collect(),
     }

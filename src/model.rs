@@ -86,6 +86,11 @@ pub enum ScanState {
 /// Consuming the walk never does more IO.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Summary {
+    /// A scoped scan never certifies full-root coverage, even if no excluded
+    /// name happened to be encountered in its committed prefix.
+    pub scoped: bool,
+    /// Union-name boundaries excluded before observation (not subtree sizes).
+    pub excluded: u64,
     pub counts: EntryCounts,
     /// Directly divergent directories with no directly divergent ancestor,
     /// in depth-first pre-order. Empty path denotes the root.
@@ -102,7 +107,7 @@ pub struct Summary {
 impl Summary {
     /// True only after normal exhaustion without any pruning.
     pub fn is_complete(&self) -> bool {
-        self.state == ScanState::Complete && self.pruned.is_empty()
+        self.state == ScanState::Complete && self.pruned.is_empty() && !self.scoped
     }
 
     pub fn has_differences(&self) -> bool {
