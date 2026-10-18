@@ -7,7 +7,7 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
-    title: Built and verified generic comparison core and lossless thin CLI; ratified direction, literal symlink, coverage, and consumer mutation contracts under parent direction
+    title: Built and verified generic comparison core, lossless CLI, and optional caller-pool metadata parallelism; settled direction, literal symlink, coverage, and consumer mutation contracts
   - resource: /README.md
     title: Specification, deliberately amended alongside implementation
   - resource: /design/fit/fit0.glm53m.md
@@ -110,3 +110,22 @@ separate follow-on checkpoint.
 - No mode comparison, security sandbox, stable snapshot, absent-root dispatch,
   automatic cleanup, payload validation within opaque one-sided subtrees, or
   built-in applier is implied by the completed core.
+
+## Optional parallel follow-on
+
+The initial core above remains the zero-dependency default. An explicitly
+selected `parallel` feature/execution policy now batches current-pair metadata
+through the caller's Rayon pool; there is no speculative child IO. The two raw
+listings are sorted together by native name then side before inspection;
+sequential and parallel paths now share that deterministic error priority.
+Indexed parallel collection retains a vector of ordered `Result`s before
+selecting the first error (not Rayon racing `Result` short-circuit collection).
+This adds transient current-pair result storage only, not retained tree records.
+
+The all-features test set has 36 passing tests, including metadata-boundary
+instrumentation proving caller-named pool use, wide mixed-tree record/summary
+parity, deterministic multiple-error selection, and immediate application/prune
+without child prefetch. The existing fixture gather helper also checks parallel
+parity for every successful core scenario when enabled. See the
+[shared-pool performance report](/design/performance/parallel0.sol61x.md) for
+measurements and why default execution remains sequential.

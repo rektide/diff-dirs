@@ -5,11 +5,20 @@ use std::iter::FusedIterator;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use crate::{DirDiff, Error, ScanState, Summary};
+use crate::{DirDiff, Error, Execution, ScanState, Summary, WalkOptions};
 
 /// Validate two existing real directory roots and construct a lazy walker.
 /// Directory contents are first read by `next()`, not by this constructor.
 pub fn walk(original: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Walk, Error> {
+    walk_with_options(original, target, WalkOptions::default())
+}
+
+/// Construct a walk with explicit execution policy. With `parallel`, metadata
+/// jobs use the current Rayon pool and join before any record/error is yielded.
+/// Reading the current two directory listings precedes metadata inspection;
+/// metadata errors select the first native-name / original-before-target pair,
+/// independent of worker scheduling. Listing errors precede metadata errors.
+pub fn walk_with_options(original: impl AsRef<Path>, target: impl AsRef<Path>, options: WalkOptions) -> Result<Walk, Error> {
     let original = original.as_ref().to_path_buf();
     let target = target.as_ref().to_path_buf();
     for path in [&original, &target] {
@@ -25,6 +34,7 @@ pub fn walk(original: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Walk
         start: true,
         prune_eligible: false,
         summary: Summary::default(),
+        options,
     })
 }
 
@@ -38,6 +48,7 @@ pub struct Walk {
     start: bool,
     prune_eligible: bool,
     summary: Summary,
+    options: WalkOptions,
 }
 
 #[derive(Debug)]
@@ -85,8 +96,7 @@ impl Walk {
     fn examine(&mut self, dir: PathBuf, direct_ancestor: bool) -> Result<Option<DirDiff>, Error> {
         // Fully capture both immediate listings before yielding. The caller may
         // then replace classified immediate children without invalidating them.
-        let original = entries(&self.original.join(&dir))?;
-        let target = entries(&self.target.join(&dir))?;
+        let (original, target) = entries(&self.original.join(&dir), &self.target.join(&dir), self.options.execution)?;
         let (diff, children) = compare(dir, original, target);
         let changed = !diff.is_empty();
         self.summary.examined_directories += 1;
@@ -162,30 +172,80 @@ struct Entry {
     kind: Kind,
 }
 
-fn entries(dir: &Path) -> Result<Vec<Entry>, Error> {
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Side {
+    Original,
+    Target,
+}
+
+struct RawEntry {
+    entry: fs::DirEntry,
+    name: OsString,
+    side: Side,
+}
+
+fn list(dir: &Path, side: Side, entries: &mut Vec<RawEntry>) -> Result<(), Error> {
     let read = fs::read_dir(dir).map_err(|e| Error::io(dir.to_path_buf(), "read directory", e))?;
-    let mut entries = Vec::new();
     for entry in read {
         let entry = entry.map_err(|e| Error::io(dir.to_path_buf(), "read directory entry", e))?;
-        let path = entry.path();
-        // DirEntry::metadata does not follow symlinks, unlike fs::metadata.
-        let metadata = entry.metadata().map_err(|e| Error::io(path.clone(), "inspect entry", e))?;
-        let kind = if metadata.is_dir() {
-            Kind::Directory
-        } else if metadata.is_file() {
-            Kind::File {
-                size: metadata.len(),
-                modified: metadata.modified().map_err(|e| Error::io(path.clone(), "read modification time", e))?,
-            }
-        } else if metadata.is_symlink() {
-            Kind::Symlink(fs::read_link(&path).map_err(|e| Error::io(path, "read symlink", e))?.into_os_string())
-        } else {
-            return Err(Error::UnsupportedEntry { path });
-        };
-        entries.push(Entry { name: entry.file_name(), kind });
+        entries.push(RawEntry {
+            name: entry.file_name(),
+            entry,
+            side,
+        });
     }
-    entries.sort_unstable_by(|a, b| a.name.as_encoded_bytes().cmp(b.name.as_encoded_bytes()));
-    Ok(entries)
+    Ok(())
+}
+
+fn entries(original: &Path, target: &Path, execution: Execution) -> Result<(Vec<Entry>, Vec<Entry>), Error> {
+    let mut raw = Vec::new();
+    list(original, Side::Original, &mut raw)?;
+    list(target, Side::Target, &mut raw)?;
+    raw.sort_unstable_by(|a, b| a.name.as_encoded_bytes().cmp(b.name.as_encoded_bytes()).then(a.side.cmp(&b.side)));
+    #[cfg(feature = "parallel")]
+    if execution == Execution::Parallel && raw.len() >= 64 {
+        use rayon::prelude::*;
+        // Vec's indexed parallel iterator collects in original index order.
+        // Do not collect directly into Result: racing error selection would
+        // lose deterministic name/side priority. No jobs survive this collect.
+        let results: Vec<_> = raw.into_par_iter().with_min_len(16).map(inspect_entry).collect();
+        return split_entries(results.into_iter());
+    }
+    let _ = execution;
+    split_entries(raw.into_iter().map(inspect_entry))
+}
+
+fn inspect_entry(raw: RawEntry) -> Result<(Side, Entry), Error> {
+    #[cfg(all(test, feature = "parallel"))]
+    observe_worker();
+    let path = raw.entry.path();
+    // DirEntry::metadata does not follow symlinks, unlike fs::metadata.
+    let metadata = raw.entry.metadata().map_err(|e| Error::io(path.clone(), "inspect entry", e))?;
+    let kind = if metadata.is_dir() {
+        Kind::Directory
+    } else if metadata.is_file() {
+        Kind::File {
+            size: metadata.len(),
+            modified: metadata.modified().map_err(|e| Error::io(path.clone(), "read modification time", e))?,
+        }
+    } else if metadata.is_symlink() {
+        Kind::Symlink(fs::read_link(&path).map_err(|e| Error::io(path, "read symlink", e))?.into_os_string())
+    } else {
+        return Err(Error::UnsupportedEntry { path });
+    };
+    Ok((raw.side, Entry { name: raw.name, kind }))
+}
+
+fn split_entries(results: impl Iterator<Item = Result<(Side, Entry), Error>>) -> Result<(Vec<Entry>, Vec<Entry>), Error> {
+    let (mut original, mut target) = (Vec::new(), Vec::new());
+    for result in results {
+        let (side, entry) = result?;
+        match side {
+            Side::Original => original.push(entry),
+            Side::Target => target.push(entry),
+        }
+    }
+    Ok((original, target))
 }
 
 fn compare(dir: PathBuf, original: Vec<Entry>, target: Vec<Entry>) -> (DirDiff, Vec<OsString>) {
@@ -226,5 +286,52 @@ fn one_sided(diff: &mut DirDiff, entry: Entry, added: bool) {
         (Kind::Directory, false) => diff.dirs.removed.push(entry.name),
         (_, true) => diff.files.added.push(entry.name),
         (_, false) => diff.files.removed.push(entry.name),
+    }
+}
+
+// Test-only observation at the actual metadata boundary, not merely at the
+// ThreadPool::install entry. No instrumentation exists in production builds.
+#[cfg(all(test, feature = "parallel"))]
+static OBSERVED_WORKERS: std::sync::Mutex<Vec<(String, usize)>> = std::sync::Mutex::new(Vec::new());
+
+#[cfg(all(test, feature = "parallel"))]
+fn observe_worker() {
+    OBSERVED_WORKERS
+        .lock()
+        .unwrap()
+        .push((std::thread::current().name().unwrap_or("unnamed").to_string(), rayon::current_num_threads()));
+}
+
+#[cfg(all(test, feature = "parallel"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn metadata_jobs_use_the_callers_named_pool() {
+        let f = crate::test_support::Fixture::new();
+        for i in 0..256 {
+            f.both_file(format!("file-{i:03}"), b"");
+        }
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(4)
+            .thread_name(|i| format!("diff-dirs-caller-{i}"))
+            .build()
+            .unwrap();
+        OBSERVED_WORKERS.lock().unwrap().clear();
+        pool.install(|| {
+            let mut walk = walk_with_options(
+                &f.original,
+                &f.target,
+                WalkOptions {
+                    execution: Execution::Parallel,
+                },
+            )
+            .unwrap();
+            assert!(walk.next().is_none());
+            assert!(walk.into_summary().is_clean());
+        });
+        let observed = OBSERVED_WORKERS.lock().unwrap();
+        assert_eq!(observed.len(), 512);
+        assert!(observed.iter().all(|(name, size)| name.starts_with("diff-dirs-caller-") && *size == 4));
     }
 }

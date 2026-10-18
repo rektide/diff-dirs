@@ -29,5 +29,12 @@ mod model;
 mod walk;
 
 pub use error::Error;
-pub use model::{AddedRemoved, ChangedAddedRemoved, DirDiff, EntryCounts, ScanState, Summary};
-pub use walk::{Walk, walk};
+pub use model::{AddedRemoved, ChangedAddedRemoved, DirDiff, EntryCounts, Execution, ScanState, Summary, WalkOptions};
+pub use walk::{Walk, walk, walk_with_options};
+
+#[cfg(all(test, feature = "parallel"))]
+extern crate self as diff_dirs;
+
+#[cfg(all(test, feature = "parallel"))]
+#[path = "../tests/support/mod.rs"]
+mod test_support;

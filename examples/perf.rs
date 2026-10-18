@@ -8,15 +8,31 @@ use std::io;
 use std::path::Path;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
-use diff_dirs::{EntryCounts, ScanState, Summary};
+use diff_dirs::{EntryCounts, Execution, ScanState, Summary, WalkOptions};
 
-type Result<T> = std::result::Result<T, Box<dyn Error>>;
+type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
 const HEADER: &str = "scenario,iteration,elapsed_ns,records,examined_directories,files_changed,files_added,files_removed,dirs_added,dirs_removed,pruned";
 const HELP: &str = "perf setup ROOT APPROX_ENTRIES\nperf run ROOT ITERATIONS [clean|sparse|one-sided|prune]\nperf once ORIGINAL TARGET\nperf repeat ORIGINAL TARGET ITERATIONS\nperf inspect ROOT";
 
 fn main() -> Result<()> {
     let args = std::env::args_os().skip(1).collect::<Vec<_>>();
+    #[cfg(feature = "parallel")]
+    if args.first().and_then(|s| s.to_str()) == Some("parallel") {
+        let threads = number(args.get(1).ok_or_else(|| invalid("parallel requires thread count"))?)?;
+        if threads == 0 {
+            return Err(invalid("thread count must be positive"));
+        }
+        // A caller-owned pool, built once outside all timing intervals. No
+        // library pool creation or global-pool configuration is involved.
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(threads).build()?;
+        eprintln!("execution=parallel caller_pool_threads={threads}");
+        return pool.install(|| command(&args[2..], Execution::Parallel));
+    }
+    command(&args, Execution::Sequential)
+}
+
+fn command(args: &[OsString], execution: Execution) -> Result<()> {
     match args.first().and_then(|s| s.to_str()) {
         Some("setup") if args.len() == 3 => setup(Path::new(&args[1]), number(&args[2])?),
         Some("run") if args.len() == 3 || args.len() == 4 => {
@@ -33,13 +49,13 @@ fn main() -> Result<()> {
             eprintln!("fixture={root:?}; one untimed warmup per scenario; iterations={iterations}");
             println!("{HEADER}");
             for case in cases {
-                run_case(root, case, iterations)?;
+                run_case(root, case, iterations, execution)?;
             }
             Ok(())
         }
         Some("once") if args.len() == 3 => {
             println!("{HEADER}");
-            let sample = sample(Path::new(&args[1]), Path::new(&args[2]), false)?;
+            let sample = sample(Path::new(&args[1]), Path::new(&args[2]), false, execution)?;
             print_sample("once", 0, &sample);
             Ok(())
         }
@@ -51,10 +67,10 @@ fn main() -> Result<()> {
             let original = Path::new(&args[1]);
             let target = Path::new(&args[2]);
             eprintln!("read-only original={original:?} target={target:?}; one untimed warmup; iterations={iterations}");
-            sample(original, target, false)?;
+            sample(original, target, false, execution)?;
             println!("{HEADER}");
             for iteration in 0..iterations {
-                print_sample("read-only", iteration, &sample(original, target, false)?);
+                print_sample("read-only", iteration, &sample(original, target, false, execution)?);
             }
             Ok(())
         }
@@ -108,7 +124,7 @@ fn inspect(root: &Path) -> Result<()> {
     Ok(())
 }
 
-fn invalid(message: &str) -> Box<dyn Error> {
+fn invalid(message: &str) -> Box<dyn Error + Send + Sync> {
     io::Error::new(io::ErrorKind::InvalidInput, message).into()
 }
 
@@ -158,7 +174,7 @@ fn entries_per_package() -> usize {
     154 + usize::from(cfg!(unix))
 }
 
-fn run_case(root: &Path, case: &str, iterations: usize) -> Result<()> {
+fn run_case(root: &Path, case: &str, iterations: usize, execution: Execution) -> Result<()> {
     let original = root.join("original");
     let target = root.join("target");
     let changed = target.join("packages/pkg-000000/lib/file-000.bin");
@@ -186,10 +202,10 @@ fn run_case(root: &Path, case: &str, iterations: usize) -> Result<()> {
         _ => return Err(invalid("unknown scenario")),
     }
 
-    let warm = sample(&original, &target, case == "prune")?;
+    let warm = sample(&original, &target, case == "prune", execution)?;
     validate(case, &warm)?;
     for iteration in 0..iterations {
-        let sample = sample(&original, &target, case == "prune")?;
+        let sample = sample(&original, &target, case == "prune", execution)?;
         validate(case, &sample)?;
         print_sample(case, iteration, &sample);
     }
@@ -209,7 +225,7 @@ fn run_case(root: &Path, case: &str, iterations: usize) -> Result<()> {
     }
     // A final untimed scan checks restoration; failures leave the fixture for
     // inspection, never automatically remove/reconcile it.
-    if !sample(&original, &target, false)?.summary.is_clean() {
+    if !sample(&original, &target, false, execution)?.summary.is_clean() {
         return Err(invalid("fixture did not restore to clean"));
     }
     Ok(())
@@ -221,9 +237,9 @@ struct Sample {
     summary: Summary,
 }
 
-fn sample(original: &Path, target: &Path, prune: bool) -> Result<Sample> {
+fn sample(original: &Path, target: &Path, prune: bool, execution: Execution) -> Result<Sample> {
     let start = Instant::now();
-    let mut walk = diff_dirs::walk(original, target)?;
+    let mut walk = diff_dirs::walk_with_options(original, target, WalkOptions { execution })?;
     let mut records = 0;
     while let Some(diff) = walk.next() {
         let diff = diff?;
@@ -288,9 +304,9 @@ mod tests {
         let root = fixture.root.join("benchmark");
         setup(&root, entries_per_package() * 2).unwrap();
         for case in ["clean", "sparse", "one-sided", "prune"] {
-            run_case(&root, case, 1).unwrap();
+            run_case(&root, case, 1, Execution::Sequential).unwrap();
         }
-        let sample = sample(&root.join("original"), &root.join("target"), false).unwrap();
+        let sample = sample(&root.join("original"), &root.join("target"), false, Execution::Sequential).unwrap();
         assert!(sample.summary.is_clean());
         assert_eq!(sample.summary.examined_directories, 10);
     }

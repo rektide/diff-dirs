@@ -16,13 +16,13 @@ def main():
         groups = defaultdict(list)
         with Path(filename).open(newline="") as source:
             for row in csv.DictReader(source):
-                groups[row["scenario"]].append(int(row["elapsed_ns"]) / 1_000_000)
-        for scenario, times in groups.items():
+                groups[(row.get("sample", Path(filename).name), row["scenario"])].append(int(row["elapsed_ns"]) / 1_000_000)
+        for (sample, scenario), times in groups.items():
             values = (
                 statistics.median(times), min(times), max(times),
                 statistics.mean(times), statistics.pstdev(times),
             )
-            print(f"{Path(filename).name},{scenario},{len(times)}," + ",".join(f"{v:.6f}" for v in values))
+            print(f"{sample},{scenario},{len(times)}," + ",".join(f"{v:.6f}" for v in values))
 
 
 if __name__ == "__main__":

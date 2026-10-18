@@ -7,7 +7,7 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
-    title: Implemented generic std-only comparison and lossless CLI, verified contracts, and measured reproducible synthetic plus read-only live comparisons
+    title: Implemented generic comparison and lossless CLI, added optional caller-pool Rayon execution, and measured synthetic plus read-only live parity/performance
   - resource: /design/fit/fit0.glm53m.md
     title: Initial fit research and contract contradictions, subsequently resolved by parent direction
 ---
@@ -172,6 +172,9 @@ Ok(walk.into_summary())             // topmost divergent subtrees, counts
 - `break` stops the walk entirely. Errors surface as `Result` items/`next()`
   and abort naming the offending path. The terminal `Err` is followed by fused
   `None`; summaries retain `Failed`, never `Complete`.
+- Listing failures are selected original-side first, before metadata work.
+  Metadata errors are deterministic by native name, then original before target
+  for equal names. Parallel workers never race to select the reported error.
 - A directory failing midway emits no partial record and contributes no counts.
 - `into_summary()` consumes any walk and returns the examined aggregate.
 
@@ -283,8 +286,10 @@ Root-relative `dir` is the empty string for the root pair.
 
 ## Embedding
 
-The root `diff-dirs` package is std-only, edition 2024, Rust 1.88 minimum;
-embedding does not require a runtime, CLI dependencies, or sync component.
+The root `diff-dirs` package is std-only **by default**, edition 2024, Rust 1.88
+minimum; embedding does not require a runtime, CLI dependencies, or sync
+component. Optional `parallel` adds Rayon; `walk()` remains sequential even
+when the feature is compiled in.
 The separate `cli/` workspace member owns standalone rendering dependencies.
 Path dependency vs vendoring vs publishing remains an integration decision.
 
@@ -295,6 +300,39 @@ loop does not establish end-to-end benefit. Missing target roots still need
 whole-root handling. Copy/create-new APIs may require unlinking a changed leaf
 first; deletions precede copies, and copying preserves mtimes. Confinement,
 mode policy, reflinks, and final verification remain the consumer's concerns.
+
+### Optional shared-pool parallel execution
+
+Enable `features = ["parallel"]`, then select it with
+`walk_with_options(original, target, WalkOptions { execution: Execution::Parallel })`.
+Only metadata/readlink jobs for the **current directory pair** can run in
+parallel. Listings are materialized and sorted first; every worker joins before
+`next()` returns. There is no subtree prefetch across mutation or prune boundaries.
+Tiny pairs (fewer than 64 total immediate entries) stay sequential; larger
+batches have a minimum Rayon split length of 16. These are batching heuristics,
+not an autotuned promise for every filesystem.
+
+Rayon uses the caller's current pool, or its global fallback outside any
+installed pool. The library never builds a pool, configures the global pool,
+or spawns detached work. Fully consume the walk **inside** the application pool:
+
+```rust,ignore
+let summary = app_pool.install(|| -> Result<_, diff_dirs::Error> {
+    let mut walk = diff_dirs::walk_with_options(original, target,
+        diff_dirs::WalkOptions { execution: diff_dirs::Execution::Parallel })?;
+    while let Some(diff) = walk.next() {
+        let diff = diff?;
+        // apply/inspect here; prune_here() remains available on this walk
+    }
+    Ok(walk.into_summary())
+})?;
+```
+
+Installing only construction is insufficient: IO happens during iteration.
+See [parallel evidence](/design/performance/parallel0.sol61x.md): shared pools
+helped the synthetic wide-directory fixtures, but live-tree gains were modest
+and eight workers regressed whole-tree comparison. Sequential remains the
+predictable default; the caller chooses pool size and execution policy.
 
 ## Non-goals
 
@@ -313,10 +351,12 @@ are silent in the library (the CLI still prints its final summary).
 
 ```sh
 cargo nextest run --workspace
+cargo nextest run --workspace --all-targets --all-features
 cargo test --workspace --doc
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all --check
 cargo +1.88.0 test --workspace
+cargo +1.88.0 test --workspace --all-targets --all-features
 ```
 
 The [implementation account](/design/implementation/implementation0.sol61x.md)

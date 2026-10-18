@@ -1,6 +1,23 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+/// Execution of metadata work within the current directory pair, never subtree
+/// prefetch. Sequential is the default even when `parallel` is compiled in.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Execution {
+    #[default]
+    Sequential,
+    /// Use the current Rayon pool, or its global fallback outside an install.
+    /// Fully consume the walker inside the caller's `ThreadPool::install`.
+    #[cfg(feature = "parallel")]
+    Parallel,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WalkOptions {
+    pub execution: Execution,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AddedRemoved<T> {
     pub added: T,

@@ -7,7 +7,7 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
-    title: Built a std-only reproducible fixture generator and release-walk timing harness
+    title: Built reproducible fixtures, release-walk timing, read-only live commands, shared-pool matrix, and syscall auditing
   - resource: /examples/perf.rs
     title: Executable fixture setup, scenarios, validation, and timing boundaries
   - resource: /README.md
@@ -108,3 +108,27 @@ as above and a substring matching only the fixture paths, not the working dir.
 See the [measured run](/design/performance/performance0.sol61x.md) for results
 and environment; the [implementation account](/design/implementation/implementation0.sol61x.md)
 explains the traversal and coverage states that the harness exercises.
+
+## Sequential versus caller-owned Rayon pools
+
+Build one executable with the optional backend, then select execution without
+rebuilding. Pool creation is outside all timings and one pool is shared across
+every walk/warmup in that process. For example:
+
+```sh
+cargo +1.88.0 build --release --example perf --features parallel
+target/release/examples/perf run .test-agent/perf/btrfs-192k 3
+target/release/examples/perf parallel 4 run .test-agent/perf/btrfs-192k 3
+target/release/examples/perf parallel 4 repeat /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 3
+python3 perf/compare.py --binary target/release/examples/perf --fixture .test-agent/perf/btrfs-30k --fixture .test-agent/perf/btrfs-192k --pair live-whole /home/rektide/a/a/opencode /home/rektide/src/opencode-export-qa --pair live-node-modules /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules --output .test-agent/perf/parallel-matrix -n 3
+```
+
+`parallel THREADS` is a harness-only prefix using a caller-created Rayon pool;
+it is not a core-owned pool. `compare.py` runs sequential plus 1/2/4/8 worker
+pools. Its `--fixture` arguments are explicitly disposable, generated fixtures
+and run the mutating scenario setup/restoration; `--pair LABEL ORIGINAL TARGET`
+arguments are always strictly read-only. The output directory must not exist.
+It emits raw per-command CSV/stderr plus a consolidated `combined.csv`.
+Report with `python3 perf/report.py perf/results/parallel.csv`.
+The [parallel report](/design/performance/parallel0.sol61x.md) preserves actual
+results, counts, scheduling limits, and the selected default policy.
