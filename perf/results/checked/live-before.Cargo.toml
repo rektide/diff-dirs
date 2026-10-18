@@ -1,0 +1,18 @@
+[package]
+name = "checked-control-before"
+version = "0.0.0"
+edition = "2024"
+[workspace]
+[dependencies]
+diff-dirs = { path = "../before-source", features = ["parallel"] }
+diff-dirs-sync = { path = "../before-source/sync", features = ["parallel"] }
+rayon = "1.12.0"
+tempfile = "3"
+[features]
+checks = []
+[[bin]]
+name = "checked-bench"
+path = "../bench.rs"
+[[bin]]
+name = "checked-live"
+path = "../live.rs"

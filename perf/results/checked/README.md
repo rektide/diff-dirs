@@ -38,3 +38,30 @@ python3 .test-agent/checked/run.py
 The runner creates only a nonexistent marked fixture and privately owned targets.
 It runs no builds during measurement and never synchronizes arbitrary live roots.
 Do not run simultaneous tests/builds or another mutating matrix while measuring.
+
+## Corrected controls and real payload
+
+- `optimized.csv`, identity, commands, benchmark and runner: same matrix at the
+  lazy-path checkpoint `243be8e2`; 480 rows including 80 warmup rows. The older
+  baseline code is unchanged; only candidate-only guard syntax in the common
+  benchmark changes to direct `Entry::name`.
+- `clean.csv`, `clean-run.py`, commands and identities: 210 interleaved read-only
+  clean observations on one shared owned target. The initial executable was
+  preserved separately; copying it for reproduction must preserve executable mode.
+- `live-census.txt`: fresh read-only actual donor/feature census, not old counts.
+- `live.csv`, identity, commands: actual 191,805-entry donor used only read-only;
+  every modified target is created under a new marked owned root. Four initial
+  first fills plus 108 repeated rows (18 warmup, 90 retained). No live target is
+  synchronized. Required reflink only; exact bytes/entries are reported.
+- `live-bench.rs`, `live-run.py`, `live-{before,after}.Cargo.toml`: exact common
+  real-shape experiment source/build inputs. Place `live-bench.rs` at scratch
+  `live.rs`, then run the manifest's `checked-live` binary. The source chooser
+  skips symlinks and edits only paths inside its newly cloned owned target.
+
+The real donor resolves from `~/a/a/opencode/node_modules` to
+`/home/rektide/archive/anomalyco/opencode/node_modules`; see the identity log.
+Setup creates a **new** marked scratch root before recording that canonical
+read-only source. Never repurpose the script to write to a feature workspace.
+The `fill` command creates its own temporary target; `measure` uses only its
+marked root's owned `control-target`. Initialization, source-path selection,
+post-sync verification and target cleanup are outside each operation timer.

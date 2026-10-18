@@ -1,0 +1,478 @@
+[
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "fill",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "0"
+    ],
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "fill",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "0"
+    ],
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "fill",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "4"
+    ],
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "fill",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "4"
+    ],
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "none",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "none",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "none",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "none",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "none",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "none",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "none",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "none",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "none",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "none",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "none",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "admin",
+      "0",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "before",
+      "none",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  },
+  {
+    "command": [
+      "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live",
+      "measure",
+      "/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules",
+      "optimized",
+      "none",
+      "4",
+      "1"
+    ],
+    "stderr": "source=\"/home/rektide/archive/anomalyco/opencode/node_modules\" target=\"/home/rektide/src/diff-dirs/.test-agent/checked/live-node-modules/control-target\" sparse=[\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/LICENSE.md\", \".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact/README.md\"] subtree=\".bun/@actions+artifact@5.0.1+759ce506b1ed1a42/node_modules/@actions/artifact\"\n"
+  }
+]

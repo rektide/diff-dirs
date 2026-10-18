@@ -1,0 +1,11 @@
+Commands (read-only, configured compiler, 2026-10-18):
+target/checked-live/release/examples/perf inspect /home/rektide/a/a/opencode/node_modules
+target/checked-live/release/examples/perf inspect /home/rektide/src/opencode-export-qa/node_modules
+
+root="/home/rektide/a/a/opencode/node_modules" files=160407 directories=22827 symlinks=8571 specials=0 file_bytes=8291060621 entries=191805
+root="/home/rektide/src/opencode-export-qa/node_modules" files=160407 directories=22827 symlinks=8571 specials=0 file_bytes=8291060621 entries=191805
+
+Directory/entry counts exclude the root. A full paired comparison therefore has
+22,828 directory pairs. Equal census counts alone do not prove stat equality.
+This is the dominant root node_modules payload, not a claim that the smaller
+**/node_modules and **/dist selections or every feature workspace were censused.

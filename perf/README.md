@@ -6,6 +6,8 @@ resource: /perf/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb24f98a3ffewdVqa9lao6tXQu
+    title: Added checked-streaming benchmark reproduction and baseline/no-op/name-check controls, preserving negative initial path extraction and the lazy-path correction
   - resource: opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY
     title: Switched active benchmark recipes to the configured unpinned Rust toolchain while retaining historical measurement provenance
   - resource: opencode://ses_eb3033c79ffeRIkn14uSNhs7O6
@@ -254,3 +256,22 @@ See [measured sync results](/design/performance/sync0.sol61x.md) and the
 [60-observation bundle](/perf/results/sync/README.md) for raw data, exact commands,
 environment, operation counts, and limits. These do not replace the preserved
 read-only frontier measurements or establish end-to-end consumer speedup.
+
+## Checked streaming controls
+
+The [checked execution report](/design/performance/checked0.sol61x.md) measures
+the unchanged predecessor against default `NoCheck`, an enabled no-op closure,
+and a concrete native-name guard. It uses identical release benchmark source
+and the same configured compiler for both library snapshots. Owned 10k × 4 KiB
+fixtures exercise first fill, clean, sparse, recursive subtree and full leaf
+replacement, with serial and explicit borrowed P4/J4/K256 execution. Setup,
+scenario edits, complete post-sync comparison and owned cleanup are outside
+operation timing. Clean reports must have zero completed operations.
+
+The [evidence bundle](/perf/results/checked/README.md) preserves exact experiment
+source/manifests, commands, compiler, binary hashes and all warmup/raw rows. The
+first checkpoint's enabled-check path-construction penalty is preserved rather
+than erased; a focused shared-target clean control measures its lazy-path
+correction. These experiments neither replace the primary harness nor authorize
+arbitrary-root mutation. Reproduce them in a new owned scratch directory and
+never overlap measurements with builds/tests or another mutating experiment.

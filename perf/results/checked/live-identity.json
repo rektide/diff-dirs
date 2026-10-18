@@ -1,0 +1,9 @@
+{
+  "source": "/home/rektide/archive/anomalyco/opencode/node_modules",
+  "baseline": "fd277144",
+  "candidate": "243be8e2",
+  "sha256": {
+    "/home/rektide/src/diff-dirs/target/checked-control-before/release/checked-live": "6033998f7d524be87744b728f1c53f7848ddb0a651de8b138969497f906dfae7",
+    "/home/rektide/src/diff-dirs/target/checked-control-after/release/checked-live": "46d359bd7ea47f50c10c597843ff69140af4c8aff0e706492f546bda0a98da8e"
+  }
+}
