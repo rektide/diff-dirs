@@ -15,7 +15,7 @@ sources:
   - resource: "opencode://ses_eb37f1883ffeZ8HgL0aFBFJf4R"
     title: Added the post-handoff bounded-directory-frontier design proposal to the reading path
   - resource: "opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY"
-    title: Coordinated research and implementation, reviewed the measured concurrency limits, and assembled the reading index
+    title: Coordinated research and implementation, reviewed concurrency limits, and connected the independent optimization inventories and architecture-sensitive ranking
   - resource: /design/fit/fit0.glm53m.md
     title: Consumer fit and corrected reseed integration requirements
   - resource: /design/fit/io0.glm53m.md
@@ -102,6 +102,13 @@ The [root specification](../README.md) owns the current public contract.
 
 ## Performance opportunities — research, not implementation selection
 
+- [Inventory comparison](performance/comparison0.gpt6a.md): parent synthesis of
+  shared findings and different prioritization judgments; maps the proposed
+  donor, leaf-pipeline, and prepared-mirror experiments across both inventories.
+- [Independent Astra inventory](performance/opportunities0.gpt6am.md): forty
+  candidates, seven experiment briefs, and an appended ranking emphasizing
+  architectural information value. Recommends testing donor reuse, descriptor
+  ownership, and retained comparison information before selecting new APIs.
 - [Opportunity inventory](performance/opportunities0.sol61x.md): identifiable
   path/name, metadata, descriptor, scheduler, staging/copy/removal, multi-target,
   reporting, and contract candidates; each distinguishes evidence from payoff
