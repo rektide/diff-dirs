@@ -284,30 +284,35 @@ fn root_links_and_record_ancestor_links_cannot_escape() {
 fn hardlink_alias_is_not_written_or_chmodded_and_noop_changes_no_identity_or_metadata() {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     for &parallel in modes() {
-        let f = Fixture::new();
-        file(f.source.join("replace"), b"replacement payload");
-        file(f.target.join("replace"), b"original alias");
-        fs::set_permissions(f.target.join("replace"), fs::Permissions::from_mode(0o444)).unwrap();
-        let alias = f.temporary.path().join("alias");
-        fs::hard_link(f.target.join("replace"), &alias).unwrap();
-        let before = fs::metadata(&alias).unwrap();
-        sync(&f, CopyPolicy::Copy, parallel).unwrap();
-        assert_eq!(fs::read(&alias).unwrap(), b"original alias");
-        let after = fs::metadata(&alias).unwrap();
-        assert_eq!(after.mode(), before.mode());
-        assert_eq!(after.modified().unwrap(), before.modified().unwrap());
-        assert_ne!(after.ino(), fs::metadata(f.target.join("replace")).unwrap().ino());
-        // Include root/directory ctime, so even temporary no-op chmod/staging
-        // would be detected, not merely a self-reported zero counter.
-        let snapshot = || {
-            [f.target.clone(), f.target.join("replace")].map(|path| {
-                let m = fs::symlink_metadata(path).unwrap();
-                (m.ino(), m.mode(), m.mtime(), m.mtime_nsec(), m.ctime(), m.ctime_nsec())
-            })
-        };
-        let before = snapshot();
-        assert_eq!(sync(&f, CopyPolicy::Copy, parallel).unwrap().completed, Progress::default());
-        assert_eq!(snapshot(), before);
+        for policy in [CopyPolicy::Copy, CopyPolicy::ReflinkRequired, CopyPolicy::ReflinkOrCopy] {
+            let f = Fixture::new();
+            if policy == CopyPolicy::ReflinkRequired && !f.reflinks_available() {
+                continue;
+            }
+            file(f.source.join("replace"), b"replacement payload");
+            file(f.target.join("replace"), b"original alias");
+            fs::set_permissions(f.target.join("replace"), fs::Permissions::from_mode(0o444)).unwrap();
+            let alias = f.temporary.path().join("alias");
+            fs::hard_link(f.target.join("replace"), &alias).unwrap();
+            let before = fs::metadata(&alias).unwrap();
+            sync(&f, policy, parallel).unwrap();
+            assert_eq!(fs::read(&alias).unwrap(), b"original alias");
+            let after = fs::metadata(&alias).unwrap();
+            assert_eq!(after.mode(), before.mode());
+            assert_eq!(after.modified().unwrap(), before.modified().unwrap());
+            assert_ne!(after.ino(), fs::metadata(f.target.join("replace")).unwrap().ino());
+            // Include root/directory ctime, so even temporary no-op chmod/staging
+            // would be detected, not merely a self-reported zero counter.
+            let snapshot = || {
+                [f.target.clone(), f.target.join("replace")].map(|path| {
+                    let m = fs::symlink_metadata(path).unwrap();
+                    (m.ino(), m.mode(), m.mtime(), m.mtime_nsec(), m.ctime(), m.ctime_nsec())
+                })
+            };
+            let before = snapshot();
+            assert_eq!(sync(&f, policy, parallel).unwrap().completed, Progress::default());
+            assert_eq!(snapshot(), before);
+        }
     }
 }
 
