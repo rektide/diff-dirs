@@ -6,6 +6,8 @@ resource: /perf/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY
+    title: Switched active benchmark recipes to the configured unpinned Rust toolchain while retaining historical measurement provenance
   - resource: opencode://ses_eb3033c79ffeRIkn14uSNhs7O6
     title: Added separate marked-owned-fixture synchronization benchmark method and retained copy/reflink/no-op/delta measurements without changing read-only live comparison commands
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
@@ -28,8 +30,13 @@ All setup and scenario mutation are outside timing intervals.
 
 ## Reproduce
 
+Use the configured toolchain, without a project version pin. Record
+`rustc --version --verbose` with each new run (currently Rust 1.101 nightly).
+Build both candidate and control with that same compiler; historical Rust 1.88
+results describe their original builds, not the current compiler's performance.
+
 ```sh
-cargo +1.88.0 build --release --example perf
+cargo build --release --example perf
 mkdir -p .test-agent/perf
 target/release/examples/perf setup .test-agent/perf/btrfs-30k 30000
 target/release/examples/perf setup .test-agent/perf/btrfs-192k 192000
@@ -121,7 +128,7 @@ rebuilding. Pool creation is outside all timings and one pool is shared across
 every walk/warmup in that process. For example:
 
 ```sh
-cargo +1.88.0 build --release --example perf --features parallel
+cargo build --release --example perf --features parallel
 target/release/examples/perf run .test-agent/perf/btrfs-192k 3
 target/release/examples/perf parallel 4 run .test-agent/perf/btrfs-192k 3
 target/release/examples/perf parallel 4 repeat /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 3
@@ -149,8 +156,8 @@ Build timing and instrumented executables separately. Do not use an all-features
 instrumented binary for the timing table:
 
 ```sh
-cargo +1.88.0 build --release --example perf --features parallel-bench --target-dir target/frontier-timing
-cargo +1.88.0 build --release --example perf --features parallel-diagnostics --target-dir target/frontier-instrumented
+cargo build --release --example perf --features parallel-bench --target-dir target/frontier-timing
+cargo build --release --example perf --features parallel-diagnostics --target-dir target/frontier-instrumented
 target/frontier-timing/release/examples/perf compare /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 4 5 4 256 live-node
 target/frontier-instrumented/release/examples/perf diagnose /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 4 4 256
 ```
@@ -228,7 +235,7 @@ the arbitrary-pair read-only commands above. It accepts only a freshly generated
 marked fixture for benchmark runs and never offers an arbitrary-root sync mode.
 
 ```sh
-cargo +1.88.0 build --release -p diff-dirs-sync --example sync_perf --features parallel --target-dir target/sync-perf
+cargo build --release -p diff-dirs-sync --example sync_perf --features parallel --target-dir target/sync-perf
 mkdir -p .test-agent/sync
 target/sync-perf/release/examples/sync_perf setup .test-agent/sync/btrfs-30k-new 300 100
 target/sync-perf/release/examples/sync_perf run .test-agent/sync/btrfs-30k-new 3

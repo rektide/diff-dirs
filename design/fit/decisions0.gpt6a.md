@@ -24,6 +24,12 @@ sources:
 
 # Implementation contract
 
+**Later toolchain direction:** the user removed the initial Rust 1.88 baseline.
+Current work uses the environment's configured, unpinned toolchain (Rust 1.101
+nightly is permitted). The initial 1.88 choices below record build history,
+not an ongoing compatibility requirement; active commands live in the root
+[development instructions](../../README.md#development-and-evidence).
+
 The user's outcome is a fast generic library, first embedded in jj-waltz reseed.
 [G's assessment](fit0.glm53m.md) precedes the Sol xhigh build. These are parent
 implementation decisions resolving the initial specification's ambiguities;

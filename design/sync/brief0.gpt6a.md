@@ -7,7 +7,7 @@ status: selected-for-implementation
 generated: { by: "model:openai/gpt-6-astra", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY"
-    title: Prepared the sync builder contract, verified current APIs and copy primitives, and clarified filesystem synchronization versus execution with caller-owned Rayon
+    title: Prepared the sync builder contract, clarified filesystem synchronization versus caller-owned Rayon execution, and applied the later unpinned Rust toolchain direction
   - resource: /README.md
     title: Comparison direction, opacity, metadata trust, and apply/prune contract
   - resource: /src/model.rs
@@ -201,6 +201,8 @@ or replacement. Compare no-op cost with the existing walk and report actual
 copy/reflink work; no end-to-end jj-waltz speedup claim.
 
 Run appropriate workspace/default/optional-feature tests, clippy, formatting,
-doctests, and actual Rust 1.88 verification. Confirm that embedding `diff-dirs`
+and doctests on the environment's configured Rust toolchain. The user removed
+the earlier Rust 1.88 requirement; Rust 1.101 nightly is permitted and no
+project compiler pin is required. Confirm that embedding `diff-dirs`
 alone still pulls no sync/reflink/temporary-file dependencies. Commit coherent
 stages and preserve earlier implementation/performance reports.

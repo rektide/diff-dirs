@@ -6,6 +6,8 @@ resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY
+    title: Applied user direction to remove the Rust 1.88 baseline and use the configured unpinned compiler, including Rust 1.101 nightly
   - resource: opencode://ses_eb3033c79ffeRIkn14uSNhs7O6
     title: Implemented the optional filesystem synchronization crate and documented staged replacement, copy policy, partial progress, and borrowed-pool application without changing the read-only core
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
@@ -298,8 +300,8 @@ Root-relative `dir` is the empty string for the root pair.
 
 ## Embedding
 
-The root `diff-dirs` package is std-only **by default**, edition 2024, Rust 1.88
-minimum; embedding does not require a runtime, CLI dependencies, or sync
+The root `diff-dirs` package is std-only **by default**, edition 2024;
+embedding does not require a runtime, CLI dependencies, or sync
 component. Optional `parallel` adds Rayon; `walk()` remains sequential even
 when the feature is compiled in.
 The separate `cli/` workspace member owns standalone rendering dependencies.
@@ -415,14 +417,19 @@ are silent in the library (the CLI still prints its final summary).
 
 ## Development and evidence
 
+Use the environment's configured Rust toolchain with ordinary `cargo` commands.
+The project does not pin a compiler or retain a Rust 1.88 compatibility floor;
+Rust 1.101 nightly is the currently configured and permitted toolchain. Record
+`rustc --version --verbose` for new performance results and build comparison
+controls with the same compiler. Historical reports retain their actual compiler.
+
 ```sh
 cargo nextest run --workspace
 cargo nextest run --workspace --all-targets --all-features
 cargo test --workspace --doc
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all --check
-cargo +1.88.0 test --workspace
-cargo +1.88.0 test --workspace --all-targets --all-features
+cargo test --workspace --all-targets --all-features
 ```
 
 The [implementation account](/design/implementation/implementation0.sol61x.md)
