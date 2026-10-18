@@ -295,11 +295,42 @@ fn one_sided(diff: &mut DirDiff, entry: Entry, added: bool) {
 static OBSERVED_WORKERS: std::sync::Mutex<Vec<(String, usize)>> = std::sync::Mutex::new(Vec::new());
 
 #[cfg(all(test, feature = "parallel"))]
+static METADATA_GATE: std::sync::Mutex<Option<std::sync::Arc<MetadataGate>>> = std::sync::Mutex::new(None);
+
+#[cfg(all(test, feature = "parallel"))]
+#[derive(Default)]
+struct MetadataGate {
+    arrivals: std::sync::Mutex<usize>,
+    changed: std::sync::Condvar,
+}
+
+#[cfg(all(test, feature = "parallel"))]
+impl MetadataGate {
+    fn wait(&self) {
+        let mut arrivals = self.arrivals.lock().unwrap();
+        *arrivals += 1;
+        self.changed.notify_all();
+        let (arrivals, _) = self
+            .changed
+            .wait_timeout_while(arrivals, std::time::Duration::from_secs(5), |arrivals| *arrivals < 2)
+            .unwrap();
+        assert!(*arrivals >= 2, "no concurrent metadata job entered within five seconds");
+    }
+}
+
+#[cfg(all(test, feature = "parallel"))]
 fn observe_worker() {
-    OBSERVED_WORKERS
-        .lock()
-        .unwrap()
-        .push((std::thread::current().name().unwrap_or("unnamed").to_string(), rayon::current_num_threads()));
+    let gate = {
+        let mut observed = OBSERVED_WORKERS.lock().unwrap();
+        observed.push((std::thread::current().name().unwrap_or("unnamed").to_string(), rayon::current_num_threads()));
+        if observed.len() <= 2 { METADATA_GATE.lock().unwrap().clone() } else { None }
+    };
+    // Only the first two jobs in this unit test rendezvous. A serial map merely
+    // wrapped in install cannot pass: another worker must enter inspect_entry.
+    // This hook is absent from production and integration-test library builds.
+    if let Some(gate) = gate {
+        gate.wait();
+    }
 }
 
 #[cfg(all(test, feature = "parallel"))]
@@ -318,6 +349,7 @@ mod tests {
             .build()
             .unwrap();
         OBSERVED_WORKERS.lock().unwrap().clear();
+        *METADATA_GATE.lock().unwrap() = Some(std::sync::Arc::new(MetadataGate::default()));
         pool.install(|| {
             let mut walk = walk_with_options(
                 &f.original,
@@ -330,8 +362,10 @@ mod tests {
             assert!(walk.next().is_none());
             assert!(walk.into_summary().is_clean());
         });
+        *METADATA_GATE.lock().unwrap() = None;
         let observed = OBSERVED_WORKERS.lock().unwrap();
         assert_eq!(observed.len(), 512);
         assert!(observed.iter().all(|(name, size)| name.starts_with("diff-dirs-caller-") && *size == 4));
+        assert_ne!(observed[0].0, observed[1].0, "metadata jobs must actually run on different workers");
     }
 }

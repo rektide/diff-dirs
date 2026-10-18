@@ -7,7 +7,7 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
-    title: Built and verified generic comparison core, lossless CLI, and optional caller-pool metadata parallelism; settled direction, literal symlink, coverage, and consumer mutation contracts
+    title: Built and verified generic core, lossless CLI, and concurrent caller-pool metadata jobs; settled coverage/mutation contracts and documented the redesign boundary
   - resource: /README.md
     title: Specification, deliberately amended alongside implementation
   - resource: /design/fit/fit0.glm53m.md

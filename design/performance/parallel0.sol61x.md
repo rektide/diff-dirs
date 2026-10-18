@@ -7,7 +7,7 @@ status: measured
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
-    title: Implemented current-directory joined Rayon execution, verified deterministic parity and caller-pool use, and measured the shared-pool matrix
+    title: Implemented joined Rayon metadata execution, proved concurrent caller-pool jobs at the actual metadata boundary, verified parity, and measured the shared-pool matrix
   - resource: /README.md#optional-shared-pool-parallel-execution
     title: Public execution policy and caller integration contract
   - resource: /src/walk.rs
@@ -49,7 +49,10 @@ root fixtures avoid dispatch. This heuristic amortizes scheduling on the
 optimality is claimed.
 
 All 36 all-features tests pass. Actual metadata-boundary observation verifies
-every inspected entry runs on caller-named four-thread pool workers. Parity
+every inspected entry runs on caller-named four-thread pool workers. A test-only
+two-job rendezvous forces distinct workers to enter `inspect_entry` concurrently;
+merely wrapping a serial map in `install` cannot satisfy it. It does not claim
+kernel syscall overlap duration was profiled. Parity
 tests compare complete records/summaries, deliberate competing error paths,
 literal/non-UTF-8 symlinks and names via the shared fixture tests, and applying
 immediate records followed by pruning a subsequently removed pending child.
@@ -115,3 +118,16 @@ internal default or a global-pool recommendation. Different warm-cache state
 and run order mean the lower current sequential live median must not be
 attributed causally to this change by comparison with the earlier report.
 Cold/network filesystem behavior and threshold tuning remain unmeasured.
+
+## Handoff boundary
+
+This is **not completion of the user's broader concurrent traversal design**.
+The walker accepts execution policy, not a pool handle; ambient installation
+must surround consumption. Directory enumeration and all subtree traversal are
+still serial. Only current-pair metadata/readlink batches actually scale out;
+there is no joined side-listing stage, multi-root runnable example, independent
+traversal head, utilization profile, or scheduler/lookahead implementation.
+The measured weak live scaling is evidence for the requested follow-on design
+review, not a reason to call the concurrency goal achieved. A separate generic
+sync crate was authorized but not begun before the final wrap-existing-work
+direction; the diff core and CLI remain strictly read-only.
