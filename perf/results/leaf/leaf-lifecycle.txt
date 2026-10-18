@@ -1,0 +1,74 @@
+unchanged Required, first 4096-byte leaf during fresh initialization
+T statx(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/source/d0000/f00000", AT_STATX_SYNC_AS_STAT|AT_SYMLINK_NOFOLLOW, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T statx(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/source/d0000/f00000", AT_STATX_SYNC_AS_STAT|AT_SYMLINK_NOFOLLOW, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T mkdir("<owned>/tiny/<target-owner>/target/d0000/<arena>", 0777) = 0
+T openat(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/source/d0000/f00000", O_RDONLY|O_CLOEXEC) = 3<<owned>/tiny/source/d0000/f00000>
+T statx(3<<owned>/tiny/source/d0000/f00000>, "", AT_STATX_SYNC_AS_STAT|AT_EMPTY_PATH, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T openat(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/<target-owner>/target/d0000/<arena>/entry", O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0666) = 4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>
+T ioctl(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, BTRFS_IOC_CLONE or FICLONE, 3) = 0
+T fchmod(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, 0100600) = 0
+T close(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>) = 0
+T close(3<<owned>/tiny/source/d0000/f00000>) = 0
+T chmod("<owned>/tiny/<target-owner>/target/d0000/<arena>/entry", 0100600) = 0
+T openat(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/<target-owner>/target/d0000/<arena>/entry", O_RDWR|O_CLOEXEC) = 3<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>
+T utimensat(3<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, NULL, [UTIME_OMIT, {tv_sec=1792297462, tv_nsec=48345407} /* 2026-10-18T00:24:22.048345407-0400 */], 0) = 0
+T statx(3<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, "", AT_STATX_SYNC_AS_STAT|AT_EMPTY_PATH, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T fchmod(3<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, 0100600) = 0
+T close(3<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>) = 0
+T rename("<owned>/tiny/<target-owner>/target/d0000/<arena>/entry", "<owned>/tiny/<target-owner>/target/d0000/f00000") = 0
+T statx(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/<target-owner>/target/d0000/<arena>", AT_STATX_SYNC_AS_STAT|AT_SYMLINK_NOFOLLOW, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFDIR|0700, stx_size=0, ...}) = 0
+T statx(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/<target-owner>/target/d0000/<arena>", AT_STATX_SYNC_AS_STAT|AT_SYMLINK_NOFOLLOW, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFDIR|0700, stx_size=0, ...}) = 0
+T openat(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/<target-owner>/target/d0000/<arena>", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 3<<owned>/tiny/<target-owner>/target/d0000/<arena>>
+T getdents64(3<<owned>/tiny/<target-owner>/target/d0000/<arena>>, 0x5567348bd490 /* 2 entries */, 32768) = 48
+T getdents64(3<<owned>/tiny/<target-owner>/target/d0000/<arena>>, 0x5567348bd490 /* 0 entries */, 32768) = 0
+T close(3<<owned>/tiny/<target-owner>/target/d0000/<arena>>) = 0
+T rmdir("<owned>/tiny/<target-owner>/target/d0000/<arena>") = 0
+
+cleanup Required, first 4096-byte leaf during fresh initialization
+T statx(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/source/d0000/f00000", AT_STATX_SYNC_AS_STAT|AT_SYMLINK_NOFOLLOW, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T statx(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/source/d0000/f00000", AT_STATX_SYNC_AS_STAT|AT_SYMLINK_NOFOLLOW, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T mkdir("<owned>/tiny/<target-owner>/target/d0000/<arena>", 0777) = 0
+T openat(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/source/d0000/f00000", O_RDONLY|O_CLOEXEC) = 3<<owned>/tiny/source/d0000/f00000>
+T statx(3<<owned>/tiny/source/d0000/f00000>, "", AT_STATX_SYNC_AS_STAT|AT_EMPTY_PATH, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T openat(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/<target-owner>/target/d0000/<arena>/entry", O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0666) = 4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>
+T ioctl(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, BTRFS_IOC_CLONE or FICLONE, 3) = 0
+T fchmod(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, 0100600) = 0
+T close(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>) = 0
+T close(3<<owned>/tiny/source/d0000/f00000>) = 0
+T chmod("<owned>/tiny/<target-owner>/target/d0000/<arena>/entry", 0100600) = 0
+T openat(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/<target-owner>/target/d0000/<arena>/entry", O_RDWR|O_CLOEXEC) = 3<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>
+T utimensat(3<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, NULL, [UTIME_OMIT, {tv_sec=1792297462, tv_nsec=48345407} /* 2026-10-18T00:24:22.048345407-0400 */], 0) = 0
+T statx(3<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, "", AT_STATX_SYNC_AS_STAT|AT_EMPTY_PATH, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T fchmod(3<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, 0100600) = 0
+T close(3<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>) = 0
+T rename("<owned>/tiny/<target-owner>/target/d0000/<arena>/entry", "<owned>/tiny/<target-owner>/target/d0000/f00000") = 0
+T rmdir("<owned>/tiny/<target-owner>/target/d0000/<arena>") = 0
+
+descriptor Required, first 4096-byte leaf during fresh initialization
+T statx(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/source/d0000/f00000", AT_STATX_SYNC_AS_STAT|AT_SYMLINK_NOFOLLOW, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T statx(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/source/d0000/f00000", AT_STATX_SYNC_AS_STAT|AT_SYMLINK_NOFOLLOW, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T mkdir("<owned>/tiny/<target-owner>/target/d0000/<arena>", 0777) = 0
+T openat(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/source/d0000/f00000", O_RDONLY|O_CLOEXEC) = 3<<owned>/tiny/source/d0000/f00000>
+T openat(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/<target-owner>/target/d0000/<arena>/entry", O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC, 0666) = 4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>
+T ioctl(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, BTRFS_IOC_CLONE or FICLONE, 3) = 0
+T utimensat(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, NULL, [UTIME_OMIT, {tv_sec=1792297462, tv_nsec=48345407} /* 2026-10-18T00:24:22.048345407-0400 */], 0) = 0
+T statx(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, "", AT_STATX_SYNC_AS_STAT|AT_EMPTY_PATH, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T fchmod(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/entry>, 0100600) = 0
+T rename("<owned>/tiny/<target-owner>/target/d0000/<arena>/entry", "<owned>/tiny/<target-owner>/target/d0000/f00000") = 0
+T close(3<<owned>/tiny/source/d0000/f00000>) = 0
+T close(4<<owned>/tiny/<target-owner>/target/d0000/f00000>) = 0
+T rmdir("<owned>/tiny/<target-owner>/target/d0000/<arena>") = 0
+
+final Required, first 4096-byte leaf during fresh initialization
+T statx(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/source/d0000/f00000", AT_STATX_SYNC_AS_STAT|AT_SYMLINK_NOFOLLOW, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T mkdir("<owned>/tiny/<target-owner>/target/d0000/<arena>", 0700) = 0
+T statx(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/<target-owner>/target/d0000/<arena>", AT_STATX_SYNC_AS_STAT|AT_SYMLINK_NOFOLLOW, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFDIR|0700, stx_size=0, ...}) = 0
+T openat(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/source/d0000/f00000", O_RDONLY|O_CLOEXEC) = 3<<owned>/tiny/source/d0000/f00000>
+T openat(AT_FDCWD</home/rektide/src/diff-dirs>, "<owned>/tiny/<target-owner>/target/d0000/<arena>/0", O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC, 0666) = 4<<owned>/tiny/<target-owner>/target/d0000/<arena>/0>
+T ioctl(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/0>, BTRFS_IOC_CLONE or FICLONE, 3) = 0
+T utimensat(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/0>, NULL, [UTIME_OMIT, {tv_sec=1792297462, tv_nsec=48345407} /* 2026-10-18T00:24:22.048345407-0400 */], 0) = 0
+T statx(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/0>, "", AT_STATX_SYNC_AS_STAT|AT_EMPTY_PATH, STATX_ALL, {stx_mask=STATX_ALL|STATX_MNT_ID|STATX_SUBVOL, stx_attributes=0, stx_mode=S_IFREG|0600, stx_size=4096, ...}) = 0
+T fchmod(4<<owned>/tiny/<target-owner>/target/d0000/<arena>/0>, 0100600) = 0
+T rename("<owned>/tiny/<target-owner>/target/d0000/<arena>/0", "<owned>/tiny/<target-owner>/target/d0000/f00000") = 0
+T close(3<<owned>/tiny/source/d0000/f00000>) = 0
+T close(4<<owned>/tiny/<target-owner>/target/d0000/f00000>) = 0
