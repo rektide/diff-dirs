@@ -35,9 +35,9 @@ sources:
   - resource: "https://github.com/rust-lang/rust/blob/1.88.0/library/std/src/sys/pal/unix/kernel_copy.rs"
     title: Historical io::copy kernel offload, cached metadata, Take support, and fallback logic
   - resource: "file:///home/rektide/.rustup/toolchains/nightly-2026-10-14-x86_64-unknown-linux-gnu/share/doc/rust/html/src/std/sys/fs/unix.rs.html"
-    title: Installed current std source: DirEntry shares InnerReadDir, uses dir-handle metadata, and exposes cached d_type
+    title: "Installed current std source: DirEntry shares InnerReadDir, uses dir-handle metadata, and exposes cached d_type"
   - resource: "file:///home/rektide/.rustup/toolchains/nightly-2026-10-14-x86_64-unknown-linux-gnu/share/doc/rust/html/src/std/sys/fs/unix/dir.rs.html"
-    title: Installed current directory-handle backend: metadata_c statx/fstatat and relative open/rename/mkdir/unlink
+    title: "Installed current directory-handle backend: metadata_c statx/fstatat and relative open/rename/mkdir/unlink"
   - resource: "file:///home/rektide/.rustup/toolchains/nightly-2026-10-14-x86_64-unknown-linux-gnu/share/doc/rust/html/src/std/fs.rs.html"
     title: Current experimental std::fs::Dir API under feature dirfd, including its actual method coverage
   - resource: "file:///home/rektide/.rustup/toolchains/nightly-2026-10-14-x86_64-unknown-linux-gnu/share/doc/rust/html/src/std/sys/io/kernel_copy/linux.rs.html"

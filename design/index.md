@@ -7,7 +7,7 @@ status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb3033c79ffeRIkn14uSNhs7O6"
-    title: Added filesystem synchronization and owned-fixture evidence, then investigated current and historical std syscall behavior as ground for a research-only optimization inventory
+    title: Added filesystem synchronization and owned-fixture evidence, verified current/historical std syscalls, and wrote the research-only performance opportunity inventory and independent Sol high experiment briefs
   - resource: "opencode://ses_eb335933bffeUeaPkxqOtKDOWi"
     title: Linked the paused runtime refactor assessment and smaller two-crate option without changing the implemented contract
   - resource: "opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg"
@@ -102,6 +102,13 @@ The [root specification](../README.md) owns the current public contract.
 
 ## Performance opportunities — research, not implementation selection
 
+- [Opportunity inventory](performance/opportunities0.sol61x.md): identifiable
+  path/name, metadata, descriptor, scheduler, staging/copy/removal, multi-target,
+  reporting, and contract candidates; each distinguishes evidence from payoff
+  hypotheses, names negative outcomes, and supplies discriminating experiments.
+  Includes independent Sol high briefs and generic versus tuned-profile choices.
+  Reconsiders the existing contract deliberately without implementing or selecting
+  a rewrite; current toolchain direction is unpinned configured nightly.
 - [Source/syscall ground truth](performance/inspection0.sol61x.md): verifies
   that both historical Rust 1.88 and the configured 1.101 nightly already use
   fd-relative DirEntry metadata and kernel-assisted ordinary copying; identifies
