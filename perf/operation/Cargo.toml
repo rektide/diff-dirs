@@ -1,0 +1,19 @@
+[package]
+name = "diff-dirs-perf-operation"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+diff-dirs = { path = "../..", features = ["parallel"] }
+diff-dirs-sync = { path = "../../sync", features = ["parallel"] }
+diff-dirs-perf-runner = { path = "../runner" }
+rayon = "1.12"
+serde_json = "1"
+
+[features]
+default = ["checks"]
+checks = []
+
+[dev-dependencies]
+tempfile = "3"

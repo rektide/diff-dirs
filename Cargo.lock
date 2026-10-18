@@ -179,6 +179,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "diff-dirs-perf-operation"
+version = "0.0.0"
+dependencies = [
+ "diff-dirs",
+ "diff-dirs-perf-runner",
+ "diff-dirs-sync",
+ "rayon",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "diff-dirs-perf-runner"
 version = "0.0.0"
 dependencies = [

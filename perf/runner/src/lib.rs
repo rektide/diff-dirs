@@ -1,8 +1,10 @@
 //! Development-only measurement primitives, shared by domain-specific instruments.
 pub mod artifacts;
+pub mod build_operation;
 pub mod execution;
 pub mod fixture;
 pub mod report;
+pub mod scenario;
 pub mod scheduling;
 
 use serde::Serialize;
@@ -30,6 +32,8 @@ pub fn source_identity() -> serde_json::Value {
         ("scheduling.rs", include_str!("scheduling.rs")),
         ("execution.rs", include_str!("execution.rs")),
         ("report.rs", include_str!("report.rs")),
+        ("scenario.rs", include_str!("scenario.rs")),
+        ("build_operation.rs", include_str!("build_operation.rs")),
     ] {
         files.insert(name, format!("{:x}", Sha256::digest(source.as_bytes())));
     }
@@ -39,13 +43,15 @@ pub fn source_identity() -> serde_json::Value {
 }
 
 pub fn host_lock() -> Result<std::fs::File> {
+    #[cfg(not(test))]
+    let path = std::path::PathBuf::from("/tmp/opencode/matched-performance.lock");
+    #[cfg(test)]
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.test-agent/runner-tests/unit.lock");
     std::fs::create_dir_all("/tmp/opencode")?;
-    let lock = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open("/tmp/opencode/matched-performance.lock")?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let lock = OpenOptions::new().read(true).write(true).create(true).truncate(false).open(path)?;
     lock.try_lock()?;
     Ok(lock)
 }

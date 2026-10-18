@@ -3,6 +3,7 @@ use crate::{
     artifacts::{self, Control},
     fixture::{self, Fixture},
     host_lock, report,
+    scenario::{self, Scenario},
     scheduling::schedule,
     source_identity, write_json,
 };
@@ -29,6 +30,16 @@ pub struct Sample {
     pub api_ns: Option<u128>,
     pub exit_code: Option<i32>,
     pub error: Option<String>,
+    #[serde(default)]
+    pub started_unix_ns: u128,
+    #[serde(default)]
+    pub details: serde_json::Value,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+pub enum Task {
+    FrozenClean,
+    Operation { scenario: Scenario, destinations: usize },
 }
 
 pub fn clean_ns(stdout: &str, label: &str, mode: &str, threads: usize) -> Result<u128> {
@@ -74,6 +85,10 @@ pub fn invoke(binary: &Path, args: &[String], stem: &Path) -> Result<(Option<i32
 }
 
 pub fn run(root: &Path, output: &Path, controls: &[Control], blocks: usize, seed: u64, threads: usize) -> Result<bool> {
+    run_task(root, output, controls, blocks, seed, threads, Task::FrozenClean)
+}
+
+pub fn run_task(root: &Path, output: &Path, controls: &[Control], blocks: usize, seed: u64, threads: usize, task: Task) -> Result<bool> {
     let _lock = host_lock()?;
     let order = schedule(controls.len(), blocks, seed)?;
     let root = fs::canonicalize(root)?;
@@ -88,7 +103,7 @@ pub fn run(root: &Path, output: &Path, controls: &[Control], blocks: usize, seed
     write_json(
         &output.join("campaign.json"),
         &json!({"schema":1,"fixture":fixture,"controls":controls,
-        "seed":seed,"blocks":order,"threads":threads,"artifact_preservation_ns":preservation,
+        "seed":seed,"blocks":order,"threads":threads,"task":task,"artifact_preservation_ns":preservation,
         "runner":source_identity(),"runner_sha256":artifacts::sha256(&std::env::current_exe()?)?,
         "initial_verification_ns":initial.elapsed().as_nanos(),"initial_error":check.as_ref().err(),
         "scope":"API from checked-bench; process includes startup/pool/untimed initialization and 2ms polling",
@@ -97,6 +112,7 @@ pub fn run(root: &Path, output: &Path, controls: &[Control], blocks: usize, seed
     check.map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
     let mut raw = OpenOptions::new().write(true).create_new(true).open(output.join("samples.jsonl"))?;
     let mut samples = Vec::new();
+    let mut starting_equivalence = None;
     for (block, indices) in order.iter().enumerate() {
         for (position, &index) in indices.iter().enumerate() {
             let control = &controls[index];
@@ -123,12 +139,32 @@ pub fn run(root: &Path, output: &Path, controls: &[Control], blocks: usize, seed
                 api_ns: None,
                 exit_code: None,
                 error: None,
+                started_unix_ns: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_nanos(),
+                details: serde_json::Value::Null,
             };
             let attempt = (|| -> Result<()> {
                 let start = Instant::now();
-                let prep = artifacts::verify(control).and_then(|()| fixture::verify(&root, &fixture, false));
+                let prep = (|| -> Result<Option<scenario::Case>> {
+                    artifacts::verify(control)?;
+                    fixture::verify(&root, &fixture, false)?;
+                    if let Task::Operation { scenario, destinations } = task {
+                        let case = scenario::prepare(&fixture, &output.join(format!("case-{sequence:04}")), scenario, destinations)?;
+                        if let Some(expected) = &starting_equivalence {
+                            if expected != &case.starting_equivalence {
+                                return Err("unmatched reset starting state".into());
+                            }
+                        } else {
+                            starting_equivalence = Some(case.starting_equivalence.clone());
+                        }
+                        sample.argv = vec!["sample".into(), case.root.display().to_string(), control.mode.clone(), threads.to_string()];
+                        sample.details = json!({"reset":case,"io_pressure_before":fs::read_to_string("/proc/pressure/io").ok()});
+                        Ok(Some(case))
+                    } else {
+                        Ok(None)
+                    }
+                })();
                 sample.preparation_ns = start.elapsed().as_nanos();
-                prep?;
+                let case = prep?;
                 let (exit, ns) = invoke(&control.binary, &sample.argv, &stem)?;
                 sample.process_ns = ns;
                 sample.exit_code = exit;
@@ -137,7 +173,27 @@ pub fn run(root: &Path, output: &Path, controls: &[Control], blocks: usize, seed
                 }
                 let start = Instant::now();
                 let verify = (|| -> Result<u128> {
-                    let ns = clean_ns(&fs::read_to_string(stem.with_extension("stdout"))?, &control.label, &control.mode, threads)?;
+                    let text = fs::read_to_string(stem.with_extension("stdout"))?;
+                    let ns = if let Some(case) = &case {
+                        let row: serde_json::Value = serde_json::from_str(&text)?;
+                        let ns = row["api_ns"].as_u64().ok_or("missing API time")? as u128;
+                        if row["schema"] != 1
+                            || row["mode"] != control.mode
+                            || row["threads"] != threads
+                            || row["destinations"] != case.destinations
+                            || row["scenario"] != serde_json::to_value(case.scenario)?
+                            || ns == 0
+                            || (case.scenario == Scenario::Clean && row["zero_operations"] != true)
+                        {
+                            return Err("invalid operation observation identity".into());
+                        }
+                        case.verify()?;
+                        sample.details["observation"] = row;
+                        sample.details["io_pressure_after"] = json!(fs::read_to_string("/proc/pressure/io").ok());
+                        ns
+                    } else {
+                        clean_ns(&text, &control.label, &control.mode, threads)?
+                    };
                     fixture::verify(&root, &fixture, false)?;
                     Ok(ns)
                 })();

@@ -1,13 +1,13 @@
 ---
 type: ToolGuide
-title: Rust clean-control runner — first proven slice
+title: Rust performance controls — clean and selectable scenarios
 description: Checked-in native driver for frozen baseline/default/noop/name-check controls, mirrored samples and retained failures; migration beyond clean controls remains explicit.
 resource: /perf/runner/README.md
-status: implemented-clean-slice
+status: implemented-scenarios-archive-build-validation-pending
 generated: { by: "model:openai/gpt-6.1-sol#medium", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu"
-    title: Implemented and verified Rust clean-control foundation after tooling assessment and explicit Rust-only end-state direction
+    title: Implemented clean proof, modular Rust primitives and selectable verified N1/N2 scenarios; continuing Rust-only migration
   - resource: /design/performance/tooling-takeover0.sol61m.md
     title: Inventory, failure findings and bounded takeover basis
   - resource: /.test-agent/checked/frozen-fa91/README.md
@@ -21,6 +21,42 @@ Linux/Unix, GNU `cp` and required-reflink filesystem. No Python dependency.
 This first slice drives the frozen `checked-bench clean-repeat` protocol, not an
 arbitrary command/config framework. It supports baseline/default/enabled-noop/
 native-name-check, serial or explicit borrowed P4/J4/K256 in the child.
+
+## Selectable scenario instrument
+
+The checked-in `perf/operation` crate adds `init`, `clean`, `sparse`, `subtree`,
+and N independent destinations. `scenario.rs` owns fresh private resets, exact
+starting-equivalence signatures, source immutability and independent payload
+verification (bytes/modes/file mtimes/literal links; directory/link mtimes are
+not promised by synchronization). Clean additionally asserts unchanged inodes
+and all entry metadata. Setup/verification remain outside the operation timer.
+Every attempt and its reset are retained, with wall chronology and I/O pressure.
+
+Build baseline and candidate from exact local git archives with the SAME checked-in
+instrument source; the candidate-only `checks` feature is the only API gate:
+
+```sh
+cargo build --locked --release -p diff-dirs-perf-runner
+target/release/diff-dirs-perf-runner build-operation . fd277144c51700ca70d068fc88f3ff72a0d64293 .test-agent/operation-before-NEW
+target/release/diff-dirs-perf-runner build-operation . 243be8e2a28a796c61652161c9dd30c6b35fc5d0 .test-agent/operation-after-NEW --checks
+target/release/diff-dirs-perf-runner run .test-agent/clean-fixture-NEW .test-agent/scenario-NEW --operation-builds .test-agent/operation-before-NEW .test-agent/operation-after-NEW --scenario sparse --destinations 2 --threads 4 --blocks 8 --seed 1701
+```
+
+Use a separate NEW output for each scenario/count/pool selection. Archived sources,
+instrument/helper source copies, compiler/profile/features, exact build command,
+resolved lock and immutable executable hashes are retained in each build root.
+The builds share a common lock seed and preserve the actual resolved lock rather
+than claiming an old library lock includes new development tools. No production
+code or profile is rewritten. Building and measuring both honor the cooperative
+host lock. An attempted archived baseline build correctly refused `WouldBlock`
+while independent clean reassessment held that lock; archived build/matrix smoke
+is **pending**, not claimed successful by this checkpoint.
+
+Six Rust tests pass, including an actual native instrument integration test with
+48 tiny cases: 4 scenarios × N1/N2 × serial/P4 × none/noop/admin. Required reflink
+reset tests assert matching starts across repeats and independent target inodes.
+The accepted clean CLI remains compatible after splitting artifacts, scheduling,
+fixture/scenario, execution/report and explicit operation builds into modules.
 
 ## Ready commands (from diff-dirs)
 

@@ -6,7 +6,7 @@ description = "Deterministic, metadata-based paired directory comparison"
 readme = "README.md"
 
 [workspace]
-members = ["cli", "sync", "perf/runner"]
+members = ["cli", "sync", "perf/runner", "perf/operation"]
 resolver = "3"
 
 [workspace.package]

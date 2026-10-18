@@ -21,7 +21,16 @@ pub struct Fixture {
 
 /// Sorted streaming fingerprint, never a retained full-tree map; no link following.
 pub fn tree(root: &Path, bytes: bool, inodes: bool) -> Result<String> {
-    fn visit(root: &Path, path: &Path, bytes: bool, inodes: bool, hash: &mut Sha256) -> Result<()> {
+    tree_policy(root, bytes, inodes, false)
+}
+
+/// Payload contract: file mtime, bytes, mode, literal links; no directory/link mtimes.
+pub fn payload(root: &Path) -> Result<String> {
+    tree_policy(root, true, false, true)
+}
+
+fn tree_policy(root: &Path, bytes: bool, inodes: bool, payload: bool) -> Result<String> {
+    fn visit(root: &Path, path: &Path, bytes: bool, inodes: bool, payload: bool, hash: &mut Sha256) -> Result<()> {
         let meta = fs::symlink_metadata(path)?;
         let name = path.strip_prefix(root)?.as_os_str().as_bytes();
         hash.update((name.len() as u64).to_le_bytes());
@@ -38,8 +47,8 @@ pub fn tree(root: &Path, bytes: bool, inodes: bool) -> Result<String> {
         hash.update(serde_json::to_vec(&(
             kind,
             meta.mode(),
-            meta.mtime(),
-            meta.mtime_nsec(),
+            if !payload || meta.is_file() { meta.mtime() } else { 0 },
+            if !payload || meta.is_file() { meta.mtime_nsec() } else { 0 },
             if meta.is_dir() { 0 } else { meta.len() },
             if inodes { Some((meta.dev(), meta.ino())) } else { None },
         ))?);
@@ -55,7 +64,7 @@ pub fn tree(root: &Path, bytes: bool, inodes: bool) -> Result<String> {
                 if entry.file_name() == ".git" || entry.file_name() == ".jj" {
                     return Err("administrative fixture entry refused".into());
                 }
-                visit(root, &entry.path(), bytes, inodes, hash)?;
+                visit(root, &entry.path(), bytes, inodes, payload, hash)?;
             }
         } else if bytes {
             hash.update(sha256(path)?.as_bytes());
@@ -63,7 +72,7 @@ pub fn tree(root: &Path, bytes: bool, inodes: bool) -> Result<String> {
         Ok(())
     }
     let mut hash = Sha256::new();
-    visit(root, root, bytes, inodes, &mut hash)?;
+    visit(root, root, bytes, inodes, payload, &mut hash)?;
     Ok(format!("{:x}", hash.finalize()))
 }
 
