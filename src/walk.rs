@@ -19,6 +19,10 @@ pub fn walk_with_options(original: impl AsRef<Path>, target: impl AsRef<Path>, o
         prune_eligible: false,
         summary: Summary::default(),
         options,
+        #[cfg(feature = "parallel")]
+        frontier: None,
+        #[cfg(feature = "parallel")]
+        use_frontier: options.execution == crate::Execution::Parallel,
     })
 }
 
@@ -31,6 +35,10 @@ pub struct Walk {
     prune_eligible: bool,
     summary: Summary,
     options: WalkOptions,
+    #[cfg(feature = "parallel")]
+    frontier: Option<Box<crate::frontier::Frontier>>,
+    #[cfg(feature = "parallel")]
+    use_frontier: bool,
 }
 
 #[derive(Debug)]
@@ -44,6 +52,10 @@ struct Frame {
 impl Walk {
     /// Skip pending children once immediately after a successful yielded record.
     pub fn prune_here(&mut self) -> bool {
+        #[cfg(feature = "parallel")]
+        if self.use_frontier {
+            return self.frontier.as_mut().is_some_and(|frontier| frontier.prune_here());
+        }
         if !self.prune_eligible {
             return false;
         }
@@ -56,6 +68,10 @@ impl Walk {
 
     /// Return the examined prefix without finishing the walk or performing IO.
     pub fn into_summary(mut self) -> Summary {
+        #[cfg(feature = "parallel")]
+        if self.use_frontier {
+            return self.frontier.map_or_else(Summary::default, |frontier| frontier.into_summary());
+        }
         while !self.frames.is_empty() {
             self.finish_frame();
         }
@@ -115,6 +131,13 @@ impl Walk {
 impl Iterator for Walk {
     type Item = Result<DirDiff, Error>;
     fn next(&mut self) -> Option<Self::Item> {
+        #[cfg(feature = "parallel")]
+        if self.use_frontier {
+            let frontier = self
+                .frontier
+                .get_or_insert_with(|| Box::new(crate::frontier::Frontier::new(crate::ParallelLimits::for_threads(rayon::current_num_threads()))));
+            return frontier.next_with(|dir| self.roots.inspect(dir.to_path_buf(), crate::Execution::Sequential));
+        }
         self.prune_eligible = false;
         if self.summary.state != ScanState::Incomplete {
             return None;
@@ -134,3 +157,19 @@ impl Iterator for Walk {
 }
 
 impl FusedIterator for Walk {}
+
+/// Temporary measurement control for the predecessor per-frame backend.
+/// Not part of the supported embedding API; requires `parallel-bench`.
+#[doc(hidden)]
+#[cfg(feature = "parallel-bench")]
+pub fn walk_per_frame(original: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Walk, Error> {
+    let mut walk = walk_with_options(
+        original,
+        target,
+        WalkOptions {
+            execution: crate::Execution::Parallel,
+        },
+    )?;
+    walk.use_frontier = false;
+    Ok(walk)
+}

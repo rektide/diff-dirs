@@ -1,14 +1,14 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-/// Execution of metadata work within the current directory pair, never subtree
-/// prefetch. Sequential is the default even when `parallel` is compiled in.
+/// Traversal execution. Sequential remains default when `parallel` is enabled.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Execution {
     #[default]
     Sequential,
-    /// Use the current Rayon pool, or its global fallback outside an install.
-    /// Fully consume the walker inside the caller's `ThreadPool::install`.
+    /// Bounded directory frontier on the current Rayon pool (global fallback
+    /// outside an install). Prefer `walk_in_pool` for explicit borrowed sharing.
+    /// Default J/K limits are selected at the first `next()` execution site.
     #[cfg(feature = "parallel")]
     Parallel,
 }
@@ -82,7 +82,8 @@ pub enum ScanState {
     Failed,
 }
 
-/// Aggregate of the examined prefix. Consuming the walk never does more IO.
+/// Aggregate of the committed DFS prefix, excluding physical speculative work.
+/// Consuming the walk never does more IO.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Summary {
     pub counts: EntryCounts,

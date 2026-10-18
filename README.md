@@ -7,9 +7,11 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
-    title: Implemented generic comparison and lossless CLI, added optional caller-pool Rayon execution, and measured synthetic plus read-only live parity/performance
+    title: Implemented generic comparison/CLI and measured baselines, then implemented accepted borrowed-pool directory-frontier concurrency with sealed decisions and committed-prefix summaries
   - resource: /design/fit/fit0.glm53m.md
     title: Initial fit research and contract contradictions, subsequently resolved by parent direction
+  - resource: /design/concurrency/design0.gpt6am.md
+    title: Parent-accepted directory frontier, ordered reducer, divergence seals, borrowed pool, and J/K demand reservation design
 ---
 
 # diff-dirs
@@ -74,15 +76,17 @@ motivation, not a claim of measured end-to-end sync speedup.
 
 ## The walk
 
-One mode. The walk compares both trees together, deterministically:
+One comparison model, with sequential or optional concurrent execution:
 
 - Entries compared in bytewise-sorted name order; the walk is **depth-first
   pre-order** (a directory's record is immediately followed by its
   subdirectories' records, so each divergent subtree streams as a contiguous
   block). Sorting uses `OsStr::as_encoded_bytes()` (raw bytes on Unix).
-  Memory includes the current two sorted listings and pending paired child
-  directory names on the active descent, **not depth alone**. Wide directories
-  cost memory. No whole-tree record list is retained; the summary can grow.
+  Sequential memory includes current sorted listings and pending child names on
+  the active descent, **not depth alone**. Parallel execution additionally holds
+  bounded uncommitted directory results and running listings. Wide directories
+  cost memory; J/K are count bounds, not byte bounds. No whole-tree record list
+  is retained; the summary can grow.
 - Each directory pair lists both sides (sorted) and diffs **immediate
   children only** — records never describe descendants of other records.
 - Files present on both sides are stat-compared (`type, size, mtime_ns`;
@@ -114,11 +118,16 @@ struct DirDiff {
   its classified immediate children. Paired child directories are opened later;
   replacing one requires `prune_here()` or stopping, not arbitrary mutation of
   pending descent paths.
+- In parallel execution, independent permitted branches may be inspected ahead
+  of the ordered cursor. Every differing directory, even a speculative one,
+  **seals all its paired children** until its record has been delivered and the
+  caller advances. All work joins before returning a record/error/`None`.
 
 ## Summary
 
 `into_summary()` consumes the walker **without doing further IO**. It describes
-only fully examined immediate listings, even after a break or error:
+only the **committed DFS prefix**, even after a break or error. Private
+speculative inspections/results are excluded, including completed clean ones:
 
 - `counts.files.{changed,added,removed}` and `counts.dirs.{added,removed}` count
   immediate entries. A one-sided subtree counts as one, never all descendants.
@@ -128,7 +137,7 @@ only fully examined immediate listings, even after a break or error:
 - `changed_dirs`: both-sided directories whose examined subtree contains a
   difference, including ancestors and the root, in DFS post-order. This is the
   aggregate directory-change answer, separate from immediate entry counts.
-- `examined_directories`: successfully compared directory pairs.
+- `examined_directories`: successfully compared and committed directory pairs.
 - `state`: `Incomplete` before normal exhaustion, `Complete` after `next()`
   returns `None`, or `Failed` after the terminal error.
 - `pruned`: paths explicitly skipped by the caller. Normal iterator completion
@@ -303,36 +312,69 @@ mode policy, reflinks, and final verification remain the consumer's concerns.
 
 ### Optional shared-pool parallel execution
 
-Enable `features = ["parallel"]`, then select it with
-`walk_with_options(original, target, WalkOptions { execution: Execution::Parallel })`.
-Only metadata/readlink jobs for the **current directory pair** can run in
-parallel. Listings are materialized and sorted first; every worker joins before
-`next()` returns. There is no subtree prefetch across mutation or prune boundaries.
-Tiny pairs (fewer than 64 total immediate entries) stay sequential; larger
-batches have a minimum Rayon split length of 16. These are batching heuristics,
-not an autotuned promise for every filesystem.
-
-Rayon uses the caller's current pool, or its global fallback outside any
-installed pool. The library never builds a pool, configures the global pool,
-or spawns detached work. Fully consume the walk **inside** the application pool:
+Enable `features = ["parallel"]`. Prefer the explicit borrowed-pool API:
 
 ```rust,ignore
-let summary = app_pool.install(|| -> Result<_, diff_dirs::Error> {
-    let mut walk = diff_dirs::walk_with_options(original, target,
-        diff_dirs::WalkOptions { execution: diff_dirs::Execution::Parallel })?;
-    while let Some(diff) = walk.next() {
-        let diff = diff?;
-        // apply/inspect here; prune_here() remains available on this walk
+let limits = diff_dirs::ParallelLimits::for_pool(&app_pool); // initially J=P, K=4P
+let mut walk = diff_dirs::walk_in_pool(original, target, &app_pool, limits)?;
+while let Some(item) = walk.next() {
+    let diff = item?;
+    if replace_whole(&diff) {
+        assert!(walk.prune_here()); // seal before replacing this directory
+        replace_target_subtree(&diff)?;
+    } else {
+        apply_classified_children(&diff)?;
     }
-    Ok(walk.into_summary())
-})?;
+}
+let summary = walk.into_summary();
 ```
 
-Installing only construction is insufficient: IO happens during iteration.
-See [parallel evidence](/design/performance/parallel0.sol61x.md): shared pools
-helped the synthetic wide-directory fixtures, but live-tree gains were modest
-and eight workers regressed whole-tree comparison. Sequential remains the
-predictable default; the caller chooses pool size and execution policy.
+`ParallelWalk<'pool>` stores `&rayon::ThreadPool` and installs every epoch in
+that pool; callers do not have to surround each `next()` with `install`.
+Applications may own an `Arc<ThreadPool>` and lend `&*pool`. No internal pool,
+global reconfiguration, detached task, or async runtime is introduced.
+
+One job performs a **whole immediate directory comparison**, with sequential
+enumeration/metadata internally. Clean completions dynamically expose new
+directory jobs; there is no lockstep batch or permanently assigned subtree
+worker. Only an ordered reducer updates records/errors/summaries. Each `next()`
+joins a Rayon scope before returning. Drop, break, and `into_summary()` do no IO
+and have no running jobs to wait for. A stalled filesystem call can still stall
+that epoch; joining does not impose a finite latency bound.
+
+`ParallelLimits` uses `NonZeroUsize max_directory_jobs` (J) and
+`usize max_speculative_directories` (K). J counts queued + running inspections.
+K counts **all** uncommitted speculative nodes, including clean, differing, and
+failed ready results. One extra demand slot cannot be consumed by speculation;
+K=0 and one-worker pools still progress. Actual directory-job concurrency is at
+most `min(P, J, K+1)` for P pool workers. Defaults J=P, K=4P are a starting
+policy, not universal tuning. Multiple walkers share workers but their J/K and
+memory budgets add. Retained memory includes committed active-path child names,
+up to K+1 private results/listings, and the summary, not merely depth or K bytes.
+
+Between yields, apply only the returned record's classified immediate children,
+or prune-before-replace that directory. The next call acknowledges that work
+is finished. Pending siblings, their ancestors, and previously acknowledged
+paths stay stable. Namespace siblings can alias storage through hard links or
+mounts: do not make in-place mutations that alter comparison keys in another
+pending path. Unlink-and-create avoids hard-link writes through another alias.
+This is still not a snapshot or security sandbox.
+
+The compatible ambient path remains
+`walk_with_options(..., WalkOptions { execution: Execution::Parallel })` and now
+uses the same frontier. It selects default limits at the first `next()` and
+uses the current pool on each call (normal global fallback outside a pool).
+Only constructing it inside `install` does not pin the pool. Nested/cross-pool
+`install` may execute unrelated work on the calling pool; applications must
+not hold reentrancy-sensitive locks across these calls.
+
+The [accepted design](/design/concurrency/design0.gpt6am.md) and
+[frontier implementation account](/design/implementation/implementation1.sol61x.md)
+explain the ordering, demand reservation, seals, and test evidence. The old
+[per-frame measurements](/design/performance/parallel0.sol61x.md) are historical
+controls, not measurements of this scheduler. `parallel-bench` exposes a hidden
+temporary predecessor control; `parallel-diagnostics` instruments physical
+jobs separately from committed coverage. Neither is needed for embedding.
 
 ## Non-goals
 

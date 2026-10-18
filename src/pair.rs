@@ -86,7 +86,15 @@ fn entries(original: &Path, target: &Path, execution: Execution) -> Result<(Vec<
     #[cfg(feature = "parallel")]
     if execution == Execution::Parallel && raw.len() >= 64 {
         use rayon::prelude::*;
-        let results: Vec<_> = raw.into_par_iter().with_min_len(16).map(inspect_entry).collect();
+        let results: Vec<_> = raw
+            .into_par_iter()
+            .with_min_len(16)
+            .map(|entry| {
+                #[cfg(test)]
+                tests::observe_worker();
+                inspect_entry(entry)
+            })
+            .collect();
         return split_entries(results.into_iter());
     }
     let _ = execution;
@@ -94,8 +102,6 @@ fn entries(original: &Path, target: &Path, execution: Execution) -> Result<(Vec<
 }
 
 fn inspect_entry(raw: RawEntry) -> Result<(Side, Entry), Error> {
-    #[cfg(all(test, feature = "parallel"))]
-    tests::observe_worker();
     let path = raw.entry.path();
     let metadata = raw.entry.metadata().map_err(|e| Error::io(path.clone(), "inspect entry", e))?;
     let kind = if metadata.is_dir() {

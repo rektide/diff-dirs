@@ -29,8 +29,20 @@ mod model;
 mod pair;
 mod walk;
 
+#[cfg(feature = "parallel")]
+mod frontier;
+#[cfg(feature = "parallel")]
+mod parallel;
+#[cfg(feature = "parallel-diagnostics")]
+pub use frontier::ParallelDiagnostics;
+#[cfg(feature = "parallel")]
+pub use parallel::{ParallelLimits, ParallelWalk, walk_in_pool};
+
 pub use error::Error;
 pub use model::{AddedRemoved, ChangedAddedRemoved, DirDiff, EntryCounts, Execution, ScanState, Summary, WalkOptions};
+#[doc(hidden)]
+#[cfg(feature = "parallel-bench")]
+pub use walk::walk_per_frame;
 pub use walk::{Walk, walk, walk_with_options};
 
 #[cfg(all(test, feature = "parallel"))]

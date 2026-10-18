@@ -1,0 +1,105 @@
+use std::iter::FusedIterator;
+use std::num::NonZeroUsize;
+use std::path::Path;
+
+use rayon::ThreadPool;
+
+use crate::frontier::Frontier;
+use crate::pair::Roots;
+use crate::{DirDiff, Error, Summary};
+
+/// Per-walk admission budgets, not worker counts or a byte-memory bound.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ParallelLimits {
+    /// Queued plus running complete directory inspections (J).
+    pub max_directory_jobs: NonZeroUsize,
+    /// Uncommitted speculative directories (K), including completed results.
+    /// An additional demand slot is always reserved; zero permits progress.
+    pub max_speculative_directories: usize,
+}
+
+impl ParallelLimits {
+    pub const fn new(max_directory_jobs: NonZeroUsize, max_speculative_directories: usize) -> Self {
+        Self {
+            max_directory_jobs,
+            max_speculative_directories,
+        }
+    }
+
+    /// Starting policy J=P, K=4P. No workers are created or reconfigured.
+    pub fn for_pool(pool: &ThreadPool) -> Self {
+        Self::for_threads(pool.current_num_threads())
+    }
+
+    pub(crate) fn for_threads(threads: usize) -> Self {
+        Self::new(NonZeroUsize::new(threads).expect("Rayon pool has workers"), threads.saturating_mul(4))
+    }
+}
+
+/// A joined-epoch directory frontier borrowing an application-owned Rayon pool.
+/// `next()` installs its work in this pool, including when called outside it.
+/// No jobs run between calls; drop and `into_summary` do no IO or joining.
+#[derive(Debug)]
+pub struct ParallelWalk<'pool> {
+    roots: Roots,
+    pool: &'pool ThreadPool,
+    frontier: Frontier,
+}
+
+/// Compare real directory roots using a borrowed pool and bounded speculation.
+/// Unacknowledged differing directories seal all descent until the caller
+/// advances. Summaries include only the committed DFS prefix, not lookahead.
+///
+/// ```no_run
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let app_pool = rayon::ThreadPoolBuilder::new().num_threads(4).build()?;
+/// let limits = diff_dirs::ParallelLimits::for_pool(&app_pool);
+/// let mut walk = diff_dirs::walk_in_pool("original", "target", &app_pool, limits)?;
+/// while let Some(item) = walk.next() {
+///     let diff = item?;
+///     println!("{:?}", diff.dir);
+///     // Apply classified children here, or prune_here() before replacement.
+/// }
+/// assert!(walk.into_summary().is_complete());
+/// # Ok(())
+/// # }
+/// ```
+pub fn walk_in_pool<'pool>(
+    original: impl AsRef<Path>,
+    target: impl AsRef<Path>,
+    pool: &'pool ThreadPool,
+    limits: ParallelLimits,
+) -> Result<ParallelWalk<'pool>, Error> {
+    Ok(ParallelWalk {
+        roots: Roots::new(original, target)?,
+        pool,
+        frontier: Frontier::new(limits),
+    })
+}
+
+impl ParallelWalk<'_> {
+    pub fn prune_here(&mut self) -> bool {
+        self.frontier.prune_here()
+    }
+
+    pub fn into_summary(self) -> Summary {
+        self.frontier.into_summary()
+    }
+
+    /// Instrumented builds only; these counters measure private physical work,
+    /// separately from the public committed-prefix summary.
+    #[cfg(feature = "parallel-diagnostics")]
+    pub fn diagnostics(&self) -> &crate::frontier::ParallelDiagnostics {
+        self.frontier.diagnostics()
+    }
+}
+
+impl Iterator for ParallelWalk<'_> {
+    type Item = Result<DirDiff, Error>;
+    fn next(&mut self) -> Option<Self::Item> {
+        let Self { roots, pool, frontier } = self;
+        pool.install(|| frontier.next_with(|dir| roots.inspect(dir.to_path_buf(), crate::Execution::Sequential)))
+    }
+}
+
+impl FusedIterator for ParallelWalk<'_> {}
