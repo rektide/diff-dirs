@@ -7,7 +7,7 @@ status: independent-proposal-for-comparison
 generated: { by: "model:openai/gpt-6-astra#medium", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eb2ee3586ffeCmNiSndJnP80V0"
-    title: Independently assessed forty optimizations; incorporated explicit unpinned-toolchain direction and verified configured Rust 1.101 nightly source without reading the parallel same-wave assessment
+    title: Independently assessed forty optimizations, verified configured nightly source, and ranked shape-changing experiments by likely value and architectural information for the user's next builder wave
   - resource: /README.md
     title: Current comparison, error precedence, ordered-prefix and mutable-consumer contract
   - resource: /src/pair.rs
@@ -911,3 +911,354 @@ source was fetched after checking the installed toolchain/archive for local
 source; reflink source came from the local Cargo cache. Shared index and sibling
 same-wave documents were not edited. A document check verified forty unique
 candidate IDs, all nine local Markdown link targets, and this session's provenance.
+
+# Addendum — what I would try first, and what should shape the project
+
+**Requested judgment, 2026-10-18.** The user asks which investigations are likely
+to change the shape of the work, rather than merely make the current internals
+faster. This addendum preserves the inventory above but refines its sequencing:
+**I would not finish the small optimizations before testing the consequential
+choices.** I would first test donor reuse, the descriptor-held leaf pipeline and
+a private prepared mirror path. Those address different workload regimes and
+reveal what the library should retain, expose and own.
+
+My strongest strategic hypothesis is that **one directory iterator should not
+have to be the only efficient entry point for every consumer**. Keep it useful
+for interactive policy and reporting; test whether a stable donor session and
+an integrated mirror deserve narrower, more informative interfaces beside it.
+This is a hypothesis to test before designing public types, not a recommendation
+to replace the iterator or build a general engine framework.
+
+## How I rank value
+
+Three kinds of confidence must stay separate:
+
+- **Redundant work:** source inspection can establish that an operation repeats.
+- **Measurable speedup:** requires the relevant workload and full cost accounting.
+  Removing a known redundancy need not materially improve wall time.
+- **Architectural leverage:** a result can tell us where ownership, trust or
+  execution boundaries belong, even when its implementation is small.
+
+The ranking weights actual clean/sparse reseed and fresh strict-CoW application,
+then broader audit/wide-directory workloads. It also values negative results:
+an experiment that rejects an attractive new public abstraction can be worth
+more than another successful allocation tweak. The experiments are reversible
+private prototypes; public contract changes are gated afterward. No compiler
+pin or legacy MSRV constraint applies: use ordinary configured `cargo`/`rustc`,
+currently Rust 1.101 nightly, and rebuild all controls with that same toolchain.
+
+| Order | Investigation | Redundancy confidence | Speedup confidence before testing | Architectural leverage |
+| --- | --- | --- | --- | --- |
+| 1 | Stable donor reused across destinations | High across repeated donor scans | Medium, conditional on real reuse | Very high: session and source representation |
+| 2 | Descriptor-held leaf preparation, with staging control | High in current operation sequence | Medium–high for many tiny changed files | High: backend and operation ownership |
+| 3 | Private prepared mirror path | High for discarded/reacquired information | Medium for dense/deep sync; low for clean scans | Very high: trust and compare/apply boundary |
+| 4 | One coordinated budget for wide-directory chunks | High confidence in current serialization | High on wide roots, uncertain on mixed trees | High: scheduler's unit of work |
+| 5 | Read-only continuation past differences | High confidence in existing seal/epoch cost | Medium on dense audits | High: execution contract, not filesystem backend |
+| 6 | Demand-local admission at fixed K | High confidence in measured K saturation | Medium versus an already tuned K256 control | Moderate: scheduling policy, mostly internal |
+| 7 | FD-relative lookup beyond existing relative stats | High for full-path opens/readlinks, not all stats | Low–medium on the motivating warm local tree | High only if it beats simpler representation changes |
+
+The first three form my preferred first small wave. Fourth is the next scheduler
+investment, not a prerequisite for that wave. Seventh is deliberately lower than
+the original path-work seed might suggest: the verified std implementation has
+already captured part of the hoped-for benefit.
+
+## 1. Prove or reject a reusable donor generation first
+
+**Candidates:** C01, with X07 as a deployment check; E6 is the starting brief.
+
+**Why first:** clean and sparse sync already cost essentially the paired walk.
+Making replacement faster does not address that dominant regime. Reusing one
+prepared donor across destinations removes a repeated half of the *logical
+inspection work*, though this does **not** predict half the wall time: enumeration,
+target work, sorting, cache behavior and scheduling remain. This opportunity
+crosses an API boundary that a long sequence of internal tuning cannot cross.
+It is especially valuable to settle before choosing a path/metadata representation
+intended only for a single walk.
+
+**Smallest owned experiment:** one stable donor and one/two/four independent
+targets, with the same shape but clean, sparse and partly absent variants. Compare
+ordinary repeated walks against a private, generation-scoped, per-directory
+catalog. Include catalog construction and disposal in group completion. Measure
+source enumerations/key reads, target work, catalog capacity, group wall/CPU and
+per-target latency. Start with sequential target processing to isolate reuse;
+only then compare concurrent targets on the same caller pool. No persistent
+cache, mutation watcher or new invalidation subsystem.
+
+**Decision unlocked:** should callers bind a donor once and reconcile several
+targets through that binding? Does the useful retained unit look like sorted
+directory data and file keys rather than a tree of open descriptors? A catalog
+need not retain every source file handle, and keeping handles would not certify
+immutability anyway.
+
+**If positive:** propose a narrow donor-generation/session interface and make its
+stability lifetime explicit. Compare eager versus lazy population only after
+reuse itself wins. Ask the embedder whether one prepared donor really remains
+stable across its target group; if not, this stays an optional specialized API.
+**If negative:** retain single-pair walking; keep any useful private catalog
+representation out of the public API. If only N=4 pays, characterize that crossover
+rather than making all N=1 users pay the catalog cost.
+
+**What can wait:** arena packing, path interning, disk serialization, incremental
+refresh and automatic capability detection. C05's cross-generation completeness
+certificate is a different undertaking and should not be smuggled into this test.
+Complexity is medium for a private prototype, large for a robust public session.
+
+## 2. Establish the right leaf operation boundary
+
+**Candidates:** S03 and S04, with S02 as the cheap control; F02 only for the
+minimum relative-operation slice. Extend E2, not the entire filesystem backend.
+
+**Why second:** fresh and dense application have direct repeated syscall evidence,
+and strict CoW is the motivating consumer's real policy. The important question
+is **who owns an output from creation through metadata finalization and install**.
+If the answer is our operation kernel rather than a path-to-path clone helper,
+it changes the natural backend interface. That is worth knowing before wrapping
+more APIs around the current helper.
+
+**Smallest owned experiment:** compare three variants in one tiny-file/large-file
+fixture: current operation; direct clone into a retained output fd with existing
+per-leaf staging; then that same operation with one staging arena per target
+parent. Include a direct empty-directory cleanup control so an apparent clone
+win cannot merely be cleanup savings. Hold timestamp readback and hardlink-safe
+rename constant. Count opens/closes, stat calls, chmods, mkdir/rmdir and clone
+operations; measure batch wall/CPU for sparse and dense siblings. Include mode000,
+preparation failure and cleanup failure; successful bytes and surviving old
+leaves matter more than a syscall-only microbenchmark.
+
+**Decision unlocked:** a descriptor-oriented leaf backend, a batch-owned staging
+context, both, or neither. This can remain internal while nevertheless strongly
+shaping implementation. It does not require public prepared records or FD-native
+directory enumeration. The nightly std Dir API and rustix are possible tools,
+not the architectural goal.
+
+**If positive:** establish the small prepare/finalize/install ownership boundary
+and retain platform-specific implementation behind it. If staging explains the
+gain but direct clone does not, improve staging and retain the portable clone
+dependency; do not force a native backend to justify the initial theory.
+**If negative:** keep existing leaf semantics and dependency, after adopting only
+independently justified cleanup simplifications. A negative tiny-file result
+substantially weakens the case for a broad FD-native sync rewrite.
+
+**What can wait:** relative conversion of every filesystem operation, specialized
+copy-length loops, cached clone support and disabling timestamp readback. Shared
+staging is generally internal; it ranks here because the correct *lifetime owner*
+should be known before designing rich operation/session types. Complexity is
+medium, with high portability and failure-behavior review importance.
+
+## 3. Test information retention across compare and apply, privately
+
+**Candidates:** C02, S01 and S06; A03 exposes a related choice about which
+information is worth gathering at all. This is **not yet C04**.
+
+**Why third:** current names-only records deliberately discard information that
+sync reacquires. That is a clear source fact, but a public rich-record redesign
+would be premature: stable-tree semantics may let a private mirror path remove
+most of the waste without burdening the generic walker. This experiment tells
+us whether names-only is an efficient reporting projection of a richer internal
+operation, or already sufficient for practical performance.
+
+**Smallest owned experiment:** preserve current ordered epochs, prune boundaries
+and observed summaries. Inside a private mirror prototype, pass validated kinds,
+source metadata/link data and a session-bound ancestor context into application.
+Compare against the ordinary public walker-plus-applier loop. Keep the exact same
+copy/staging backend in both variants so E2's improvements cannot explain the
+result. Test deep dense changes, shallow sparse changes and clean scans; count
+reinspections and ancestor stats, record retained bytes and pre-mutation validation
+behavior. Add a source/target binding misuse test to the experimental interface.
+
+**Decision unlocked:** whether to maintain an integrated mirror fast path;
+whether an optional prepared record is useful to manual-loop embedders; and what
+information it should own. Source metadata is useful only when needed: A03's
+classification-only paths and C02's retained-apply data are competing policies
+for some entries. A prepared pipeline should acquire data for its consumer,
+not make all diff-only scans eagerly collect sync attributes.
+
+**If positive:** prefer the private integrated path first. Expose prepared records
+only if a real caller needs custom policy *and* their measured savings. Define
+root/generation binding, expiration and permitted mutation before publicizing it.
+**If negative:** keep names-only as the shared contract, adopt S01's local reuse
+where separately useful, and avoid a capability/token API with little payoff.
+If only ancestor caching matters, solve that within mirror rather than inventing
+rich leaf records.
+
+**What can wait:** callback versus lending-iterator syntax, public trait hierarchies,
+serialization of prepared data, and branch-local asynchronous application. A
+positive result here does not establish that globally ordered mirror execution
+should be relaxed. Prototype complexity is medium; public trust/lifetime design
+has high leverage and should be delayed until evidence exists.
+
+## 4. Decide whether a directory is the right indivisible scheduling unit
+
+**Candidates:** Q04; E5 provides the bounded brief. X02 is a later use of a
+shared operation budget, not part of the first chunking test.
+
+**Why here:** this has stronger topology-specific speed evidence than many other
+ideas: the predecessor parallel-metadata control beat a whole-directory job on
+the wide root. Its architectural significance is the admission currency—directory
+jobs versus bounded inspection work. I would test this before investing heavily
+in candidate-index optimization or compressed directory receipts, because those
+may optimize a scheduling representation we subsequently change.
+
+**Smallest owned experiment:** admit a few indexed metadata chunks from one wide
+directory under a genuinely shared task budget. Compare current frontier,
+predecessor control and prototype at the same pool size, then a mixed tree that
+has both wide and tiny directories. Measure active/outstanding task bounds,
+end-to-end wall/CPU, first result and memory; include an error in an early chunk
+and a delayed chunk. A separate root-wide par_iter with no shared accounting is
+not a discriminating test of the intended design.
+
+**Decision unlocked:** extend frontier task kinds with a revised documented budget,
+or keep directory jobs and offer a specialized wide-directory strategy. **If
+positive on both wide and mixed inputs:** pursue the shared-task design. **If only
+wide wins:** retain it as a narrow threshold/profile candidate rather than
+replacing all jobs. **If negative after accounting overhead:** leave the scheduler
+unit intact and direct effort to eliminating inspection work.
+
+**What can wait:** precise chunk size and threshold, affinity and candidate search
+data structures. They can be tuned once the budget/continuation model is sound.
+The prototype has large invariant complexity; that is why it follows the first
+three, despite the fairly strong wide-workload expectation.
+
+## 5. Price the mutable-iterator contract for read-only consumers
+
+**Candidates:** C03, with C04 explicitly deferred.
+
+**Why fifth:** dense audit has a concrete reason to avoid divergence seals and
+per-record joins, whereas clean reseed does not pay per-difference boundaries.
+This is a credible broader-use API fork but less central to the motivating clean/
+sparse sync regime. Before changing mirror's failure semantics, learn whether
+the cost of the generic mutable protocol is material in a simpler read-only case.
+
+**Smallest owned experiment:** full read-only traversal of a dense fixture,
+continuing below differences without waiting for caller decisions. Compare with
+full consumption of the existing iterator; use equal output work. If prototype
+records are sorted at the end, include collection/sort and its peak memory in
+the timer. Also test a counts-only fold to identify how much benefit depends on
+the consumer not requiring ordered records. Measure epochs, wall/CPU, memory and
+time to first useful output; report errors and partial coverage under the new
+contract honestly.
+
+**Decision unlocked:** a read-only aggregate/gather interface beside the mutable
+iterator. **If positive:** define that contract first, preserving the interactive
+iterator for callers that need pruning and application. **If negative:** avoid a
+second traversal API. Only if dense *sync* remains important and measured epoch
+cost remains after ranks 2–3 should C04 branch-local mirror enter a later wave.
+Read-only success alone is not proof that changed mirror failure semantics pay.
+
+**What can wait:** public callback design, stable-order versus orderless spelling,
+and summary storage tuning. Complexity is medium for a narrow proof and large
+for a production alternative lifecycle.
+
+## 6. Improve useful lookahead before inventing frontier compression
+
+**Candidates:** Q02 versus Q01 controls; Q03 and elaborate Q05 indexing wait.
+
+**Why sixth:** we already have an effective explicit K256 setting, so small-K
+saturation is not an unanswered prerequisite to useful performance. Better local
+admission may buy equal throughput with less retained work, which matters for
+multiple walkers, but is largely a private policy choice. Its information value
+is below the interfaces and task-unit decisions above.
+
+**Smallest owned experiment:** fixed J/K comparison of current admission versus
+a small demand-local reserve on skewed/deep inputs; include K256 and multi-walker
+controls. Measure occupancy duration, retained bytes and first-yield latency,
+not merely number of workers observed. Use a pure completion-order model to
+establish prefix/seal/liveness properties before filesystem timing.
+
+**Decision unlocked:** tune the existing policy/preset, or keep current admission
+and accept an explicit memory-throughput tradeoff. **If positive:** adopt the
+smallest policy improvement compatible with the task unit selected at rank 4.
+**If negative:** document/use the measured preset; do not automatically escalate
+to clean-subtree compression. Compression changes the meaning of K and needs its
+own benefit case, not just a disappointing reserve experiment.
+
+**What can wait:** queue indexing, lock micro-optimization, scratch allocation and
+exact reserve fraction. Complexity is medium; mostly reversible internally.
+
+## 7. Test full FD-relative descent only against a cleaned-up path baseline
+
+**Candidates:** F01/F03, A01/A05; E7 remains the brief.
+
+**Why seventh:** path construction visibly repeats, but existing Linux entry
+metadata is already descriptor-relative. An extensive path/handle representation
+rewrite could optimize the wrong kernel operation. Rank 2 gets the more direct
+descriptor-lifecycle evidence without buying the traversal rewrite.
+
+**Smallest owned experiment:** compare lazy-path ordinary traversal with a narrow
+handle-descending backend, sweeping depth, prefix length and link density at
+fixed entry counts. Count actual open/stat/readlink forms, allocation bytes and
+FD high-water, including low-FD-limit behavior. Use current nightly std Dir where
+it fits and rustix for missing operations; API availability is not evidence of
+speed. Do not combine minimal statx masks with handle descent in the first
+comparison—those are separate kernel hypotheses.
+
+**Decision unlocked:** actual need for directory-handle identities in the core,
+versus using handles only within sync operations. **If positive on representative
+depths:** design the backend and lifetime budget deliberately. **If only extreme
+depth/link cases win:** offer a tuned profile or focused relative-link operation.
+**If negative:** keep PathBuf identities and the simpler portable core; rank 2's
+descriptor-held sync backend can still stand independently.
+
+**What can wait:** packed native names, direct getdents, minimal statx masks and
+path-DAG internals. Complexity is large if generalized, small enough to falsify
+with a narrow controlled prototype.
+
+## The first small wave I would actually commission
+
+Three independent builders, each with its own owned fixture and baseline:
+
+1. **Donor reuse** — rank 1 / E6. Read-only catalog and repeated-target comparison;
+   no applier changes. Return the build-inclusive amortization and memory result.
+2. **Leaf pipeline anatomy** — rank 2 / E2 with a bounded S04 variant. Hold diff
+   behavior fixed and isolate clone lifecycle from staging and cleanup savings.
+3. **Prepared mirror information flow** — rank 3. Hold leaf backend and ordered
+   traversal fixed; measure discarded/reacquired information and ancestor checks.
+
+These can run independently because they change different boundaries and keep
+their own controls. They should **not** merge their prototypes into one moving
+baseline during the wave. For clean inspection controls, A01 is sufficiently
+small to include as a clearly separate variant; it must not become a blocking
+cleanup project or make one builder's baseline incomparable with another's.
+Run timed portions without competing benchmark campaigns on the same host, even
+though implementation work is independent.
+
+If the actual near-term embedder uses only one target per donor generation, move
+rank 1 behind rank 2 and explicitly report that assumption. Its prototype still
+has strategic value, but likely future reuse should not masquerade as present
+end-to-end payoff. Likewise, no ranking here justifies spending on dense audit
+if all selected consumers remain clean/sparse mirrors.
+
+### Checkpoint before merging or production redesign
+
+Read the three returns together and decide **which boundary owns durable work**:
+
+- **Donor catalog wins:** add a generation-scoped source abstraction; do not
+  require richer per-target records unless the prepared-path experiment also wins.
+- **Leaf pipeline wins:** establish descriptor/staging ownership internally;
+  avoid public backend traits until there is a second actual implementation need.
+- **Prepared mirror wins:** make mirror efficient internally first; expose a
+  prepared manual-loop API only for an identified caller and validated lifetimes.
+- **Only small local savings win:** land those individually and preserve the
+  simple architecture. This is a successful wave outcome, not a reason to force
+  a larger redesign.
+
+Each return should separate correctness, counted work removed, measured speed,
+memory/FD costs and the proposed semantic delta. Preserve existing hardlink-safe
+replacement, zero-write clean repeats and truthful failure reporting in all
+same-contract variants. Document any new contract before its production code.
+Review whether combined winners compete for the same saved work; do not add
+independent speedup estimates together. Then commission a combined confirmation
+against a freshly rebuilt unchanged control before promoting the combination.
+
+**Safe to leave for later internal tuning:** vector capacities and direct-union
+comparison; category sorting representation; result-reduction grain; precise
+K/chunk defaults; release flags; detailed candidate-search machinery. Some may
+be cheap enough to land early on their own evidence, but none should decide the
+public ownership model by accident. **Not early recommendations:** watched/journal
+change certificates, subvolume provisioning, automatic subtree replacement and a
+general async framework. They require new consumer authority or operational
+commitments that the current evidence does not yet justify.
+
+This addendum is judgment over the inspected inventory and existing measurements,
+not new benchmark evidence. No builders were launched, no production changes were
+made, and the independent same-wave Sol inventory remains unread.
