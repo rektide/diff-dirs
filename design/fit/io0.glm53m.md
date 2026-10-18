@@ -6,6 +6,10 @@ resource: /design/fit/io0.glm53m.md
 tags: [diff-dirs, io, async, tokio, rustix, cap-std, reflink, sync, jj, performance]
 status: draft
 generated: { by: "model:zai-coding-plan/glm-5.3#max", at: 2026-10-18 }
+updated:
+  - by: "model:zai-coding-plan/glm-5.3#max"
+    at: 2026-10-18
+    note: Parent review corrected overstatements — tokio ReadDir chunks 32 entries per dispatch (not per next), performance comparisons reframed as unmeasured rather than "not faster", rustix claim narrowed to inspected code, own_mtime/cache-grade disclaimers added, parallel-seam claim made conditional; waltz execution map added with source references.
 sources:
   - resource: opencode://ses_eb39c53ccffeOncs3vs6bocqfU
     title: IO-research session — verified cached/archive crate APIs, inspected jj's working-copy source, compared IO models, wrote this assessment
@@ -20,7 +24,13 @@ sources:
   - resource: "archive:jj-vcs/jj@803ef00a0a6ee4ddc275d3138d5f9e7326399906 (2026-09-27)"
     title: Archived Jujutsu source — lib/src/local_working_copy.rs snapshot walk, FileState cache, rayon/mpsc structure; lib/Cargo.toml dependency allocation; lock/unix.rs rustix usage
   - resource: "crates.io cache:tokio-1.53.3 src/fs/{mod.rs,read_dir.rs,copy.rs}"
-    title: Verified tokio::fs delegates every operation to spawn_blocking thread pools — ordinary blocking file operations behind the scenes
+    title: Verified tokio::fs spawn_blocking model and ReadDir's 32-entry next_chunk batching (CHUNK_SIZE const)
+  - resource: "jj-waltz:src/cli.rs"
+    title: Reseed CLI dispatch — run_reseed/run_refill into reseed::run_with_diagnostics, all synchronous
+  - resource: "jj-waltz:src/metadata.rs, jj-waltz:src/manager/ui.rs"
+    title: The only std::thread::spawn sites in src/ — cfg(test) metadata races and the interactive manager UI, neither on the reseed path
+  - resource: "jj-waltz:Cargo.lock"
+    title: Transitive check — crossterm/ratatui linked via manager UI only; no rayon/tokio in the graph; reflink-copy/fs2/tempfile spawn nothing
   - resource: "crates.io cache:async-fs-2.2.0 src/lib.rs"
     title: Verified async-fs offloads blocking I/O onto the `blocking` crate's thread pool
   - resource: "crates.io cache:rustix-1.1.4 src/fs/{at.rs,statx.rs,openat2.rs}"
@@ -99,19 +109,24 @@ From `lib/src/local_working_copy.rs` at the archived revision:
 - **`async fn` only at the store layer**: `snapshot()` is async because tree/
   object writes are async; the filesystem traversal itself runs inside a
   synchronous closure scope, bridging with `pollster`'s `.block_on()`.
-- **Dependency allocation** (`lib/Cargo.toml`): `rayon` (walk), `rustix` — used
-  only for `flock` in `lock/unix.rs`, not traversal — `tokio` **optional,
-  behind the `watchman` feature only**, `gix` optional (git backend). No
-  walkdir, no jwalk, no `ignore` crate; gitignore semantics come from
-  `gix-ignore` through jj's own `GitIgnoreFile` chaining.
+- **Dependency allocation** (`lib/Cargo.toml`): `rayon` (walk), `rustix` — in
+  the code inspected for this assessment it appears only for `flock`
+  (`lib/src/lock/unix.rs`); other modules were not audited and no broader
+  claim is made — `tokio` **optional, behind the `watchman` feature only**,
+  `gix` optional (git backend). No walkdir, no jwalk, no `ignore` crate;
+  gitignore semantics come from `gix-ignore` through jj's own `GitIgnoreFile`
+  chaining.
 
 Applicability to a generic paired diff: the *per-directory job granularity*,
 *sorted-merge determinism boundary*, *first-error-wins channel design*, and
 *(type, mtime, size) cleanliness key* all transfer. The async surface does not
 (jj needs it for object-store writes; a two-sided stat walk has no async
-boundary worth bridging). The `own_mtime` guard has no analog — jj compares
-disk against a recorded cache file; diff-dirs compares two live trees, so the
-race it guards cannot occur (donor pinning is the embedder's concern).
+boundary worth bridging). The `own_mtime` guard also has no transferable
+analog, and jj's cache discipline is a *different grade* of assurance, not a
+coarser version of ours: jj compares disk state against a persisted cache
+record and uses the cache file's own mtime to bound when its entries could
+have changed; diff-dirs compares two live trees with no persisted state. The
+two solve different problems; nothing here broadens one into the other.
 
 ## IO model comparison for the walk core
 
@@ -123,19 +138,27 @@ btrfs (spec; consistent with the recorded 0.24s single-tree enumeration).
 | Option | What it really is (verified) | Fit |
 | --- | --- | --- |
 | **std blocking** (`read_dir`, `DirEntry::metadata`, `read_link`) | Direct syscalls; `ReadDir` iterates `getdents64` with internal buffering; sequential | **Recommended core.** Deterministic by construction, zero deps, embeds anywhere. The syscall census is the workload — nothing to offload. |
-| **tokio::fs** | Every operation (`read_dir`, `next`, `copy`, `metadata`) is dispatched to the `spawn_blocking` thread pool; module docs state plainly "Tokio will use ordinary blocking file operations behind the scenes" | No syscall advantage for a stat-bound walk; costs a runtime, `Send`/lifetimes plumbing through the iterator/`prune_here` design, and a dependency the embedder (a sync CLI with no tokio) would inherit. Only pays when composing with other genuinely-async work (sockets, timers), which neither diff-dirs nor jj-waltz has. **Not async IO — honestly not faster.** |
-| **async-fs 2.2.0 (smol ecosystem)** | Offloads to the `blocking` crate's thread pool (crate docs, line 7) | Same story as tokio with a smaller crate; still blocking-under-the-hood, still a runtime dependency. No advantage. |
+| **tokio::fs** | `read_dir`/`copy`/`metadata` dispatch to the `spawn_blocking` thread pool ("ordinary blocking file operations behind the scenes" per module docs); `ReadDir` dispatches one blocking job per *chunk* of 32 entries (`next_chunk`, `CHUNK_SIZE = 32`), not per `next()` | Same syscalls, on a pool. Whether pool concurrency improves wall time for this stat-bound walk is **unmeasured here** — plausible overlap exists (kernel dentry/inode cache lookups and IO submission can overlap across cores) and we make no "not faster" claim. The verified costs are structural: a mandatory runtime plus `Send` plumbing through a pull-iterator/`prune_here` design, inherited by a sync embedder that has no other async work. |
+| **async-fs 2.2.0 (smol ecosystem)** | Offloads to the `blocking` crate's thread pool (crate docs, line 7) | Same model as tokio with a smaller crate; still blocking-under-the-hood, still a runtime dependency. Relative performance unmeasured. |
 | **rustix 1.1.4** | Raw syscall wrappers: `openat`, `statx`, `openat2` (fs features verified) | A *targeted* optimization, not a backend: dirfd-relative `statx` batches could shave path-resolution cost per entry and request reduced statx masks. Linux-centric API. Worth a `backend` seam, not v1 — std is already inside the measured budget. |
 | **cap-std 3.4.5** | Capability `Dir` (openat-relative `open`, `open_dir`, `read_dir`, `symlink_metadata`, `create_dir`, `canonicalize` — verified) | Confinement-oriented: paths resolved relative to a held directory fd, no `..` escape. jj-waltz already owns confinement (`relative()`, `confined_parents`, mount checks); the generic library deliberately doesn't. Interesting later for a sandboxed consumer; not v1. |
 | io_uring-based crates | Not present in the local registry cache; not assessed | Linux-only, thread-per-core models, young APIs. Out of scope for a portable v1; noted for completeness. |
 
-**Honest syscall model**: in mainstream Rust there is no async filesystem —
-tokio::fs and async-fs both execute blocking syscalls on thread pools. The
-walk's cost is syscall count × latency, which thread pools only help if the
-kernel work actually parallelizes (cold cache, network filesystems) — and
-deterministic record order must then be re-imposed at a sorted merge anyway.
-Parallelism, if ever wanted, is better added the way jj did it (rayon over
-directory jobs + sorted merge) than by making the API async.
+**Honest syscall model (corrected)**: the async *facades* inspected — tokio::fs
+and async-fs — execute blocking syscalls on thread pools; neither eliminates or
+transforms the syscalls themselves, and this document previously overclaimed
+that as "no async filesystem in mainstream Rust" and "async buys nothing".
+Both statements are withdrawn: io_uring-based crates exist outside the local
+registry cache (unassessed), and thread-pool concurrency may help even warm
+syscall-bound work — that is a measurement question, not a structural one. What
+the verified evidence *does* support: entry enumeration is chunk-buffered on
+both paths (libc `readdir` buffering under std; tokio's 32-entry chunks), so
+the dominant per-entry cost in either model is the stat-class call; and the
+async options structurally require a runtime the sync embedder would carry for
+no other use. Deterministic record order must be re-imposed at a sorted merge
+under any pool concurrency. Parallelism, if adopted, is better added the way jj
+did it (rayon over bounded per-frame jobs + ordered merge) than by making the
+API async — see [the Rayon assessment](/design/fit/rayon0.glm53m.md).
 
 ## Traversal libraries and parallelism
 
@@ -207,26 +230,96 @@ yields exactly the unapplied remainder. That property is the sync crate's
 primary test surface and is what makes the jj-waltz retry story (fit0,
 corrected requirements) sound.
 
+## The waltz execution map (source-referenced)
+
+Follow-up requested by the parent; every claim carries a file/line reference
+from the inspected checkout. This is the mechanical-sympathy baseline the Rayon
+assessment builds on.
+
+**CLI → engine.** `main.rs` parses via clap; `cli.rs:477` dispatches
+`Commands::Reseed(cmd)` → `run_reseed` (`cli.rs:551`) → `run_refill`
+(`cli.rs:586`) → `reseed::run_with_diagnostics` (`reseed.rs:101`) →
+`engine::run` (`engine.rs:111`) → `run_inner` (`engine.rs:173`). All one
+thread, one process, synchronous.
+
+**Multi-target scheduling.** Planning walks the selected names sequentially
+(`engine.rs:362–531`), one `Plan` per target; execution is a strictly
+sequential loop `for mut plan in plans { execute(&default, &mut plan) }`
+(`engine.rs:561–589`) with per-target timing. No target overlap, no batching
+across targets.
+
+**Process adapter.** Every jj interaction is a synchronous child:
+`JjClient::execute` (`jj.rs:624–632`) is `Command::new("jj")…output()` — one
+process at a time, stdout/stderr piped and fully buffered. `run_at`
+(`jj.rs:333–355`) prepends `--at-operation` + `--ignore-working-copy`.
+`IgnoreRules::is_ignored` (`cow/payload.rs:84–110`) likewise spawns one
+`git check-ignore` child **per queried path** (bounded by candidate/root
+count, not tree size).
+
+**Walker/file-copy loops (payload path).** All recursive, single-threaded,
+std-only: pattern-selection walk (`cow/ignored.rs:276–318`); donor payload
+validation `validate_payload_root`/`validate_directory` (`cow.rs:246–284`);
+`clone_files` per-file loop — reflink + `preserve_mode` +
+`preserve_modified_time` per entry (`cow.rs:166–197`); `clone_tree` recursion
+— `read_dir` + `symlink_metadata` + reflink/symlink per entry
+(`cow.rs:349–379`); `remove_path` = `validate_tree` walk + `ensure_removable`
+walk + `fs::remove_dir_all` (`cow.rs:381–434`) — **three traversals of the
+payload subtree per removal**, on top of `validate_contents` at execute start
+(`engine.rs:1387`) and the planning-time donor walk: today's re-seed crosses
+the payload trees roughly five to six times before the wholesale copy.
+
+**Reflink backend.** reflink-copy 0.1.30 issues the FICLONE/clonefile ioctl
+directly; it spawns no threads. fs2 (locks) and tempfile spawn nothing.
+
+**Threads/concurrency anywhere?** In `src/`, `std::thread::spawn` appears
+only in `#[cfg(test)]` metadata tests (`metadata.rs:830, 864`) and the
+interactive manager UI (`manager/ui.rs:292`) — neither is on the reseed path.
+ratatui/crossterm are linked only through `manager/ui.rs`. The dependency
+graph contains no rayon, no tokio, no thread-spawning transitive on the reseed
+path. **The entire reseed execution is strictly sequential: one thread, one
+child process at a time, one directory entry at a time.**
+
+**Existing batching.** Tree queries are batched into single jj invocations
+(`file list` with a template emitting every path, one `diff` for changed
+paths, `engine.rs:187–219, 808–838`); symlink capability proofs are chunked at
+128 paths per child (`engine.rs:866`); directory enumeration is buffered in
+libc `readdir` under std (and in 32-entry chunks under tokio). Per-entry stat
+calls and per-file reflink/chmod/utimensat are never batched — syscalls per
+entry, serially.
+
+**Dominant recorded costs.** Child-process census dominates the tracked-tree
+phases (measurement0: 428 jj + 246 git children per two-worker reseed at the
+8,555-file fixture; ~20–60 ms each); the payload phase is dominated by its
+~5–6 full traversals plus wholesale reflink+inode creation (0.325 s per 8,700
+files recorded → ≈7 s extrapolated at 192k) — the churn diff-dirs exists to
+remove. The delta walk itself (1–2 s @192k two-sided) is small against these,
+which frames the open performance question: parallelism inside the walk only
+matters once the surrounding churn is gone.
+
 ## Embedder runtime fit
 
 jj-waltz today: sync, single-threaded, no tokio/rayon, unix-only payload path
-(`cfg(unix)` cow module). A zero-dep std diff core embeds without any runtime
-or dependency consequence. The sync crate adds only `reflink-copy` on unix —
-already in jj-waltz's dependency tree — and nothing on Windows beyond std. A
-tokio-based core, by contrast, would force a runtime into every embedder for
-zero measured benefit; an async-fs core would do the same with a smaller crate.
-This is the concrete content of "no claim async inherently faster" for this
-workload: the async options are thread pools around the same syscalls.
+(`cfg(unix)` cow module), per the execution map above. A zero-dep std diff
+core embeds without any runtime or dependency consequence. The sync crate adds
+only `reflink-copy` on unix — already in jj-waltz's dependency tree — and
+nothing on Windows beyond std. A tokio- or async-fs-based core, by contrast,
+would make a runtime a *mandatory* dependency of every embedder — that is a
+verified structural cost, deliberately not dressed up as a performance claim;
+the relative speed of pool-backed versus inline execution for this workload is
+unmeasured and is exactly what the optional rayon work will measure.
 
 ## Structural alignment with jj — adopt / decline
 
 **Adopt** (cheap, proven in jj's tree, already mostly in the spec): the
-`(type, mtime, size)` cleanliness key (jj: `FileState`; spec: comparison key —
-note jj's cache is ms-resolution where our key is ns, which is finer and fine);
-first-error-wins with path context; per-directory job granularity with a
-sorted-merge determinism boundary as the future parallel seam; mtime-based
-steadiness discipline on the *apply* side (restore donor mtimes so the next
-compare is clean — jj's snapshot-cheapness analog).
+`(type, mtime, size)` cleanliness *key shape* (jj: `FileState`); first-error
+-wins with path context; per-directory job granularity with a sorted-merge
+determinism boundary as the parallel seam; mtime restoration on the apply side
+so the next compare is clean. Two precise disclaimers: jj's cached-state
+discipline (including the `own_mtime` guard and its millisecond-resolution
+`MillisSinceEpoch`) is a different assurance grade from a two-live-tree
+compare, not a worse version of it — adopting the key shape does not adopt
+that discipline; and restoring mtimes is a *consumer-side* apply discipline,
+not an analog of jj's snapshot cache.
 
 **Decline**: jj's async `snapshot()` surface (object-store driven; we have no
 async boundary); `RepoPath`/tree/protobuf domain types (jj-shaped, not
@@ -239,8 +332,16 @@ flock).
 
 1. **Core (`diff-dirs`)**: std-only, zero dependencies, sequential
    materialize-sort-merge paired DFS behind the committed contract. No tokio,
-   no async-fs, no rustix/cap-std, no walkdir/jwalk/ignore. Document the
-   rayon-behind-the-sort-seam future explicitly.
+   no async-fs, no rustix/cap-std, no walkdir/jwalk/ignore. Optional rayon is
+   designed in [the Rayon assessment](/design/fit/rayon0.glm53m.md) — feature-
+   gated, ambient-pool by default. Whether a parallel backend is even an
+   *internal-only* change is **conditional**, not automatic: it holds only if
+   parallel work is confined to gathering a frame's two listings/stats inside
+   `next()` (before that frame's record is yielded) and never speculates below
+   records the consumer may still prune or wholesale-replace, since a
+   contract-abiding consumer mutates only yielded records' immediate children.
+   Within that confinement the public contract (record order, prune, error
+   semantics) is unchanged; outside it, it is not.
 2. **Sync (`diff-dirs-sync`, separate crate)**: generic record applier; backend
    trait with reflink / reflink-or-copy (opt-in) / std-copy; unlink-then-create
    overwrite discipline; `set_permissions` + `set_modified` after every file;
