@@ -47,18 +47,32 @@ impl AddAssign for Progress {
     }
 }
 
+/// Three distinct results of a declared operation: pre-application comparison,
+/// policy completion, and actual completed filesystem work. Successful scoped
+/// reconciliation may retain target extras and never certifies full-root equality.
+/// No retained/processed per-file catalog is built. See [`crate::Applier::run`].
 #[derive(Debug)]
 pub struct Report {
+    /// Visible completed operations, not hypothetical actions from a diff or
+    /// discarded private preparations. A clean/retained-only run is all zero.
     pub completed: Progress,
     /// Policy completion is not a full-root equality certificate.
     pub policy: Policy,
-    /// None for absent-root initialization or explicit leaf-root replacement
-    /// (there was no both-sided walk).
+    /// Pre-application observed delta, not a verification scan. Opaque directory
+    /// records count boundaries, not recursively applied children. Scoped scans
+    /// cannot claim full clean coverage. None for initialization, root replacement,
+    /// explicit clear, and per-record application (no both-sided walk).
     pub observed: Option<diff_dirs::Summary>,
 }
 
+/// Bounded counters describing encountered policy outcomes, independently of
+/// actual operations or raw differences. Counts are not unique-path inventories
+/// and must not be added to comparison exclusions as if they were disjoint.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Policy {
+    /// The declared operation exhausted its policy successfully. For
+    /// `apply_report`, this covers only the supplied record, not the whole tree.
+    /// This is false on Failure and is not a full-root cleanliness certificate.
     pub satisfied: bool,
     /// Retained leaves, pruned NeverRemove branches, and structural containers.
     pub retained: u64,
@@ -74,8 +88,10 @@ impl AddAssign for Policy {
     }
 }
 
-/// An operation/path and its original underlying cause. Paths are absolute
-/// bound paths (a comparison-construction issue may have an empty path).
+/// An operation/path and its original underlying cause. Filesystem operations
+/// identify absolute bound paths; syntax/duplicate-list validation identifies
+/// relative input coordinates. A comparison-construction issue may have an
+/// empty path. Native spellings and original refusal/I/O causes are retained.
 #[derive(Debug)]
 pub struct Issue {
     pub operation: &'static str,
@@ -99,10 +115,13 @@ impl Error for Issue {
 /// errors. Not a transaction or a promise that only a serial prefix changed.
 #[derive(Debug)]
 pub struct Failure {
+    /// Encountered retention/exclusion counters; satisfaction is always false.
     pub policy: Box<Policy>,
     pub primary: Box<Issue>,
     /// Cold error details are boxed to keep streaming Result values compact.
     pub secondary: Box<Vec<Issue>>,
+    /// Actual completed operations, including earlier batches and partial
+    /// subtrees. Private failed preparations are not successful installations.
     pub completed: Progress,
     pub observed: Option<Box<diff_dirs::Summary>>,
 }

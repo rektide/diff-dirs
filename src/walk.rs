@@ -26,10 +26,18 @@ pub fn walk_with_options_checked<C: Check>(original: impl AsRef<Path>, target: i
     walk_with_options_scoped(original, target, options, check, NoScope)
 }
 
+/// Compare only pair-wide admitted names, before metadata/readlink or checks.
+/// Both roots must still be real directories. One-sided interiors remain opaque;
+/// use [`crate::audit_scoped`] or scoped sync for recursive observation coverage.
+/// See [`Scope`] for purity/ancestor semantics and [`Summary::scoped`] for why
+/// normal exhaustion does not certify full-root cleanliness.
 pub fn walk_scoped<C: Check, S: Scope>(original: impl AsRef<Path>, target: impl AsRef<Path>, check: C, scope: S) -> Result<Walk<C, S>, Error> {
     walk_with_options_scoped(original, target, WalkOptions::default(), check, scope)
 }
 
+/// Explicit-execution variant of [`walk_scoped`], using the same scheduler and
+/// pair inspection as the plain walker. Scope is evaluated before a result can
+/// publish children; speculative callbacks are not ordered notifications.
 pub fn walk_with_options_scoped<C: Check, S: Scope>(
     original: impl AsRef<Path>,
     target: impl AsRef<Path>,

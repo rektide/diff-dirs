@@ -370,3 +370,101 @@ fn seed_installs_only_listed_absent_leaves_with_fresh_metadata_literal_links_and
     assert!(!external.join("file").exists());
     assert!(seed_leaves(&f.source, &f.target, ["../escape"], policy, NoCheck).is_err());
 }
+
+#[cfg(unix)]
+#[test]
+fn seed_parent_batches_share_verified_prefixes_for_files_links_and_nested_groups() {
+    use std::collections::BTreeMap;
+    use std::os::unix::fs::symlink;
+    use std::sync::Mutex;
+    let f = Fixture::new();
+    file(f.source.join("p/a-file"), b"first");
+    file(f.source.join("p/c-file"), b"third");
+    symlink("literal/./missing", f.source.join("p/b-link")).unwrap();
+    file(f.source.join("p/deep/nested"), b"nested");
+    file(f.source.join("p/other/nested"), b"other nested");
+    fs::create_dir_all(f.target.join("p/deep")).unwrap();
+    let observed = Mutex::new(BTreeMap::new());
+    let guard = |entry: Entry<'_>| -> Result<(), CheckError> {
+        if entry.metadata.is_dir() {
+            *observed
+                .lock()
+                .unwrap()
+                .entry((entry.side as u8, entry.relative_path().to_path_buf()))
+                .or_insert(0) += 1;
+        }
+        Ok(())
+    };
+    let policy = if std::env::var_os("DIFF_DIRS_SYNC_REQUIRE_REFLINK").is_some() {
+        CopyPolicy::ReflinkRequired
+    } else {
+        CopyPolicy::Copy
+    };
+    let progress = seed_leaves(
+        &f.source,
+        &f.target,
+        ["p/other/nested", "p/c-file", "p/deep/nested", "p/b-link", "p/a-file"],
+        policy,
+        guard,
+    )
+    .unwrap();
+    assert_eq!(progress.files_copied + progress.files_reflinked, 4);
+    assert_eq!(progress.symlinks_created, 1);
+    assert_eq!(progress.directories_created, 1);
+    assert_eq!(fs::read_link(f.target.join("p/b-link")).unwrap(), Path::new("literal/./missing"));
+    assert_eq!(fs::read(f.target.join("p/c-file")).unwrap(), b"third");
+    assert_eq!(fs::read(f.target.join("p/deep/nested")).unwrap(), b"nested");
+    let observed = observed.into_inner().unwrap();
+    for (key, count) in &observed {
+        assert_eq!(*count, 1, "routing directory re-observed: {key:?}");
+    }
+    for side in [diff_dirs::Side::Original, diff_dirs::Side::Target] {
+        assert_eq!(observed.get(&(side as u8, PathBuf::new())), Some(&1));
+        assert_eq!(observed.get(&(side as u8, PathBuf::from("p"))), Some(&1));
+    }
+    assert!(
+        fs::read_dir(f.target.join("p"))
+            .unwrap()
+            .all(|entry| !entry.unwrap().file_name().as_encoded_bytes().starts_with(b".diff-dirs-sync-"))
+    );
+}
+
+#[test]
+fn seed_sorted_batch_failures_retain_only_actual_prefix_work_and_reject_duplicate_names_upfront() {
+    for existing in [false, true] {
+        let f = Fixture::new();
+        file(f.source.join("root-leaf"), b"earlier parent batch");
+        file(f.source.join("p/a"), b"first installed");
+        if existing {
+            file(f.source.join("p/z"), b"source");
+            file(f.target.join("p/z"), b"existing sentinel");
+        }
+        let failure = seed_leaves(&f.source, &f.target, ["p/z", "root-leaf", "p/a"], CopyPolicy::Copy, NoCheck).unwrap_err();
+        assert_eq!(
+            failure.primary.operation,
+            if existing { "seed destination exists" } else { "seed source missing" }
+        );
+        assert_eq!(failure.completed.files_copied, 2); // earlier group plus current prefix
+        assert_eq!(failure.completed.directories_created, u64::from(!existing));
+        assert_eq!(fs::read(f.target.join("p/a")).unwrap(), b"first installed");
+        assert_eq!(fs::read(f.target.join("root-leaf")).unwrap(), b"earlier parent batch");
+        if existing {
+            assert_eq!(fs::read(f.target.join("p/z")).unwrap(), b"existing sentinel");
+        } else {
+            assert!(!f.target.join("p/z").exists());
+        }
+        assert_eq!(fs::read_dir(f.target.join("p")).unwrap().count(), if existing { 2 } else { 1 });
+    }
+    let f = Fixture::new();
+    file(f.source.join("p/a"), b"not installed");
+    for paths in [["p/a", "p/a"], ["p/a", "p/./a"]] {
+        let failure = seed_leaves(&f.source, &f.target, paths, CopyPolicy::Copy, NoCheck).unwrap_err();
+        assert_eq!(failure.primary.operation, "seed duplicate path");
+        assert_eq!(failure.completed, Progress::default());
+        assert!(!f.target.join("p").exists());
+    }
+    let failure = seed_leaves(&f.source, &f.target, ["p/a", "../invalid"], CopyPolicy::Copy, NoCheck).unwrap_err();
+    assert_eq!(failure.primary.operation, "seed relative path");
+    assert_eq!(failure.completed, Progress::default());
+    assert!(!f.target.join("p").exists());
+}

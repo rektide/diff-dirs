@@ -88,6 +88,11 @@ pub fn walk_in_pool_checked<C: Check>(
     walk_in_pool_scoped(original, target, pool, limits, check, NoScope)
 }
 
+/// Borrowed-pool variant of [`crate::walk_scoped`]. Scope and check run in the
+/// inspection worker outside the frontier mutex, before children are admitted.
+/// Joined returns, divergence seals, J/K budgets, and committed-prefix summaries
+/// are identical to [`walk_in_pool`]. Scoped exhaustion is not full-root clean
+/// coverage; see [`Summary::scoped`]. Callers must keep pending paths stable.
 pub fn walk_in_pool_scoped<C: Check, S: Scope>(
     original: impl AsRef<Path>,
     target: impl AsRef<Path>,

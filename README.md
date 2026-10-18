@@ -7,7 +7,7 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eaecf188affeV49Iu6kJOeHgsX
-    title: Implemented pair-wide static name scope before observation and frontier admission, scoped audit and honest coverage summaries
+    title: Implemented pair-wide scope, scoped audit and honest coverage summaries; documented static check/scope specialization and disabled-policy obligations
   - resource: opencode://ses_eb24f98a3ffewdVqa9lao6tXQu
     title: Implemented static accept/refuse checks across comparison, recursive sync and read-only audit, retaining streaming records and frontier semantics
   - resource: opencode://ses_eb39c93e9ffeNju5a7XEsB3wGY

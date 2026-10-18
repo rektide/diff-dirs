@@ -68,6 +68,9 @@ impl<C: Check> Applier<C> {
 
 impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
     /// Replace pair-wide scope without changing binding or absence authority.
+    /// A preserved ancestor wins over descendant inclusion and over any absence
+    /// authority, including during recursive copy/removal and private staging.
+    /// See [`Scope`] for pure callback and no-scope specialization obligations.
     pub fn scope<T: Scope>(self, scope: T) -> Applier<C, T, A> {
         Applier {
             original: self.original,
@@ -82,6 +85,8 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
 
     /// Select update (NeverRemove), mirror (RemoveAll), or mixed authority.
     /// `run` and per-record application both honor the selected policy.
+    /// Target-only routing directories still need descent for arbitrary mixed
+    /// policies; retaining a directory name does not retain every descendant.
     pub fn absence<B: Absence>(self, absence: B) -> Applier<C, S, B> {
         Applier {
             original: self.original,
@@ -225,6 +230,11 @@ pub fn mirror_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<P
     Applier::new_checked(original, target, policy, check)?.mirror()
 }
 
+/// Update source-present paths while retaining whole target-only branches.
+/// Equivalent to an unscoped binding with [`NeverRemove`]. A source leaf cannot
+/// replace a nonempty target directory because its descendants are retained;
+/// the local precheck leaves that old subtree intact. Use [`Applier::scope`] for
+/// exclusions, and [`Applier::absence`] for mixed deletion regions.
 pub fn update(original: impl AsRef<Path>, target: impl AsRef<Path>, policy: CopyPolicy) -> Result<Report, Failure> {
     Applier::new(original, target, policy)?.absence(NeverRemove).run()
 }
@@ -249,6 +259,16 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
         self.run()
     }
 
+    /// Exhaust the bound scope/absence policy with one streaming compare/apply
+    /// traversal, or scoped initialization/explicit root replacement. Never runs
+    /// an audit first and never interprets a missing source as an empty tree.
+    ///
+    /// Paired equal entries still pass Check. Recursive one-sided work applies
+    /// the same scope at logical final paths; excluded names cannot authorize
+    /// deletion. Retained-only/clean regions make zero namespace, staging, or
+    /// chmod writes. [`Report::policy`] means declared-policy completion, not
+    /// full-root equality. Failure retains actual work, not a rollback promise;
+    /// retry via fresh comparison under stable, nonhostile caller-owned roots.
     pub fn run(&self) -> Result<Report, Failure> {
         if let Some(report) = self.whole_root(false)? {
             return Ok(report);
@@ -284,6 +304,10 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
     }
 
     #[cfg(feature = "parallel")]
+    /// [`Self::run`] borrowing the caller's pool, with joined comparison and
+    /// application. J/K bound speculative comparison directories, not bytes or
+    /// independent application work. All started siblings join before return;
+    /// failures need not represent a serial mutation prefix.
     pub fn run_in_pool(&self, pool: &rayon::ThreadPool, limits: diff_dirs::ParallelLimits) -> Result<Report, Failure> {
         if let Some(report) = pool.install(|| self.whole_root(true))? {
             return Ok(report);

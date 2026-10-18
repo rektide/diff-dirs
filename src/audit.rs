@@ -43,6 +43,11 @@ pub fn audit<C: Check>(root: impl AsRef<Path>, side: Side, check: &C) -> Result<
     audit_scoped(root, side, check, &NoScope)
 }
 
+/// Read-only [`audit`] with the same pre-observation scope as paired comparison.
+/// Includes participating one-sided interiors; excluded boundaries increment
+/// [`Audit::excluded`] without inspecting hidden descendants. Root observation
+/// still runs. This is entry validation, not a deletion plan or a certificate
+/// authorizing later writes after writers resume. Callers own ancestor stability.
 pub fn audit_scoped<C: Check, S: Scope>(root: impl AsRef<Path>, side: Side, check: &C, scope: &S) -> Result<Audit, AuditFailure> {
     fn visit<C: Check, S: Scope>(root: &Path, path: &Path, side: Side, check: &C, scope: &S, inspected: &mut Audit) -> Result<(), Error> {
         if path != root && S::ENABLED && scope.at(path.strip_prefix(root).expect("audit descendant")) == crate::Visit::PreserveTree {

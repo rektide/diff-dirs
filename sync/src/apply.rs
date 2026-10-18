@@ -17,6 +17,12 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
         self.apply_reported(diff, parallel).map(|report| report.completed)
     }
 
+    /// Apply one public record with separate operation and policy outcomes.
+    /// Syntax/types are validated before mutation, and every directory/name
+    /// ancestor is scope-enforced before entry observation. Opaque removed dirs
+    /// mean source absence under this binding, never unconditional rm-rf.
+    /// Satisfaction covers only this record, not unmentioned equal entries or
+    /// the whole roots. Earlier allowed work can remain on recursive I/O failure.
     pub fn apply_report(&self, diff: &diff_dirs::DirDiff) -> Result<Report, Failure> {
         self.apply_reported(diff, false)
     }
@@ -284,6 +290,27 @@ impl<'a, C: Check, S: Scope, A: Absence> Context<'a, C, S, A> {
         path.strip_prefix(self.target).expect("bound target descendant")
     }
 
+    /// Offer already-needed facts to the caller's accept/refuse policy.
+    ///
+    /// `C::ENABLED` is an associated constant of the concrete generic checker,
+    /// not a per-entry runtime flag or a trait-object dispatch. For `NoCheck`
+    /// (and borrowed wrappers forwarding false), this construction-site gate
+    /// skips side-to-root selection, basename extraction, `Entry` construction,
+    /// and the policy/error-mapping call. It does NOT skip metadata/readlink
+    /// needed by the actual filesystem operation, scope selection, or type checks.
+    ///
+    /// `Entry::check` has its own ENABLED gate for callers that already have an
+    /// observation. The two gates are semantically redundant for accept/refuse:
+    /// in optimized monomorphizations, inlining and dead-code elimination could
+    /// also remove the outer construction if we called it unconditionally. We
+    /// keep the outer gate to state the boundary explicitly and avoid evaluating
+    /// guard-only fields without relying on that cross-method optimization
+    /// (including less-optimized builds and future field construction changes).
+    /// This is a structural rationale, not a measured speedup claim.
+    ///
+    /// A checker declaring ENABLED=false promises unconditional acceptance and
+    /// must not rely on callback invocation or side effects; it may never run.
+    /// All policies that can refuse must retain ENABLED=true.
     #[inline]
     fn observe(&self, path: &Path, side: Side, purpose: Purpose, metadata: &Metadata, link_target: Option<&Path>) -> Result<(), Failure> {
         if C::ENABLED {
@@ -748,8 +775,31 @@ fn children(path: &Path) -> Result<Vec<std::ffi::OsString>, Failure> {
     Ok(names)
 }
 
-/// Explicit deletion of a bound container's contents; the container is never
-/// removed. Not a missing-source mirror or a fabricated comparison record.
+/// Explicitly delete a real container's participating contents, not the container.
+///
+/// [`Scope`] excludes both a selected name and its descendants **before** entry
+/// metadata, readlink, checks, or descent. Preserved children retain their real
+/// routing ancestors. The same recursive remover is used by [`Applier::run`];
+/// this API grants deletion authority explicitly, without a missing donor or
+/// fabricated diff. There are no built-in repository/local-name rules.
+///
+/// The root and its ancestors must be real directories and remain stable. Checks
+/// accept/refuse observed entries, including the bound root; root type validation
+/// still runs when scope preserves the empty relative path. A retained-only run
+/// makes no namespace, staging, or chmod writes. Earlier allowed removals can
+/// remain on failure; [`Failure`] reports completed work and restoration issues,
+/// not rollback. Inspection itself never relaxes caller-directory permissions.
+///
+/// ```no_run
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// use diff_dirs::{NoCheck, Visit};
+/// let scope = |p: &std::path::Path| if p == std::path::Path::new("local") {
+///     Visit::PreserveTree
+/// } else { Visit::Reconcile };
+/// let report = diff_dirs_sync::clear("target", scope, NoCheck)?;
+/// assert!(report.policy.satisfied); // not a claim that target is empty
+/// # Ok(()) }
+/// ```
 pub fn clear<S: Scope, C: Check>(target: impl AsRef<Path>, scope: S, check: C) -> Result<Report, Failure> {
     let target = paths::root(target.as_ref(), false)?;
     let context = Context::checked(CopyPolicy::Copy, false, &target, &target, &check, &scope, &RemoveAll);
@@ -786,9 +836,49 @@ pub fn clear<S: Scope, C: Check>(target: impl AsRef<Path>, scope: S, check: C) -
     context.finish(result)
 }
 
-/// Install only explicitly listed relative regular-file/symlink leaves into an
-/// existing real target directory. Destinations must be absent. No source
-/// directories are enumerated and no metadata supplied by callers is trusted.
+/// Create only the caller-listed regular-file/symlink leaves, using the shared
+/// staged copy/clone/link, permissions, and exact-file-mtime installer.
+///
+/// Both roots must be existing real directories. No unlisted source directories
+/// are enumerated. Only missing real target parents are created; any existing
+/// destination leaf, including a dangling symlink, is refused rather than
+/// replaced. Every leaf uses freshly observed source metadata/link text; cached
+/// routing contexts are not a caller-supplied leaf validation certificate.
+///
+/// # Ordering, batching, and failure
+///
+/// The known input names are collected (O(listed names), not a discovered payload
+/// map), validated, normalized by normal path components, and duplicate-checked
+/// before writes. Duplicate aliases such as `p/a` and `p/./a` are rejected too.
+/// Invalid/duplicate names yield zero progress. Parent groups are sorted by native
+/// encoded **component** order, then basenames by encoded bytes; this is not input
+/// order or flat full-path byte order. Runtime errors stop that deterministic
+/// installation prefix. Missing source, existing destination, and directory-as-
+/// leaf errors identify `seed source missing`, `seed destination exists`, or
+/// `seed source type`; parent errors keep their native path and cause.
+///
+/// Each group shares one lazy parent-local arena and permission lease, reserving
+/// all of its listed basenames against arena collisions. A depth-bounded verified
+/// ancestor stack reuses real source/target routing directories across nested
+/// groups. Source leaves are still observed separately. Caller quiescence and
+/// nonhostile aliasing are required: cached directories are not a security or
+/// concurrent-replacement boundary. Existing roots/ancestors and source leaves
+/// pass [`Check`]; created output parents follow recursive-copy semantics.
+///
+/// Parent creation and earlier installed leaves may remain on error, including
+/// a strict clone failure. [`Failure::completed`] counts that real work; failed
+/// private preparation is cleaned, permission restoration/cleanup failures remain
+/// visible. [`CopyPolicy::ReflinkRequired`] never falls back. Empty input makes no
+/// writes. List processing is sequential, including inside a caller's pool.
+///
+/// ```no_run
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// use diff_dirs_sync::{seed_leaves, CopyPolicy};
+/// let done = seed_leaves("source", "target", ["src/a.rs", "src/b.rs"],
+///                        CopyPolicy::ReflinkRequired, diff_dirs::NoCheck)?;
+/// assert_eq!(done.files_reflinked, 2);
+/// # Ok(()) }
+/// ```
 pub fn seed_leaves<I, P, C>(original: impl AsRef<Path>, target: impl AsRef<Path>, leaves: I, policy: CopyPolicy, check: C) -> Result<Progress, Failure>
 where
     I: IntoIterator<Item = P>,
@@ -796,12 +886,14 @@ where
     C: Check,
 {
     let binding = Applier::new_checked(original, target, policy, check)?;
-    paths::directory(binding.target())?;
     let context = Context::checked(policy, false, binding.original(), binding.target(), binding.check(), &NoScope, &RemoveAll);
-    let mut completed = Progress::default();
-    for leaf in leaves {
-        let relative = leaf.as_ref();
-        let result = (|| {
+    // Only caller-declared names are collected, never discovered filesystem
+    // entries or an operation/metadata catalog. Component ordering keeps routing
+    // ancestors contiguous, so a depth-bounded verified prefix suffices.
+    let mut leaves = leaves
+        .into_iter()
+        .map(|leaf| {
+            let relative = leaf.as_ref();
             if relative.as_os_str().is_empty() || relative.components().any(|part| !matches!(part, std::path::Component::Normal(_))) {
                 return Err(Failure::invalid(
                     "seed relative path",
@@ -809,10 +901,126 @@ where
                     "expected a nonempty normal relative leaf path",
                 ));
             }
-            let parent = relative.parent().expect("relative leaf parent");
-            let source_parent = context.relative(binding.original(), parent, Side::Original, Purpose::Copy)?;
-            let from = source_parent.join(relative.file_name().unwrap());
-            let source = inspect(&context, &from, Side::Original, Purpose::Copy)?.ok_or_else(|| {
+            Ok(relative.components().collect::<PathBuf>())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    fn parent_names(path: &Path) -> impl Iterator<Item = &[u8]> {
+        path.parent()
+            .expect("validated leaf parent")
+            .components()
+            .map(|part| part.as_os_str().as_encoded_bytes())
+    }
+    leaves.sort_unstable_by(|a, b| {
+        parent_names(a)
+            .cmp(parent_names(b))
+            .then_with(|| a.file_name().unwrap().as_encoded_bytes().cmp(b.file_name().unwrap().as_encoded_bytes()))
+    });
+    for pair in leaves.windows(2) {
+        if pair[0] == pair[1] {
+            return Err(Failure::invalid("seed duplicate path", &pair[1], "listed leaf occurs more than once"));
+        }
+    }
+    let source = paths::directory(binding.original())?;
+    context.observe(binding.original(), Side::Original, Purpose::Copy, &source, None)?;
+    let target = paths::directory(binding.target())?;
+    context.observe(binding.target(), Side::Target, Purpose::Copy, &target, None)?;
+    let mut parents = vec![SeedParent {
+        relative: PathBuf::new(),
+        from: binding.original().to_path_buf(),
+        to: binding.target().to_path_buf(),
+        permissions: target.permissions(),
+    }];
+    let mut completed = Progress::default();
+    let result = (|| {
+        let mut remaining = leaves.as_slice();
+        while let Some(first) = remaining.first() {
+            let relative = first.parent().unwrap();
+            let count = remaining.iter().take_while(|leaf| leaf.parent() == Some(relative)).count();
+            let (group, rest) = remaining.split_at(count);
+            let shared = parents
+                .last()
+                .unwrap()
+                .relative
+                .components()
+                .zip(relative.components())
+                .take_while(|(a, b)| a == b)
+                .count();
+            parents.truncate(shared + 1);
+            for component in relative.components().skip(shared) {
+                let parent = parents.last().unwrap();
+                let from = parent.from.join(component);
+                let to = parent.to.join(component);
+                let metadata = paths::directory(&from)?;
+                context.observe(&from, Side::Original, Purpose::Copy, &metadata, None)?;
+                let metadata = match fs::symlink_metadata(&to) {
+                    Ok(metadata) => {
+                        if !metadata.is_dir() {
+                            return Err(Failure::invalid("seed target ancestor", &to, "expected real directory"));
+                        }
+                        context.observe(&to, Side::Target, Purpose::Copy, &metadata, None)?;
+                        metadata
+                    }
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                        let writable = Writable::verified(&parent.to, parent.permissions.clone());
+                        let created = (|| {
+                            writable.ensure()?;
+                            fs::create_dir(&to).map_err(|error| Failure::io("seed create parent", &to, error))?;
+                            Ok(Progress {
+                                directories_created: 1,
+                                ..Progress::default()
+                            })
+                        })();
+                        completed += writable.finish(created)?;
+                        paths::directory(&to)?
+                    }
+                    Err(error) => return Err(Failure::io("seed target ancestor", &to, error)),
+                };
+                parents.push(SeedParent {
+                    relative: parent.relative.join(component),
+                    from,
+                    to,
+                    permissions: metadata.permissions(),
+                });
+            }
+            let parent = parents.last().unwrap();
+            completed += seed_batch(&context, parent, group)?;
+            remaining = rest;
+        }
+        Ok(())
+    })();
+    match result {
+        Ok(()) => Ok(completed),
+        Err(mut failure) => {
+            failure.completed += completed;
+            Err(failure)
+        }
+    }
+}
+
+/// One active, real source/target routing prefix under caller quiescence. Only
+/// paths and target write-lease permissions survive a leaf installation, never
+/// source leaf metadata or a processed-file inventory. Component-ordered groups
+/// allow truncating this stack on ascent without retaining visited directories.
+struct SeedParent {
+    relative: PathBuf,
+    from: PathBuf,
+    to: PathBuf,
+    permissions: Permissions,
+}
+
+/// A single parent owns the arena until every sequential leaf has completed or
+/// failed. Merge installed-prefix progress before arena finalization so cleanup
+/// failure cannot hide installations. Only this group's names are reserved.
+fn seed_batch<C: Check>(context: &Context<'_, C>, parent: &SeedParent, leaves: &[PathBuf]) -> Result<Progress, Failure> {
+    let mut arena = Staging::new(&parent.to, leaves.iter().map(|leaf| leaf.file_name().unwrap()));
+    arena.writable = Writable::verified(&parent.to, parent.permissions.clone());
+    let mut completed = Progress::default();
+    let result = (|| {
+        for (index, relative) in leaves.iter().enumerate() {
+            let name = relative.file_name().unwrap();
+            let from = parent.from.join(name);
+            let to = parent.to.join(name);
+            let source = inspect(context, &from, Side::Original, Purpose::Copy)?.ok_or_else(|| {
                 Failure::io(
                     "seed source missing",
                     &from,
@@ -822,73 +1030,25 @@ where
             if source.metadata.is_dir() {
                 return Err(Failure::invalid("seed source type", &from, "listed source must be a regular file or symlink"));
             }
-            let mut to_parent = binding.target().to_path_buf();
-            let root_metadata = paths::directory(&to_parent)?;
-            context.observe(&to_parent, Side::Target, Purpose::Copy, &root_metadata, None)?;
-            let mut created = Progress::default();
-            let install = (|| {
-                for component in parent.components() {
-                    let child = to_parent.join(component);
-                    let metadata = match fs::symlink_metadata(&child) {
-                        Ok(metadata) => {
-                            if !metadata.is_dir() {
-                                return Err(Failure::invalid("seed target ancestor", &child, "expected real directory"));
-                            }
-                            metadata
-                        }
-                        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                            let writable = Writable::new(&to_parent);
-                            let result = (|| {
-                                writable.ensure()?;
-                                fs::create_dir(&child).map_err(|error| Failure::io("seed create parent", &child, error))?;
-                                Ok(Progress {
-                                    directories_created: 1,
-                                    ..Progress::default()
-                                })
-                            })();
-                            created += writable.finish(result)?;
-                            // Like recursive copy, newly created output parents
-                            // are not fabricated observed-entry certificates.
-                            to_parent = child;
-                            continue;
-                        }
-                        Err(error) => return Err(Failure::io("seed target ancestor", &child, error)),
-                    };
-                    context.observe(&child, Side::Target, Purpose::Copy, &metadata, None)?;
-                    to_parent = child;
-                }
-                let to = to_parent.join(relative.file_name().unwrap());
-                if paths::exists(&to)? {
-                    return Err(Failure::io(
-                        "seed destination exists",
-                        &to,
-                        io::Error::new(io::ErrorKind::AlreadyExists, "listed destination must be absent"),
-                    ));
-                }
-                let arena = Staging::new(&to_parent, std::iter::once(relative.file_name().unwrap()));
-                let result = (|| context.copy_leaf_with(&from, &to, false, &source.metadata, source.link.as_deref(), &arena.entry(0, &to)?))();
-                arena.finish(result, &context)
-            })();
-            match install {
-                Ok(mut progress) => {
-                    progress += created;
-                    Ok(progress)
-                }
-                Err(mut failure) => {
-                    failure.completed += created;
-                    Err(failure)
-                }
+            if paths::exists(&to)? {
+                return Err(Failure::io(
+                    "seed destination exists",
+                    &to,
+                    io::Error::new(io::ErrorKind::AlreadyExists, "listed destination must be absent"),
+                ));
             }
-        })();
-        match result {
-            Ok(done) => completed += done,
-            Err(mut failure) => {
-                failure.completed += completed;
-                return Err(failure);
-            }
+            completed += context.copy_leaf_with(&from, &to, false, &source.metadata, source.link.as_deref(), &arena.entry(index, &to)?)?;
         }
-    }
-    Ok(completed)
+        Ok(())
+    })();
+    let result = match result {
+        Ok(()) => Ok(completed),
+        Err(mut failure) => {
+            failure.completed += completed;
+            Err(failure)
+        }
+    };
+    arena.finish(result, context)
 }
 
 fn preserve_file(output: &File, metadata: &Metadata, to: &Path) -> Result<(), Failure> {
@@ -992,6 +1152,7 @@ struct Writable<'a> {
     path: &'a Path,
     state: Mutex<Option<(Permissions, bool)>>,
     enabled: bool,
+    verified: Option<Permissions>,
 }
 
 impl<'a> Writable<'a> {
@@ -1000,6 +1161,7 @@ impl<'a> Writable<'a> {
             path,
             state: Mutex::new(None),
             enabled: true,
+            verified: None,
         }
     }
     fn unmanaged(path: &'a Path) -> Self {
@@ -1007,6 +1169,7 @@ impl<'a> Writable<'a> {
             path,
             state: Mutex::new(None),
             enabled: false,
+            verified: None,
         }
     }
 
@@ -1016,9 +1179,24 @@ impl<'a> Writable<'a> {
         }
         let mut state = self.state.lock().unwrap();
         if state.is_none() {
-            *state = Some(relax(self.path)?);
+            *state = Some(match &self.verified {
+                Some(permissions) => relax_with(self.path, permissions.clone())?,
+                None => relax(self.path)?,
+            });
         }
         Ok(())
+    }
+
+    /// Reuse permissions from an already observed real routing directory, under
+    /// the same stable-tree contract. Avoid a second parent stat merely to open
+    /// its write lease; this is never evidence about a source/destination leaf.
+    fn verified(path: &'a Path, permissions: Permissions) -> Self {
+        Self {
+            path,
+            state: Mutex::new(None),
+            enabled: true,
+            verified: Some(permissions),
+        }
     }
 
     fn finish(self, result: Result<Progress, Failure>) -> Result<Progress, Failure> {

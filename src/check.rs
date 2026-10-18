@@ -61,6 +61,12 @@ pub struct Entry<'a> {
 pub trait Check: Sync {
     /// False only for a genuinely unconditional no-op. Allows all observation
     /// construction and dispatch to disappear from unchecked monomorphizations.
+    ///
+    /// This is a semantic promise, not a runtime preference: library callers
+    /// may skip `check` entirely. Implementations setting false must always
+    /// accept and must not require invocation for accounting or side effects.
+    /// Leave the default true for any policy that can refuse. [`CheckRef`]
+    /// forwards the constant, preserving specialization across borrowed APIs.
     const ENABLED: bool = true;
 
     fn check(&self, entry: Entry<'_>) -> Result<(), CheckError>;
@@ -120,6 +126,9 @@ impl Entry<'_> {
 
     /// Evaluate the policy using only this borrowed observation. Also used by
     /// the optional sync crate, so recursive operations share the same contract.
+    /// The gate here protects direct users of this method. A construction-site
+    /// gate can additionally avoid evaluating the fields used to build `Entry`;
+    /// those expressions run before this method unless optimization removes them.
     #[inline]
     pub fn check<C: Check + ?Sized>(self, check: &C) -> Result<(), Error> {
         if C::ENABLED {

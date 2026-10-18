@@ -7,7 +7,7 @@ status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
   - resource: "opencode://ses_eaecf188affeV49Iu6kJOeHgsX"
-    title: Implemented authority-based scoped reconciliation, deferred permission writes, local transition precheck, listed-leaf seeds and explicit container clearing with bounded semantic tests
+    title: Implemented authority-based scoped reconciliation and shared seed/clear kernels, refined parent-batched seeding, and documented static check specialization with bounded semantic verification
   - resource: "file:///home/rektide/src/jj-waltz/design/sync-scope/design0.gpt6a.md"
     title: Selected authority-based generic synchronization direction, superseding ignored-root selection without moving repository meaning into this library
   - resource: "opencode://ses_eb24f98a3ffewdVqa9lao6tXQu"
@@ -166,8 +166,22 @@ Missing source, existing destination, and directory-as-leaf errors have specific
 `seed source missing`, `seed destination exists`, and `seed source type`
 operations; ancestor errors retain their native path/cause. Existing source and
 target ancestors pass Check; new output parents follow recursive copy semantics.
-Sequential list consumption retains no work catalog and returns partial Progress
-on failure. This first installer is sequential, including inside a caller pool;
+The known list is collected and sorted by parent native component order, then
+basename encoded bytes, not input order or flat full-path byte order. Normal
+components normalize redundant separators/interior dots; duplicate aliases and
+invalid paths fail before writes with zero progress (`seed duplicate path` or
+`seed relative path`). Runtime failures preserve the actual sorted installation
+prefix, including created parents; parent preparation may precede the first leaf
+failure. Same-parent leaves share one lazy staging arena and permission lease,
+reserving every batch basename against arena collisions. A depth-bounded active
+ancestor stack reuses verified real source/target directories across nested
+groups. Roots/ancestors are not re-observed per listed leaf, nor is a parent
+restatted just to open its write lease. Source leaf metadata/link text and absent
+destinations are still checked individually at installation time. This removes
+repeated filesystem work structurally; no new performance measurement is claimed.
+
+Only O(listed names) and the active routing stack are retained, not a discovered
+payload/metadata/operation catalog. This first installer is sequential, including inside a caller pool;
 no new worker scheduler or parallel admission layer is introduced.
 
 `clear(target, scope, check)` binds an existing real directory and deletes its
@@ -444,6 +458,16 @@ new scheduler, or automatic reconciliation/prune pass is introduced. This is
 the generic library slice only; caller revision/configuration integration stays
 outside this repository. No cancelled performance campaign was resumed.
 
+The `Context::observe` Rustdoc explains its construction-site `C::ENABLED` gate.
+It is a concrete generic associated constant, not a runtime policy switch:
+NoCheck skips guard-only root/basename selection, Entry construction and checker
+dispatch, not metadata/readlink needed by the actual operation. Entry::check also
+gates direct observation consumers; optimized inlining could make the outer gate
+redundant, but keeping it avoids relying on that optimization for field
+construction (including less-optimized builds). Declaring false promises
+unconditional acceptance and no reliance on invocation. This rationale is not a
+measured speedup claim.
+
 Verification for this slice (session cited above): required-reflink core/sync
 nextest passed **70 tests without default features** and **95 with all features**;
 all-feature doctests passed 9 examples. Workspace/all-target/all-feature clippy
@@ -452,6 +476,16 @@ tiny; older 1,000-sibling and oversized parallel regression fixtures were reduce
 before final verification, retaining concurrency/admission coverage. Only tests
 and compile-time checks ran, not performance examples, real-workspace imports,
 or timing campaigns. Linux is verified; other platforms remain unverified.
+
+The parent-batched seed/Rustdoc refinement subsequently passed 3 focused seed
+tests with real reflinks required, both without default features and with all
+features; the all-feature targeted seed/staging/permissions/strict-failure subset
+passed 14 tests. Expanded doctests passed 13 examples, targeted core/sync
+all-target/all-feature clippy passed with `-D warnings`, and Rustdoc generation
+passed with warnings denied. The refinement did not rerun unrelated full suites
+or performance cases. Its tiny fixtures check shared directory observations,
+mixed file/link batches, nested parents, sorted-prefix failure progress, and
+up-front duplicate/invalid-name refusal. No measured performance claim is made.
 
 Implementation/verification evidence: [builder account](/design/sync/implementation0.sol61x.md).
 Owned-fixture method and observations: [measurements](/design/performance/sync0.sol61x.md).
