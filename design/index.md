@@ -6,6 +6,8 @@ resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: "opencode://ses_eb2c07f5cffe2uTLIC7b1rrD99"
+    title: Connected implemented leaf ownership and batch staging to same-compiler controls, source-preservation and failure tests, syscall attribution and explicit negative performance cases
   - resource: "opencode://ses_eb3033c79ffeRIkn14uSNhs7O6"
     title: Added filesystem synchronization and owned-fixture evidence, verified current/historical std syscalls, and wrote the research-only performance opportunity inventory and independent Sol high experiment briefs
   - resource: "opencode://ses_eb335933bffeUeaPkxqOtKDOWi"
@@ -99,6 +101,15 @@ The [root specification](../README.md) owns the current public contract.
   fresh/copy/reflink/no-op/sparse/subtree operations, comparison-only controls,
   actual operation counts, and retained raw observations. No live-root mutation
   or jj-waltz speedup claim.
+- [Leaf operation ownership](sync/leaf0.sol61x.md): held Linux clone descriptors,
+  parent-local lazy staging arenas, planned-name collision exclusion, recursive
+  metadata handoff, exact metadata, joined cleanup and partial progress. Public
+  APIs and the comparison/application seam are unchanged.
+- [Controlled leaf measurements](performance/leaf0.sol61x.md): same-compiler
+  unchanged/cleanup/descriptor/staging/handoff controls, separate staging-only
+  and final-build confirmations, syscall attribution, raw observations and
+  single-leaf/large-file/P4 descriptor negatives. Qualifies which mechanisms
+  actually helped rather than promoting the entire opportunity inventory.
 
 ## Performance opportunities — research, not implementation selection
 

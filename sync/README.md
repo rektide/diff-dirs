@@ -6,6 +6,8 @@ resource: /sync/README.md
 status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: "opencode://ses_eb2c07f5cffe2uTLIC7b1rrD99"
+    title: Optimized owned Linux leaf descriptors and parent-local batch staging, retaining metadata, validation, partial-failure and portable-backend contracts
   - resource: "opencode://ses_eb3033c79ffeRIkn14uSNhs7O6"
     title: Implemented and verified separate filesystem applier, borrowed-pool operations, native links, replacement safety, metadata and partial-progress semantics
   - resource: /design/sync/brief0.gpt6a.md
@@ -41,10 +43,13 @@ capability probes. There are no `.git`, `.jj`, ignore, or mount exclusions.
 Every regular file uses the explicitly selected policy (no default):
 
 - `Copy`: ordinary `io::copy`, no physical CoW/allocation promise.
-- `ReflinkRequired`: `reflink-copy` 0.1.30-compatible real clone or error;
-  **never silently falls back**.
-- `ReflinkOrCopy`: that crate's fallback policy; reports actual clone versus
-  copy result. NotFound, PermissionDenied, and AlreadyExists do not fall back.
+- `ReflinkRequired`: real clone or error; **never silently falls back**. Linux
+  uses whole-file `FICLONE` on held descriptors; other platforms retain the
+  `reflink-copy` 0.1.30 backend.
+- `ReflinkOrCopy`: reports actual clone versus copy result. NotFound,
+  PermissionDenied, and AlreadyExists do not fall back. Linux reuses its open
+  descriptors for ordinary `io::copy` after other clone errors; other platforms
+  retain the dependency's fallback policy.
 
 Symlinks are native literal links, never followed or normalized. Windows source
 link kind is retained, including dangling directory links where metadata
@@ -118,7 +123,10 @@ from application. More workers need not improve a saturated filesystem.
 ## Replacement, permissions, and metadata
 
 Regular leaves are prepared at an absent child of a private **target-side**
-temporary directory, metadata finalized, and renamed into place. Symlink
+temporary directory, metadata finalized, and renamed into place. One arena is
+created lazily per touched destination sibling batch, not per leaf or at the
+root for an entire tree. Unique slots and a prefix excluding planned sibling
+names prevent collisions with legitimate internal-looking source names. Symlink
 replacements are staged too. This does not write through destination hardlinks,
 chmod an existing leaf, or follow a replaced link. Preparation failure leaves
 the old leaf intact. Leaf-to-directory transitions prepare the whole new subtree
@@ -126,11 +134,15 @@ before removing the old leaf; directory-to-leaf transitions prepare the leaf
 before removal. Once removal starts these transitions are not transactions.
 
 Successful regular copies preserve permissions and exact supported `SystemTime`
-mtime. An open descriptor survives final restrictive chmod; clone/copy-fallback
-outputs are made usable while privately owned, before reopening. Exact timestamp
+mtime. Copy and Linux clone/fallback retain usable source/output descriptors
+through metadata finalization and installation, avoiding clone chmod/reopen churn.
+Other platforms make privately owned clone/fallback outputs usable before
+reopening and retain that descriptor through final restrictive chmod. Exact timestamp
 readback is checked **before installation**: unrepresentable target timestamps
 fail rather than silently promise convergence. Directory permissions are applied
-after all child work joins, including on failure. Directory mtimes are not copied.
+after all child work joins and arena cleanup finishes, including on failure.
+Successful empty arenas use direct removal; failed/stopped preparations retain
+robust recursive owned cleanup. Directory mtimes are not copied.
 
 On Unix, authorized existing target directories temporarily gain owner `rwx`
 only when needed, and regain their prior mode after joined work (or on failed
@@ -186,3 +198,5 @@ call insufficiently tested; it is not Linux/macOS-only.
 
 Implementation/verification evidence: [builder account](/design/sync/implementation0.sol61x.md).
 Owned-fixture method and observations: [measurements](/design/performance/sync0.sol61x.md).
+Current leaf ownership/staging: [implementation](/design/sync/leaf0.sol61x.md) and
+[controlled measurements](/design/performance/leaf0.sol61x.md).
