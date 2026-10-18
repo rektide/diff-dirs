@@ -16,12 +16,26 @@ pub trait Scope: Sync {
     fn borrowed(&self) -> ScopeRef<'_, Self> {
         ScopeRef(self)
     }
+}
 
-    /// Include the path only when it and every ancestor participate. Public
-    /// record consumers must use this rather than checking just the basename.
-    fn includes(&self, relative: &Path) -> bool {
-        !Self::ENABLED || relative.ancestors().all(|path| self.at(path) == Visit::Reconcile)
+/// Include the path only when it and every ancestor participate. Public record
+/// consumers must use this rather than checking only the leaf. Ancestors are
+/// evaluated root-first; excluded descendants are never reopened.
+pub fn scope_includes<S: Scope + ?Sized>(scope: &S, relative: &Path) -> bool {
+    if !S::ENABLED {
+        return true;
     }
+    if scope.at(Path::new("")) == Visit::PreserveTree {
+        return false;
+    }
+    let mut prefix = std::path::PathBuf::new();
+    for component in relative.components() {
+        prefix.push(component);
+        if scope.at(&prefix) == Visit::PreserveTree {
+            return false;
+        }
+    }
+    true
 }
 
 impl<F: Fn(&Path) -> Visit + Sync> Scope for F {

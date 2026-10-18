@@ -6,6 +6,10 @@ resource: /sync/README.md
 status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: "opencode://ses_eaecf188affeV49Iu6kJOeHgsX"
+    title: Implemented authority-based scoped reconciliation, deferred permission writes, local transition precheck, listed-leaf seeds and explicit container clearing with bounded semantic tests
+  - resource: "file:///home/rektide/src/jj-waltz/design/sync-scope/design0.gpt6a.md"
+    title: Selected authority-based generic synchronization direction, superseding ignored-root selection without moving repository meaning into this library
   - resource: "opencode://ses_eb24f98a3ffewdVqa9lao6tXQu"
     title: Added static checked execution through equal comparison, recursive copy/removal, absent roots and staged root transitions, plus explicit full read-only audit
   - resource: "opencode://ses_eb2c07f5cffe2uTLIC7b1rrD99"
@@ -22,8 +26,9 @@ sources:
 
 # diff-dirs-sync
 
-Optional filesystem synchronization over `diff-dirs`: the original is
-authoritative, including **deleting target-only entries**. The read-only core
+Optional filesystem synchronization over `diff-dirs`: source presence updates
+participating paths; **source absence deletes only with explicit authority**.
+The default mirror grants that authority everywhere. The read-only core
 never depends on this crate. Ordinary execution needs no Rayon; feature
 `parallel` adds borrowed caller-pool comparison and application.
 
@@ -60,7 +65,118 @@ supports it. Symlink metadata is not mirrored. Unsupported special entries fail
 with their path; copied opaque subtrees validate while visiting, without a
 separate whole-tree preflight or content-reading pass.
 
-## Caller-owned loop
+## Scope and absence authority
+
+```rust,no_run
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use std::path::Path;
+use diff_dirs::{NoCheck, Visit};
+use diff_dirs_sync::{Applier, CopyPolicy, NeverRemove};
+let scope = |path: &Path| {
+    if path == Path::new("local") { Visit::PreserveTree }
+    else { Visit::Reconcile }
+};
+let absence = |path: &Path| path.starts_with("cache");
+let transfer = Applier::new_checked("source", "target", CopyPolicy::ReflinkRequired, NoCheck)?
+    .scope(scope).absence(absence);
+let report = transfer.run()?; // one streamed comparison/application, no audit first
+assert!(report.policy.satisfied);
+// Explicit update uses constant NeverRemove; default mirror uses RemoveAll.
+let update = Applier::new("source", "other-target", CopyPolicy::Copy)?
+    .scope(scope).absence(NeverRemove);
+let report = update.run()?;
+# Ok(()) }
+```
+
+`Applier<C = NoCheck, S = NoScope, A = RemoveAll>` preserves existing unscoped
+construction and mirror APIs. `.scope(S)` and `.absence(A)` consume the binding
+and retain the same validated roots. `run()` / `run_in_pool(pool, limits)` honor
+the selected policies; existing `.mirror()` / `.mirror_in_pool()` are aliases
+for those operations (their default binding is still RemoveAll). The free
+`update(source, target, copy_policy)` selects NeverRemove explicitly. `Absence`
+is statically dispatched, as is `Scope`; closures implement both. Custom
+implementations may borrow frozen caller indexes. There is no rule interpreter.
+
+The [core scope contract](../README.md#pair-wide-scope) excludes union names
+symmetrically **before observation**, including equal entries. Checks accept or
+refuse only participating entries. Scope reaches recursive source-only copy,
+target-only removal, absent-root initialization, explicit root replacement, and
+both type transitions. Excluded source children stay absent on new outputs.
+Preserved target children keep their required real ancestor directories. Private
+staging always selects against logical final relative paths. Root identity/type
+checks remain mandatory even when the empty relative root is preserved.
+
+Public records are not trusted policy certificates: scope is checked on their
+directory, **every ancestor**, and named children before entry metadata lookup.
+An opaque removed directory means source absence to reconcile, not unconditional
+recursive deletion. Exclusion never turns hidden source presence into deletion.
+
+Source presence replaces unpreserved matching leaves regardless of absence
+authority. Target-only leaves are removed only when `Absence::remove(relative)`
+permits. Target-only directories are traversed for arbitrary mixed policies:
+a retained `old` can contain a removable `old/cache`. Their own names disappear
+only if authorized and no retained descendant remains. Constant NeverRemove
+prunes the entire target-only branch; NoScope and constant absence decisions
+monomorphize without policy dispatch. No filesystem prewalk or full-tree plan
+is added. Missing source roots always fail, never mean an authoritative empty
+tree. Retained-only/clean/no-op regions perform zero namespace, staging, or chmod
+writes, even when raw comparison keeps reporting retained extras.
+
+Directory-to-leaf replacement would erase target-only descendants. A local,
+read-only precheck of **only that affected target subtree** refuses the first
+preserved or absence-retained descendant (or Check refusal), with its path,
+before changing any of its contents. NeverRemove therefore blocks replacement
+of a nonempty directory, but permits an empty one. After a successful precheck,
+prepare the leaf, remove with the shared recursive kernel, and install. Later
+I/O failure remains honest partial progress, not rollback. Leaf-to-directory
+replacement prepares the complete scoped subtree before removing the old leaf.
+
+`audit()` uses the same bound scope and check on both existing sides, including
+one-sided interiors; excluded boundaries are counted without inspecting them.
+It is read-only entry validation, **not an action plan or prediction of deletion
+counts**, and absence authority does not suppress participating observations.
+Execution never audits first. Neither audit nor a manually fabricated record
+certifies whole-root convergence; successful `run` reports policy satisfaction,
+while scoped comparison cannot claim full-root clean coverage.
+
+### Listed leaves and explicit container clearing
+
+```rust,no_run
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use diff_dirs::{NoCheck, Visit};
+use diff_dirs_sync::{CopyPolicy, clear, seed_leaves};
+use std::path::Path;
+// Existing native path list: no enumeration of unlisted source directories.
+let copied = seed_leaves("source", "target", ["src/main.rs", "bin/tool"],
+                         CopyPolicy::ReflinkRequired, NoCheck)?;
+// A distinct, explicit deletion request. Target container remains bound/alive.
+let preserve = |p: &Path| if p == Path::new("local") {
+    Visit::PreserveTree
+} else { Visit::Reconcile };
+let cleared = clear("target", preserve, NoCheck)?;
+# Ok(()) }
+```
+
+`seed_leaves(source, target, leaves, copy_policy, check)` requires existing real
+directory roots and nonempty normal relative leaf paths. It creates only missing
+real target parents, refuses any existing target leaf (including dangling links),
+and uses the same staged file/link/permissions/exact-mtime kernel as sync. It
+inspects current source metadata rather than accepting cached metadata as proof.
+Missing source, existing destination, and directory-as-leaf errors have specific
+`seed source missing`, `seed destination exists`, and `seed source type`
+operations; ancestor errors retain their native path/cause. Existing source and
+target ancestors pass Check; new output parents follow recursive copy semantics.
+Sequential list consumption retains no work catalog and returns partial Progress
+on failure. This first installer is sequential, including inside a caller pool;
+no new worker scheduler or parallel admission layer is introduced.
+
+`clear(target, scope, check)` binds an existing real directory and deletes its
+participating contents through the **same recursive remover** as sync. It never
+removes the bound container, never follows a leaf link, and keeps preserved
+children plus necessary ancestors. It returns Report without an observed diff.
+It needs no source, fake record, automatic prune, or missing-donor interpretation.
+
+## Caller-owned record loop
 
 ```rust,no_run
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -80,7 +196,7 @@ assert!(walk.into_summary().is_complete());
 
 `apply` changes exactly the classified entries, not clean/unmentioned entries.
 Same-name directory/leaf transitions are one operation. One-sided directories
-are whole-copy/remove units; paired directories remain for the existing walker.
+are recursive policy units; paired directories remain for the existing walker.
 The applier neither advances nor prunes the iterator. Finish applying before
 requesting the next record, preserving the core's cached-sibling guarantee.
 
@@ -129,13 +245,15 @@ The default `Applier<NoCheck>` specializes away checking.
 The [core check contract](../README.md#checked-inspection-and-read-only-audit)
 defines borrowed facts, `Purpose`, purity/`Sync`, speculative invocation, and
 literal-link availability. Checks accept or refuse only; no skipping/preservation
-rules. Private owned staging cleanup intentionally does **not** run caller policy.
+rules in Check itself; use the separate scope below. Private owned staging cleanup
+intentionally does **not** run caller policy.
 Binding itself performs structural path validation, not interior checks. Operations
 check roots before their mutation; the checked walker also checks roots at construction.
 
 Refusal is **streaming**, not whole-batch preflight: earlier permitted siblings or
 records may already have changed. The offending entry is not copied, chmodded,
-removed, or descended. Surviving accepted ancestors regain prior permissions.
+removed, or descended. Directory-to-leaf replacement additionally prechecks only
+that affected subtree before dismantling it. Surviving accepted ancestors regain prior permissions.
 Failed private preparations are discarded. Failures retain completed operations;
 comparison failures keep a failed committed prefix, and apply failures keep an
 incomplete observed prefix. There is no rollback or automatic retry. Resolve the
@@ -169,7 +287,8 @@ let report = applier.mirror()?; // existing dir, absent root, or existing leaf
 Only this explicit binding permits an existing file/link selected root. Its real
 parent is bound; the final leaf is never canonicalized/followed. `replace_root`
 (or `replace_root_in_pool`) requires an existing leaf and stages the complete new
-directory before removing it. Refusal or reflink preparation failure leaves the
+directory before removing it. Scope uses final logical names during preparation,
+not private staging names. Refusal or reflink preparation failure leaves the
 old leaf intact. Once old-leaf removal succeeds, installation failure is partial
 progress, not a whole-root transaction. Parent permissions are restored. Ordinary
 bindings and `mirror` continue rejecting leaf roots rather than silently following
@@ -216,8 +335,9 @@ names prevent collisions with legitimate internal-looking source names. Symlink
 replacements are staged too. This does not write through destination hardlinks,
 chmod an existing leaf, or follow a replaced link. Preparation failure leaves
 the old leaf intact. Leaf-to-directory transitions prepare the whole new subtree
-before removing the old leaf; directory-to-leaf transitions prepare the leaf
-before removal. Once removal starts these transitions are not transactions.
+before removing the old leaf; directory-to-leaf transitions first run the local
+read-only removability precheck, then prepare the leaf before removal. Once
+authorized removal starts these transitions are not transactions.
 
 Successful regular copies preserve permissions and exact supported `SystemTime`
 mtime. Copy and Linux clone/fallback retain usable source/output descriptors
@@ -231,10 +351,13 @@ Successful empty arenas use direct removal; failed/stopped preparations retain
 robust recursive owned cleanup. Directory mtimes are not copied.
 
 On Unix, authorized existing target directories temporarily gain owner `rwx`
-only when needed, and regain their prior mode after joined work (or on failed
+only when an actual namespace write needs it, and regain their prior mode after joined work (or on failed
 removal). Copied directories get source modes postorder. Source directories must
 be readable/searchable by the caller; existing paired target ancestors must be
-searchable for validation/comparison. Permission/ACL failures are reported.
+searchable/readable for validation/comparison and policy inspection. Inspecting
+a subtree that is entirely retained does not relax permissions. Privately owned
+failed preparations are different: cleanup can relax them to enumerate/remove
+them. Permission/ACL failures are reported.
 Copied modes must likewise permit later comparisons under the caller's identity;
 source access granted only by ownership/ACLs need not survive copying mode bits
 without those ownership/ACLs.
@@ -262,6 +385,17 @@ Failed private preparations/cleanup are not successful installations. Counters
 are not syscall, disk-byte, or crash-durability accounting. Clean sync does zero
 writes, including no staging or temporary chmod.
 
+`Report.policy` separately records `satisfied`, `retained`, and `excluded`.
+Success means the **declared operation's policy** was exhausted, not that full
+roots are equal. Retained counters cover retained leaves, constant-NeverRemove
+pruned branches, and required structural containers; excluded counters count
+application boundaries, not hidden entries. Comparison exclusions remain in
+`observed.excluded`; these counts are not additive unique-path inventories.
+`Failure.policy` retains encountered counters but never claims satisfaction.
+No retained/processed per-file report catalog is built. `apply_report` offers
+these results for just one public record, not for the whole bound tree; existing
+`apply` continues returning only completed `Progress`.
+
 `Failure` exposes `primary` operation/path/original cause, `secondary` sibling,
 cleanup, and permission-restoration issues, `completed` partial operations, and
 the committed comparison prefix in `observed` when available. Stop admission on
@@ -282,6 +416,28 @@ are safe because installation replaces names instead of writing old inodes.
 Linux/btrfs is actually verified; macOS and Windows are cfg-based best effort,
 not tested here. `reflink-copy` has a Windows implementation, which its own docs
 call insufficiently tested; it is not Linux/macOS-only.
+
+### Source compatibility and implementation boundary
+
+Plain `walk`, `mirror`, `Applier<C>`, `apply`, and borrowed-pool APIs remain
+usable with their previous default meanings. New generic parameters have
+defaults. Public `Summary`/`Audit` and sync `Report`/`Failure` gained coverage or
+policy fields; exhaustive literals/patterns need updating. `Failure.policy` and
+its cold `secondary` vector are boxed to keep streaming Result values compact;
+normal field access/iteration is unchanged, but code taking the owned vector
+uses `*failure.secondary`. Directory-to-leaf refusal deliberately changed from
+partial sibling deletion to the local intact-subtree precheck. Deferred chmod
+also means fewer permission operations on partial failures.
+
+The implementation extends the existing pair/frontier and staged operation
+kernels. Source copying derives scope coordinates from unchanged bound source
+paths, never physical output staging. Recursive removal returns retention and
+keeps structural containers; deferred per-directory permission leases join
+before restoration. Listed seeds reuse the same staged leaf installer. No
+repository parser, filesystem operation catalog, per-entry mount/clone probe,
+new scheduler, or automatic reconciliation/prune pass is introduced. This is
+the generic library slice only; caller revision/configuration integration stays
+outside this repository. No cancelled performance campaign was resumed.
 
 Implementation/verification evidence: [builder account](/design/sync/implementation0.sol61x.md).
 Owned-fixture method and observations: [measurements](/design/performance/sync0.sol61x.md).

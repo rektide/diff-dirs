@@ -45,7 +45,7 @@ pub fn audit<C: Check>(root: impl AsRef<Path>, side: Side, check: &C) -> Result<
 
 pub fn audit_scoped<C: Check, S: Scope>(root: impl AsRef<Path>, side: Side, check: &C, scope: &S) -> Result<Audit, AuditFailure> {
     fn visit<C: Check, S: Scope>(root: &Path, path: &Path, side: Side, check: &C, scope: &S, inspected: &mut Audit) -> Result<(), Error> {
-        if path != root && !scope.includes(path.strip_prefix(root).expect("audit descendant")) {
+        if path != root && S::ENABLED && scope.at(path.strip_prefix(root).expect("audit descendant")) == crate::Visit::PreserveTree {
             inspected.excluded += 1;
             return Ok(());
         }
@@ -67,7 +67,7 @@ pub fn audit_scoped<C: Check, S: Scope>(root: impl AsRef<Path>, side: Side, chec
         .check(check)?;
         if metadata.is_dir() {
             inspected.directories += 1;
-            if path == root && !scope.includes(Path::new("")) {
+            if path == root && !crate::scope_includes(scope, Path::new("")) {
                 inspected.excluded += 1;
                 return Ok(());
             }

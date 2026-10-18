@@ -103,7 +103,7 @@ fn list(dir: &Path, side: Side, entries: &mut Vec<RawEntry>) -> Result<(), Error
 }
 
 fn entries<C: Check, S: Scope>(roots: &Roots, dir: &Path, execution: Execution, check: &C, scope: &S) -> Result<(Vec<Entry>, Vec<Entry>, u64), Error> {
-    if !scope.includes(dir) {
+    if dir.as_os_str().is_empty() && S::ENABLED && scope.at(dir) == crate::Visit::PreserveTree {
         return Ok((Vec::new(), Vec::new(), 1));
     }
     let mut raw = Vec::new();
@@ -122,7 +122,8 @@ fn entries<C: Check, S: Scope>(roots: &Roots, dir: &Path, execution: Execution, 
         let mut include = true;
         raw.retain(|entry| {
             if previous.as_ref() != Some(&entry.name) {
-                include = scope.includes(&dir.join(&entry.name));
+                // All routing ancestors were admitted by earlier frames.
+                include = scope.at(&dir.join(&entry.name)) == crate::Visit::Reconcile;
                 excluded += u64::from(!include);
                 previous = Some(entry.name.clone());
             }

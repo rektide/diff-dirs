@@ -3,24 +3,29 @@
 #![doc = include_str!("../README.md")]
 
 mod apply;
+mod authority;
 mod model;
 mod paths;
 mod platform;
 
-pub use model::{CopyPolicy, Failure, Issue, Progress, Report};
+pub use apply::{clear, seed_leaves};
+pub use authority::{Absence, NeverRemove, RemoveAll};
+pub use model::{CopyPolicy, Failure, Issue, Policy, Progress, Report};
 
 use std::path::{Path, PathBuf};
 
-use diff_dirs::{Check, DirDiff, NoCheck};
+use diff_dirs::{Check, DirDiff, NoCheck, NoScope, Scope};
 
 /// Validated, non-overlapping roots. Construction performs no writes.
 /// The source must be a real directory; the target may be absent.
 #[derive(Debug)]
-pub struct Applier<C = NoCheck> {
+pub struct Applier<C = NoCheck, S = NoScope, A = RemoveAll> {
     original: PathBuf,
     target: PathBuf,
     policy: CopyPolicy,
     check: C,
+    scope: S,
+    absence: A,
     replace_root: bool,
 }
 
@@ -54,8 +59,39 @@ impl<C: Check> Applier<C> {
             target,
             policy,
             check,
+            scope: NoScope,
+            absence: RemoveAll,
             replace_root,
         })
+    }
+}
+
+impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
+    /// Replace pair-wide scope without changing binding or absence authority.
+    pub fn scope<T: Scope>(self, scope: T) -> Applier<C, T, A> {
+        Applier {
+            original: self.original,
+            target: self.target,
+            policy: self.policy,
+            check: self.check,
+            scope,
+            absence: self.absence,
+            replace_root: self.replace_root,
+        }
+    }
+
+    /// Select update (NeverRemove), mirror (RemoveAll), or mixed authority.
+    /// `run` and per-record application both honor the selected policy.
+    pub fn absence<B: Absence>(self, absence: B) -> Applier<C, S, B> {
+        Applier {
+            original: self.original,
+            target: self.target,
+            policy: self.policy,
+            check: self.check,
+            scope: self.scope,
+            absence,
+            replace_root: self.replace_root,
+        }
     }
 
     pub fn original(&self) -> &Path {
@@ -93,7 +129,7 @@ impl<C: Check> Applier<C> {
     /// one-sided interiors. Does not compare, apply, or build an operation map.
     pub fn audit(&self) -> Result<AuditReport, AuditFailure> {
         let mut report = AuditReport::default();
-        match diff_dirs::audit(&self.original, diff_dirs::Side::Original, &self.check) {
+        match diff_dirs::audit_scoped(&self.original, diff_dirs::Side::Original, &self.check, &self.scope) {
             Ok(inspected) => report.original = inspected,
             Err(failure) => {
                 report.original = failure.inspected;
@@ -117,7 +153,7 @@ impl<C: Check> Applier<C> {
             }
             Ok(true) => {}
         }
-        match diff_dirs::audit(&self.target, diff_dirs::Side::Target, &self.check) {
+        match diff_dirs::audit_scoped(&self.target, diff_dirs::Side::Target, &self.check, &self.scope) {
             Ok(inspected) => {
                 report.target = inspected;
                 Ok(report)
@@ -184,6 +220,10 @@ pub fn mirror_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<P
     Applier::new_checked(original, target, policy, check)?.mirror()
 }
 
+pub fn update(original: impl AsRef<Path>, target: impl AsRef<Path>, policy: CopyPolicy) -> Result<Report, Failure> {
+    Applier::new(original, target, policy)?.absence(NeverRemove).run()
+}
+
 /// Optional borrowed-pool comparison and application. Creates/configures no
 /// pool. J/K limit comparison lookahead, not application workers or bytes.
 #[cfg(feature = "parallel")]
@@ -197,27 +237,37 @@ pub fn mirror_in_pool(
     Applier::new(original, target, policy)?.mirror_in_pool(pool, limits)
 }
 
-impl<C: Check> Applier<C> {
+impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
     /// Stream compare/apply, or initialize/explicitly replace a selected root.
     /// Does not run `audit` first. Every visited entry uses this binding's check.
     pub fn mirror(&self) -> Result<Report, Failure> {
+        self.run()
+    }
+
+    pub fn run(&self) -> Result<Report, Failure> {
         if let Some(report) = self.whole_root(false)? {
             return Ok(report);
         }
         // Preserve NoCheck specialization across the comparison/application seam.
-        let mut walk = diff_dirs::walk_checked(self.original(), self.target(), self.check.borrowed()).map_err(Failure::comparison)?;
+        let mut walk = diff_dirs::walk_scoped(self.original(), self.target(), self.check.borrowed(), self.scope.borrowed()).map_err(Failure::comparison)?;
         let mut completed = Progress::default();
+        let mut policy = Policy::default();
         while let Some(item) = walk.next() {
-            match item.map_err(Failure::comparison).and_then(|diff| self.apply(&diff)) {
-                Ok(progress) => completed += progress,
+            match item.map_err(Failure::comparison).and_then(|diff| self.apply_reported(&diff, false)) {
+                Ok(report) => {
+                    completed += report.completed;
+                    policy += report.policy;
+                }
                 Err(mut failure) => {
                     failure.completed += completed;
+                    *failure.policy += policy;
                     failure.observed = Some(Box::new(walk.into_summary()));
                     return Err(failure);
                 }
             }
         }
         Ok(Report {
+            policy: Policy { satisfied: true, ..policy },
             completed,
             observed: Some(walk.into_summary()),
         })
@@ -225,34 +275,49 @@ impl<C: Check> Applier<C> {
 
     #[cfg(feature = "parallel")]
     pub fn mirror_in_pool(&self, pool: &rayon::ThreadPool, limits: diff_dirs::ParallelLimits) -> Result<Report, Failure> {
+        self.run_in_pool(pool, limits)
+    }
+
+    #[cfg(feature = "parallel")]
+    pub fn run_in_pool(&self, pool: &rayon::ThreadPool, limits: diff_dirs::ParallelLimits) -> Result<Report, Failure> {
         if let Some(report) = pool.install(|| self.whole_root(true))? {
             return Ok(report);
         }
-        let mut walk = diff_dirs::walk_in_pool_checked(self.original(), self.target(), pool, limits, self.check.borrowed()).map_err(Failure::comparison)?;
+        let mut walk = diff_dirs::walk_in_pool_scoped(self.original(), self.target(), pool, limits, self.check.borrowed(), self.scope.borrowed())
+            .map_err(Failure::comparison)?;
         let mut completed = Progress::default();
+        let mut policy = Policy::default();
         while let Some(item) = walk.next() {
-            match item.map_err(Failure::comparison).and_then(|diff| self.apply_in_pool(&diff, pool)) {
-                Ok(progress) => completed += progress,
+            match item
+                .map_err(Failure::comparison)
+                .and_then(|diff| pool.install(|| self.apply_reported(&diff, true)))
+            {
+                Ok(report) => {
+                    completed += report.completed;
+                    policy += report.policy;
+                }
                 Err(mut failure) => {
                     failure.completed += completed;
+                    *failure.policy += policy;
                     failure.observed = Some(Box::new(walk.into_summary()));
                     return Err(failure);
                 }
             }
         }
         Ok(Report {
+            policy: Policy { satisfied: true, ..policy },
             completed,
             observed: Some(walk.into_summary()),
         })
     }
 
     fn whole_root(&self, parallel: bool) -> Result<Option<Report>, Failure> {
-        let completed = match std::fs::symlink_metadata(&self.target) {
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => self.initialize_with(parallel)?,
+        let report = match std::fs::symlink_metadata(&self.target) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => self.initialize_reported(parallel)?,
             Err(error) => return Err(Failure::io("inspect target root", &self.target, error)),
             Ok(metadata) if metadata.is_dir() => return Ok(None),
-            Ok(_) => self.replace_root_with(parallel)?,
+            Ok(_) => self.replace_root_reported(parallel)?,
         };
-        Ok(Some(Report { completed, observed: None }))
+        Ok(Some(report))
     }
 }

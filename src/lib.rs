@@ -45,7 +45,7 @@ pub use audit::{Audit, AuditFailure, audit, audit_scoped};
 pub use check::{Check, CheckError, CheckRef, Entry, NoCheck, Purpose, Side};
 pub use error::Error;
 pub use model::{AddedRemoved, ChangedAddedRemoved, DirDiff, EntryCounts, Execution, ScanState, Summary, WalkOptions};
-pub use scope::{NoScope, Scope, ScopeRef, Visit};
+pub use scope::{NoScope, Scope, ScopeRef, Visit, scope_includes};
 #[doc(hidden)]
 #[cfg(feature = "parallel-bench")]
 pub use walk::walk_per_frame;

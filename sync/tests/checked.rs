@@ -149,7 +149,8 @@ fn guarded_leaf_directory_transitions_preserve_old_leaf_on_preparation_refusal()
         let failure = mirror(&f.applier(), *parallel).unwrap_err();
         assert_eq!(failure.primary.path, f.target.join("entry/z-deep/.jj"));
         assert!(f.target.join("entry").is_dir());
-        assert_eq!(failure.completed.files_removed, 1);
+        assert_eq!(failure.completed.files_removed, 0); // local precheck preserves the entire old subtree
+        assert_eq!(fs::read(f.target.join("entry/a-good")).unwrap(), b"removed");
         assert_eq!(failure.completed.files_copied, 0);
         assert_eq!(fs::read(f.target.join("entry/z-deep/.jj")).unwrap(), b"untouched");
         assert!(
@@ -175,7 +176,8 @@ fn checked_recursive_removal_restores_surviving_modes_after_partial_progress() {
         let failure = mirror(&f.applier(), *parallel).unwrap_err();
         assert_eq!(failure.primary.path, f.target.join("unit/z-deep/nested/.git"));
         assert_eq!(failure.completed.files_removed, 1);
-        assert!(failure.completed.directory_permissions_set >= 6);
+        // Only `unit`, where a child was actually removed, is relaxed/restored.
+        assert_eq!(failure.completed.directory_permissions_set, 2);
         assert!(!f.target.join("unit/a-good").exists());
         assert_eq!(fs::read(f.target.join("unit/z-deep/nested/.git/untouched")).unwrap(), b"preserved");
         for (path, mode) in modes {

@@ -4,18 +4,36 @@ use std::fs::{self, File, Metadata, OpenOptions, Permissions};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-use diff_dirs::{Check, Entry, NoCheck, Purpose, Side};
+use diff_dirs::{Check, Entry, NoCheck, NoScope, Purpose, Scope, Side};
 
 use crate::model::merge;
 use crate::paths::{self, ADD_DIR, ADD_LEAF, CHANGED, REMOVE_DIR, REMOVE_LEAF};
-use crate::{Applier, CopyPolicy, Failure, Progress, platform};
+use crate::{Absence, Applier, CopyPolicy, Failure, Policy, Progress, RemoveAll, Report, platform};
 
-impl<C: Check> Applier<C> {
+impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
     pub(crate) fn apply_with(&self, diff: &diff_dirs::DirDiff, parallel: bool) -> Result<Progress, Failure> {
-        let names = paths::names(diff)?;
-        let context = Context::checked(self.policy, parallel, &self.original, &self.target, &self.check);
+        self.apply_reported(diff, parallel).map(|report| report.completed)
+    }
+
+    pub fn apply_report(&self, diff: &diff_dirs::DirDiff) -> Result<Report, Failure> {
+        self.apply_reported(diff, false)
+    }
+
+    pub(crate) fn apply_reported(&self, diff: &diff_dirs::DirDiff, parallel: bool) -> Result<Report, Failure> {
+        let mut names = paths::names(diff)?;
+        let context = Context::checked(self.policy, parallel, &self.original, &self.target, &self.check, &self.scope, &self.absence);
+        // Even fabricated public records cannot reopen a preserved ancestor.
+        // Root identity/type is still validated before honoring root scope.
+        let source = paths::directory(&self.original)?;
+        context.observe(&self.original, Side::Original, Purpose::Copy, &source, None)?;
+        let target = paths::directory(&self.target)?;
+        context.observe(&self.target, Side::Target, Purpose::Remove, &target, None)?;
+        if !context.included(&diff.dir) {
+            return context.finish(Ok(Progress::default()));
+        }
+        names.retain(|(name, _)| context.included(&diff.dir.join(name)));
         let from = context.relative(&self.original, &diff.dir, Side::Original, Purpose::Copy)?;
         let to = context.relative(&self.target, &diff.dir, Side::Target, Purpose::Remove)?;
         // Validate actual immediate types before any chmod, staging or removal.
@@ -24,20 +42,23 @@ impl<C: Check> Applier<C> {
             validated.push(validate_entry(&context, &from.join(name), &to.join(name), *mask)?);
         }
         if names.is_empty() {
-            return Ok(Progress::default());
+            return context.finish(Ok(Progress::default()));
         }
-        let (permissions, relaxed) = relax(&to)?;
         let arena = Staging::new(&to, names.iter().map(|(name, _)| name.as_os_str()));
         let result = context.batch(&names, |index, (name, mask)| {
             context.named_with(&from.join(name), &to.join(name), *mask, &arena, index, &validated[index])
         });
         let result = arena.finish(result, &context);
-        finish_permissions(result, &to, permissions, relaxed, true)
+        context.finish(result)
     }
 
     pub(crate) fn initialize_with(&self, parallel: bool) -> Result<Progress, Failure> {
+        self.initialize_reported(parallel).map(|report| report.completed)
+    }
+
+    pub(crate) fn initialize_reported(&self, parallel: bool) -> Result<Report, Failure> {
         let metadata = paths::directory(&self.original)?;
-        let context = Context::checked(self.policy, parallel, &self.original, &self.target, &self.check);
+        let context = Context::checked(self.policy, parallel, &self.original, &self.target, &self.check, &self.scope, &self.absence);
         context.observe(&self.original, Side::Original, Purpose::Copy, &metadata, None)?;
         // Recheck the bound path's ancestors before mutation.
         let rebound = paths::root(&self.target, true)?;
@@ -49,12 +70,19 @@ impl<C: Check> Applier<C> {
         }
         let parent = self.target.parent().expect("bound root has parent");
         paths::directory(parent)?;
+        if !context.included(Path::new("")) {
+            return context.finish(Ok(Progress::default()));
+        }
         let (permissions, relaxed) = relax(parent)?;
         let result = context.copy_directory_with(&self.original, &self.target, &metadata);
-        finish_permissions(result, parent, permissions, relaxed, true)
+        context.finish(finish_permissions(result, parent, permissions, relaxed, true))
     }
 
     pub(crate) fn replace_root_with(&self, parallel: bool) -> Result<Progress, Failure> {
+        self.replace_root_reported(parallel).map(|report| report.completed)
+    }
+
+    pub(crate) fn replace_root_reported(&self, parallel: bool) -> Result<Report, Failure> {
         if !self.replace_root {
             return Err(Failure::invalid("replace root", &self.target, "requires explicit replacing root binding"));
         }
@@ -62,13 +90,16 @@ impl<C: Check> Applier<C> {
         if rebound != self.target {
             return Err(Failure::invalid("replace root", &self.target, "target root changed"));
         }
-        let context = Context::checked(self.policy, parallel, &self.original, &self.target, &self.check);
+        let context = Context::checked(self.policy, parallel, &self.original, &self.target, &self.check, &self.scope, &self.absence);
         let metadata = paths::directory(&self.original)?;
         context.observe(&self.original, Side::Original, Purpose::Copy, &metadata, None)?;
         let target = fs::symlink_metadata(&self.target).map_err(|error| Failure::io("inspect target root", &self.target, error))?;
         context.observe(&self.target, Side::Target, Purpose::Remove, &target, None)?;
         if !matches!(metadata_kind(&self.target, &target)?, Kind::File | Kind::Symlink) {
             return Err(Failure::invalid("replace root", &self.target, "expected existing target leaf"));
+        }
+        if !context.included(Path::new("")) {
+            return context.finish(Ok(Progress::default()));
         }
         let parent = self.target.parent().expect("bound leaf root has parent");
         let (permissions, relaxed) = relax(parent)?;
@@ -78,7 +109,7 @@ impl<C: Check> Applier<C> {
             context.staged_directory(&self.original, &self.target, &staged)
         })();
         let result = arena.finish(result, &context);
-        finish_permissions(result, parent, permissions, relaxed, true)
+        context.finish(finish_permissions(result, parent, permissions, relaxed, true))
     }
 }
 
@@ -89,7 +120,7 @@ enum Kind {
     Symlink,
 }
 
-fn inspect<C: Check>(context: &Context<'_, C>, path: &Path, side: Side, purpose: Purpose) -> Result<Option<Observed>, Failure> {
+fn inspect<C: Check, S: Scope, A: Absence>(context: &Context<'_, C, S, A>, path: &Path, side: Side, purpose: Purpose) -> Result<Option<Observed>, Failure> {
     match fs::symlink_metadata(path) {
         Ok(metadata) => {
             let link = if metadata.is_symlink() && side == Side::Original {
@@ -128,7 +159,7 @@ struct Validated {
     target: Option<Observed>,
 }
 
-fn validate_entry<C: Check>(context: &Context<'_, C>, from: &Path, to: &Path, mask: u8) -> Result<Validated, Failure> {
+fn validate_entry<C: Check, S: Scope, A: Absence>(context: &Context<'_, C, S, A>, from: &Path, to: &Path, mask: u8) -> Result<Validated, Failure> {
     let validated = Validated {
         source: inspect(context, from, Side::Original, Purpose::Copy)?,
         target: inspect(context, to, Side::Target, Purpose::Remove)?,
@@ -159,13 +190,18 @@ fn validate_entry<C: Check>(context: &Context<'_, C>, from: &Path, to: &Path, ma
     Ok(validated)
 }
 
-struct Context<'a, C = NoCheck> {
+struct Context<'a, C = NoCheck, S = NoScope, A = RemoveAll> {
+    owned_cleanup: bool,
     policy: CopyPolicy,
     parallel: bool,
     stopped: AtomicBool,
     original: &'a Path,
     target: &'a Path,
     check: &'a C,
+    scope: &'a S,
+    absence: &'a A,
+    retained: AtomicU64,
+    excluded: AtomicU64,
 }
 
 // Keep usable descriptors alive through final metadata and rename. A path-only
@@ -178,20 +214,72 @@ struct PreparedLeaf {
 
 impl Context<'static> {
     fn new(policy: CopyPolicy, parallel: bool) -> Self {
-        Self::checked(policy, parallel, Path::new(""), Path::new(""), &NoCheck)
+        let mut context = Self::checked(policy, parallel, Path::new(""), Path::new(""), &NoCheck, &NoScope, &RemoveAll);
+        context.owned_cleanup = true;
+        context
     }
 }
 
-impl<'a, C: Check> Context<'a, C> {
-    fn checked(policy: CopyPolicy, parallel: bool, original: &'a Path, target: &'a Path, check: &'a C) -> Self {
+impl<'a, C: Check, S: Scope, A: Absence> Context<'a, C, S, A> {
+    fn checked(policy: CopyPolicy, parallel: bool, original: &'a Path, target: &'a Path, check: &'a C, scope: &'a S, absence: &'a A) -> Self {
         Self {
+            owned_cleanup: false,
             policy,
             parallel,
             stopped: AtomicBool::new(false),
             original,
             target,
             check,
+            scope,
+            absence,
+            retained: AtomicU64::new(0),
+            excluded: AtomicU64::new(0),
         }
+    }
+
+    fn finish(&self, result: Result<Progress, Failure>) -> Result<Report, Failure> {
+        let policy = Policy {
+            satisfied: result.is_ok(),
+            retained: self.retained.load(Ordering::Relaxed),
+            excluded: self.excluded.load(Ordering::Relaxed),
+        };
+        match result {
+            Ok(completed) => Ok(Report {
+                completed,
+                policy,
+                observed: None,
+            }),
+            Err(mut failure) => {
+                *failure.policy += policy;
+                Err(failure)
+            }
+        }
+    }
+
+    fn included(&self, relative: &Path) -> bool {
+        let include = diff_dirs::scope_includes(self.scope, relative);
+        if !include {
+            self.excluded.fetch_add(1, Ordering::Relaxed);
+        }
+        include
+    }
+
+    // Recursive callers already admitted the routing ancestors. Do not repeat
+    // prefix matching for them in the hot loop; includes is for public records.
+    fn admit(&self, relative: &Path) -> bool {
+        let include = !S::ENABLED || self.scope.at(relative) == diff_dirs::Visit::Reconcile;
+        if !include {
+            self.excluded.fetch_add(1, Ordering::Relaxed);
+        }
+        include
+    }
+
+    fn source_relative<'p>(&self, path: &'p Path) -> &'p Path {
+        path.strip_prefix(self.original).expect("bound source descendant")
+    }
+
+    fn target_relative<'p>(&self, path: &'p Path) -> &'p Path {
+        path.strip_prefix(self.target).expect("bound target descendant")
     }
 
     #[inline]
@@ -274,8 +362,14 @@ impl<'a, C: Check> Context<'a, C> {
                 // A failed strict reflink must not destroy that leaf.
                 return self.staged_directory(from, to, &arena.entry(index, to)?);
             }
+            arena.writable.ensure()?;
             self.copy_directory_with(from, to, &observed.source.as_ref().expect("validated source directory").metadata)
         } else if mask & (ADD_LEAF | CHANGED) != 0 {
+            if mask & REMOVE_DIR != 0 {
+                // Only this affected subtree is inspected twice. Static blockers
+                // are found before staging/chmod or dismantling any of it.
+                self.removable(to, self.target_relative(to), true)?;
+            }
             let source = observed.source.as_ref().expect("validated source leaf");
             self.copy_leaf_with(
                 from,
@@ -286,7 +380,14 @@ impl<'a, C: Check> Context<'a, C> {
                 &arena.entry(index, to)?,
             )
         } else {
-            self.remove_with(to, &observed.target.as_ref().expect("validated target entry").metadata)
+            self.remove_tree(
+                to,
+                self.target_relative(to),
+                &observed.target.as_ref().expect("validated target entry").metadata,
+                &arena.writable,
+                false,
+            )
+            .map(|(progress, _)| progress)
         }
     }
 
@@ -307,6 +408,10 @@ impl<'a, C: Check> Context<'a, C> {
         let result = (|| {
             relaxed = relax(to)?.1;
             let children = children(from)?;
+            let children: Vec<_> = children
+                .into_iter()
+                .filter(|name| !S::ENABLED || self.admit(&self.source_relative(from).join(name)))
+                .collect();
             let arena = Staging::new(to, children.iter().map(|name| name.as_os_str()));
             let result = self.batch(&children, |index, name| {
                 let from = from.join(name);
@@ -333,7 +438,7 @@ impl<'a, C: Check> Context<'a, C> {
         let result = self.copy_directory(from, staged);
         match result {
             Ok(progress) if !self.stopped.load(Ordering::Acquire) => {
-                let removed = self.remove(to);
+                let removed = self.remove_present(to);
                 match removed {
                     Ok(mut removed) => match fs::rename(staged, to) {
                         Ok(()) => {
@@ -392,7 +497,7 @@ impl<'a, C: Check> Context<'a, C> {
         } else {
             self.prepare_file(from, staged, to, metadata)?
         };
-        let removed = if remove_directory { self.remove(to)? } else { Progress::default() };
+        let removed = if remove_directory { self.remove_present(to)? } else { Progress::default() };
         if let Err(error) = fs::rename(staged, to) {
             let mut failure = Failure::io("install leaf", to, error);
             failure.completed = removed;
@@ -485,24 +590,107 @@ impl<'a, C: Check> Context<'a, C> {
 
     fn remove(&self, path: &Path) -> Result<Progress, Failure> {
         let metadata = fs::symlink_metadata(path).map_err(|error| Failure::io("inspect removal", path, error))?;
-        self.remove_with(path, &metadata)
+        // Owned cleanup must not relax the caller-owned containing directory.
+        let parent = Writable::unmanaged(path.parent().expect("removal parent"));
+        let relative = if self.target.as_os_str().is_empty() {
+            path
+        } else {
+            self.target_relative(path)
+        };
+        let result = self.remove_tree(path, relative, &metadata, &parent, false).map(|(progress, _)| progress);
+        parent.finish(result)
     }
 
-    fn remove_with(&self, path: &Path, metadata: &Metadata) -> Result<Progress, Failure> {
+    fn remove_present(&self, path: &Path) -> Result<Progress, Failure> {
+        let metadata = fs::symlink_metadata(path).map_err(|error| Failure::io("inspect removal", path, error))?;
+        let parent = Writable::new(path.parent().expect("removal parent"));
+        let result = self
+            .remove_tree(path, self.target_relative(path), &metadata, &parent, true)
+            .and_then(|(progress, retained)| {
+                if retained {
+                    let mut failure = Failure::invalid("replace directory", path, "target subtree retained by policy");
+                    failure.completed = progress;
+                    Err(failure)
+                } else {
+                    Ok(progress)
+                }
+            });
+        parent.finish(result)
+    }
+
+    /// Local read-only precheck for directory -> leaf. Root presence grants
+    /// replacement authority for its own name, not for target-only descendants.
+    fn removable(&self, path: &Path, relative: &Path, root: bool) -> Result<(), Failure> {
+        if (S::ENABLED && self.scope.at(relative) == diff_dirs::Visit::PreserveTree) || (!root && !self.absence.remove(relative)) {
+            return Err(Failure::invalid(
+                "replace directory",
+                path,
+                "target descendant retained by scope or absence authority",
+            ));
+        }
+        let metadata = fs::symlink_metadata(path).map_err(|error| Failure::io("inspect replacement subtree", path, error))?;
+        self.observe(path, Side::Target, Purpose::Remove, &metadata, None)?;
+        if metadata_kind(path, &metadata)? == Kind::Directory {
+            for name in children(path)? {
+                self.removable(&path.join(&name), &relative.join(name), false)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn remove_tree(&self, path: &Path, relative: &Path, metadata: &Metadata, parent: &Writable<'_>, force_root: bool) -> Result<(Progress, bool), Failure> {
+        if !self.admit(relative) {
+            return Ok((Progress::default(), true));
+        }
         self.observe(path, Side::Target, Purpose::Remove, metadata, None)?;
+        if !force_root && A::NEVER {
+            self.retained.fetch_add(1, Ordering::Relaxed);
+            return Ok((Progress::default(), true));
+        }
+        let authorized = force_root || self.absence.remove(relative);
         match metadata_kind(path, metadata)? {
             Kind::Directory => {
-                let (permissions, relaxed) = relax_with(path, metadata.permissions())?;
+                let writable = Writable::new(path);
+                let mut retained = !authorized;
                 let result = (|| {
+                    // Privately owned failed preparations can be mode 000.
+                    // Only cleanup may relax for inspection, never caller data.
+                    if self.owned_cleanup {
+                        writable.ensure()?;
+                    }
                     let mut progress = Progress::default();
                     for name in children(path)? {
-                        match self.remove(&path.join(name)) {
-                            Ok(done) => progress += done,
+                        let child = path.join(&name);
+                        let relative = relative.join(name);
+                        if S::ENABLED && self.scope.at(&relative) == diff_dirs::Visit::PreserveTree {
+                            self.excluded.fetch_add(1, Ordering::Relaxed);
+                            retained = true;
+                            continue;
+                        }
+                        let metadata = fs::symlink_metadata(&child).map_err(|error| {
+                            let mut failure = Failure::io("inspect removal", &child, error);
+                            failure.completed = progress.clone();
+                            failure
+                        })?;
+                        match self.remove_tree(&child, &relative, &metadata, &writable, false) {
+                            Ok((done, kept)) => {
+                                progress += done;
+                                retained |= kept;
+                            }
                             Err(mut failure) => {
                                 failure.completed += progress;
                                 return Err(failure);
                             }
                         }
+                    }
+                    if retained {
+                        self.retained.fetch_add(1, Ordering::Relaxed);
+                        return Ok(progress);
+                    }
+                    // Removing the directory mutates its parent, not itself.
+                    if let Err(mut failure) = parent.ensure() {
+                        failure.completed += progress;
+                        return Err(failure);
                     }
                     fs::remove_dir(path).map_err(|error| {
                         let mut failure = Failure::io("remove directory", path, error);
@@ -512,36 +700,34 @@ impl<'a, C: Check> Context<'a, C> {
                     progress.directories_removed += 1;
                     Ok(progress)
                 })();
-                // On failure, restore surviving directories; on success none remains.
-                if result.is_err() {
-                    finish_permissions(result, path, permissions, relaxed, true)
+                let result = if retained || result.is_err() {
+                    writable.finish(result)
                 } else {
-                    let mut result = result;
-                    if relaxed {
-                        add_progress(
-                            &mut result,
-                            Progress {
-                                directory_permissions_set: 1,
-                                ..Progress::default()
-                            },
-                        );
-                    }
-                    result
-                }
+                    writable.removed(result)
+                };
+                result.map(|progress| (progress, retained))
             }
             kind => {
+                if !authorized {
+                    self.retained.fetch_add(1, Ordering::Relaxed);
+                    return Ok((Progress::default(), true));
+                }
+                parent.ensure()?;
                 platform::remove_leaf(path, metadata).map_err(|error| Failure::io("remove leaf", path, error))?;
-                Ok(if kind == Kind::Symlink {
-                    Progress {
-                        symlinks_removed: 1,
-                        ..Progress::default()
-                    }
-                } else {
-                    Progress {
-                        files_removed: 1,
-                        ..Progress::default()
-                    }
-                })
+                Ok((
+                    if kind == Kind::Symlink {
+                        Progress {
+                            symlinks_removed: 1,
+                            ..Progress::default()
+                        }
+                    } else {
+                        Progress {
+                            files_removed: 1,
+                            ..Progress::default()
+                        }
+                    },
+                    false,
+                ))
             }
         }
     }
@@ -558,6 +744,149 @@ fn children(path: &Path) -> Result<Vec<std::ffi::OsString>, Failure> {
         .collect::<Result<Vec<_>, _>>()?;
     names.sort_unstable_by(|a, b| a.as_encoded_bytes().cmp(b.as_encoded_bytes()));
     Ok(names)
+}
+
+/// Explicit deletion of a bound container's contents; the container is never
+/// removed. Not a missing-source mirror or a fabricated comparison record.
+pub fn clear<S: Scope, C: Check>(target: impl AsRef<Path>, scope: S, check: C) -> Result<Report, Failure> {
+    let target = paths::root(target.as_ref(), false)?;
+    let context = Context::checked(CopyPolicy::Copy, false, &target, &target, &check, &scope, &RemoveAll);
+    let metadata = paths::directory(&target)?;
+    context.observe(&target, Side::Target, Purpose::Remove, &metadata, None)?;
+    let result = (|| {
+        if !context.included(Path::new("")) {
+            return Ok(Progress::default());
+        }
+        let writable = Writable::new(&target);
+        let result = (|| {
+            let mut progress = Progress::default();
+            for name in children(&target)? {
+                if !context.included(Path::new(&name)) {
+                    continue;
+                }
+                let path = target.join(&name);
+                let done = (|| {
+                    let metadata = fs::symlink_metadata(&path).map_err(|error| Failure::io("inspect clear entry", &path, error))?;
+                    context.remove_tree(&path, Path::new(&name), &metadata, &writable, false).map(|(done, _)| done)
+                })();
+                match done {
+                    Ok(done) => progress += done,
+                    Err(mut failure) => {
+                        failure.completed += progress;
+                        return Err(failure);
+                    }
+                }
+            }
+            Ok(progress)
+        })();
+        writable.finish(result)
+    })();
+    context.finish(result)
+}
+
+/// Install only explicitly listed relative regular-file/symlink leaves into an
+/// existing real target directory. Destinations must be absent. No source
+/// directories are enumerated and no metadata supplied by callers is trusted.
+pub fn seed_leaves<I, P, C>(original: impl AsRef<Path>, target: impl AsRef<Path>, leaves: I, policy: CopyPolicy, check: C) -> Result<Progress, Failure>
+where
+    I: IntoIterator<Item = P>,
+    P: AsRef<Path>,
+    C: Check,
+{
+    let binding = Applier::new_checked(original, target, policy, check)?;
+    paths::directory(binding.target())?;
+    let context = Context::checked(policy, false, binding.original(), binding.target(), binding.check(), &NoScope, &RemoveAll);
+    let mut completed = Progress::default();
+    for leaf in leaves {
+        let relative = leaf.as_ref();
+        let result = (|| {
+            if relative.as_os_str().is_empty() || relative.components().any(|part| !matches!(part, std::path::Component::Normal(_))) {
+                return Err(Failure::invalid(
+                    "seed relative path",
+                    relative,
+                    "expected a nonempty normal relative leaf path",
+                ));
+            }
+            let parent = relative.parent().expect("relative leaf parent");
+            let source_parent = context.relative(binding.original(), parent, Side::Original, Purpose::Copy)?;
+            let from = source_parent.join(relative.file_name().unwrap());
+            let source = inspect(&context, &from, Side::Original, Purpose::Copy)?.ok_or_else(|| {
+                Failure::io(
+                    "seed source missing",
+                    &from,
+                    io::Error::new(io::ErrorKind::NotFound, "listed source leaf is absent"),
+                )
+            })?;
+            if source.metadata.is_dir() {
+                return Err(Failure::invalid("seed source type", &from, "listed source must be a regular file or symlink"));
+            }
+            let mut to_parent = binding.target().to_path_buf();
+            let root_metadata = paths::directory(&to_parent)?;
+            context.observe(&to_parent, Side::Target, Purpose::Copy, &root_metadata, None)?;
+            let mut created = Progress::default();
+            let install = (|| {
+                for component in parent.components() {
+                    let child = to_parent.join(component);
+                    let metadata = match fs::symlink_metadata(&child) {
+                        Ok(metadata) => {
+                            if !metadata.is_dir() {
+                                return Err(Failure::invalid("seed target ancestor", &child, "expected real directory"));
+                            }
+                            metadata
+                        }
+                        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                            let writable = Writable::new(&to_parent);
+                            let result = (|| {
+                                writable.ensure()?;
+                                fs::create_dir(&child).map_err(|error| Failure::io("seed create parent", &child, error))?;
+                                Ok(Progress {
+                                    directories_created: 1,
+                                    ..Progress::default()
+                                })
+                            })();
+                            created += writable.finish(result)?;
+                            // Like recursive copy, newly created output parents
+                            // are not fabricated observed-entry certificates.
+                            to_parent = child;
+                            continue;
+                        }
+                        Err(error) => return Err(Failure::io("seed target ancestor", &child, error)),
+                    };
+                    context.observe(&child, Side::Target, Purpose::Copy, &metadata, None)?;
+                    to_parent = child;
+                }
+                let to = to_parent.join(relative.file_name().unwrap());
+                if paths::exists(&to)? {
+                    return Err(Failure::io(
+                        "seed destination exists",
+                        &to,
+                        io::Error::new(io::ErrorKind::AlreadyExists, "listed destination must be absent"),
+                    ));
+                }
+                let arena = Staging::new(&to_parent, std::iter::once(relative.file_name().unwrap()));
+                let result = (|| context.copy_leaf_with(&from, &to, false, &source.metadata, source.link.as_deref(), &arena.entry(0, &to)?))();
+                arena.finish(result, &context)
+            })();
+            match install {
+                Ok(mut progress) => {
+                    progress += created;
+                    Ok(progress)
+                }
+                Err(mut failure) => {
+                    failure.completed += created;
+                    Err(failure)
+                }
+            }
+        })();
+        match result {
+            Ok(done) => completed += done,
+            Err(mut failure) => {
+                failure.completed += completed;
+                return Err(failure);
+            }
+        }
+    }
+    Ok(completed)
 }
 
 fn preserve_file(output: &File, metadata: &Metadata, to: &Path) -> Result<(), Failure> {
@@ -585,6 +914,7 @@ struct Staging<'a> {
     parent: &'a Path,
     prefix: String,
     temporary: Mutex<Option<tempfile::TempDir>>,
+    writable: Writable<'a>,
 }
 
 impl<'a> Staging<'a> {
@@ -611,12 +941,14 @@ impl<'a> Staging<'a> {
             parent,
             prefix: format!(".diff-dirs-sync-{index}-"),
             temporary: Mutex::new(None),
+            writable: Writable::new(parent),
         }
     }
 
     fn entry(&self, index: usize, to: &Path) -> Result<PathBuf, Failure> {
         let mut temporary = self.temporary.lock().unwrap();
         if temporary.is_none() {
+            self.writable.ensure()?;
             let mut builder = tempfile::Builder::new();
             builder.prefix(&self.prefix);
             #[cfg(unix)]
@@ -637,8 +969,8 @@ impl<'a> Staging<'a> {
         Ok(temporary.as_ref().unwrap().path().join(index.to_string()))
     }
 
-    fn finish<C: Check>(self, result: Result<Progress, Failure>, context: &Context<'_, C>) -> Result<Progress, Failure> {
-        match self.temporary.into_inner().unwrap() {
+    fn finish<C: Check, S: Scope, A: Absence>(self, result: Result<Progress, Failure>, context: &Context<'_, C, S, A>) -> Result<Progress, Failure> {
+        let result = match self.temporary.into_inner().unwrap() {
             Some(temporary) => {
                 // A stopped sibling can leave a successfully prepared directory
                 // deliberately uninstalled. Only an unstopped successful batch
@@ -647,7 +979,64 @@ impl<'a> Staging<'a> {
                 cleanup(temporary, result, empty)
             }
             None => result,
+        };
+        self.writable.finish(result)
+    }
+}
+
+/// One deferred permission lease per joined sibling batch. Merely inspecting a
+/// retained subtree never chmods it. The mutex is never held across caller code.
+struct Writable<'a> {
+    path: &'a Path,
+    state: Mutex<Option<(Permissions, bool)>>,
+    enabled: bool,
+}
+
+impl<'a> Writable<'a> {
+    fn new(path: &'a Path) -> Self {
+        Self {
+            path,
+            state: Mutex::new(None),
+            enabled: true,
         }
+    }
+    fn unmanaged(path: &'a Path) -> Self {
+        Self {
+            path,
+            state: Mutex::new(None),
+            enabled: false,
+        }
+    }
+
+    fn ensure(&self) -> Result<(), Failure> {
+        if !self.enabled {
+            return Ok(());
+        }
+        let mut state = self.state.lock().unwrap();
+        if state.is_none() {
+            *state = Some(relax(self.path)?);
+        }
+        Ok(())
+    }
+
+    fn finish(self, result: Result<Progress, Failure>) -> Result<Progress, Failure> {
+        match self.state.into_inner().unwrap() {
+            Some((permissions, relaxed)) => finish_permissions(result, self.path, permissions, relaxed, true),
+            None => result,
+        }
+    }
+
+    fn removed(self, mut result: Result<Progress, Failure>) -> Result<Progress, Failure> {
+        if self.state.into_inner().unwrap().is_some_and(|(_, relaxed)| relaxed) {
+            add_progress(
+                &mut result,
+                Progress {
+                    directory_permissions_set: 1,
+                    ..Progress::default()
+                },
+            );
+        }
+        result
     }
 }
 

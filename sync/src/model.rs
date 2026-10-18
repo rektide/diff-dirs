@@ -50,9 +50,28 @@ impl AddAssign for Progress {
 #[derive(Debug)]
 pub struct Report {
     pub completed: Progress,
+    /// Policy completion is not a full-root equality certificate.
+    pub policy: Policy,
     /// None for absent-root initialization or explicit leaf-root replacement
     /// (there was no both-sided walk).
     pub observed: Option<diff_dirs::Summary>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Policy {
+    pub satisfied: bool,
+    /// Retained leaves, pruned NeverRemove branches, and structural containers.
+    pub retained: u64,
+    /// Excluded boundaries encountered during application, not subtree sizes.
+    /// Comparison exclusions are separately in `Report.observed`.
+    pub excluded: u64,
+}
+
+impl AddAssign for Policy {
+    fn add_assign(&mut self, rhs: Self) {
+        self.retained += rhs.retained;
+        self.excluded += rhs.excluded;
+    }
 }
 
 /// An operation/path and its original underlying cause. Paths are absolute
@@ -80,8 +99,10 @@ impl Error for Issue {
 /// errors. Not a transaction or a promise that only a serial prefix changed.
 #[derive(Debug)]
 pub struct Failure {
+    pub policy: Box<Policy>,
     pub primary: Box<Issue>,
-    pub secondary: Vec<Issue>,
+    /// Cold error details are boxed to keep streaming Result values compact.
+    pub secondary: Box<Vec<Issue>>,
     pub completed: Progress,
     pub observed: Option<Box<diff_dirs::Summary>>,
 }
@@ -89,12 +110,13 @@ pub struct Failure {
 impl Failure {
     pub(crate) fn io(operation: &'static str, path: &Path, cause: io::Error) -> Self {
         Self {
+            policy: Box::default(),
             primary: Box::new(Issue {
                 operation,
                 path: path.to_path_buf(),
                 cause: Box::new(cause),
             }),
-            secondary: Vec::new(),
+            secondary: Box::default(),
             completed: Progress::default(),
             observed: None,
         }
@@ -115,21 +137,23 @@ impl Failure {
     fn from_check_error(operation: &'static str, cause: diff_dirs::Error) -> Self {
         let path = cause.path().to_path_buf();
         Self {
+            policy: Box::default(),
             primary: Box::new(Issue {
                 operation,
                 path,
                 cause: Box::new(cause),
             }),
-            secondary: Vec::new(),
+            secondary: Box::default(),
             completed: Progress::default(),
             observed: None,
         }
     }
 
     pub(crate) fn append(&mut self, other: Self) {
+        *self.policy += *other.policy;
         self.completed += other.completed;
         self.secondary.push(*other.primary);
-        self.secondary.extend(other.secondary);
+        self.secondary.extend(*other.secondary);
     }
 }
 

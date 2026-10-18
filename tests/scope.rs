@@ -1,6 +1,6 @@
 mod support;
 
-use diff_dirs::{CheckError, Entry, NoCheck, Scope, Visit};
+use diff_dirs::{CheckError, Entry, NoCheck, Visit};
 use std::path::Path;
 use support::{Fixture, file};
 
@@ -33,7 +33,7 @@ fn scope_is_pair_wide_and_precedes_observation_of_equal_and_one_sided_names() {
     std::fs::remove_dir_all(f.original.join("private")).unwrap();
     let mut walk = diff_dirs::walk_scoped(&f.original, &f.target, NoCheck, scope).unwrap();
     assert!(walk.next().is_none()); // hidden source absence is not a removal
-    assert!(!scope.includes(Path::new("private/fabricated/reincluded")));
+    assert!(!diff_dirs::scope_includes(&scope, Path::new("private/fabricated/reincluded")));
 }
 
 #[cfg(unix)]
@@ -43,7 +43,7 @@ fn excluded_special_entries_and_unreadable_interiors_are_not_inspected() {
     let f = Fixture::new();
     let _socket = std::os::unix::net::UnixListener::bind(f.original.join("private")).unwrap();
     std::fs::create_dir(f.target.join("private")).unwrap();
-    std::fs::set_permissions(f.target.join("private"), std::fs::Permissions::from_mode(0)).unwrap();
+    std::fs::set_permissions(f.target.join("private"), std::fs::Permissions::from_mode(0o000)).unwrap();
     let mut walk = diff_dirs::walk_scoped(&f.original, &f.target, NoCheck, scope).unwrap();
     assert!(walk.next().is_none());
     let audit = diff_dirs::audit_scoped(&f.original, diff_dirs::Side::Original, &NoCheck, &scope).unwrap();
