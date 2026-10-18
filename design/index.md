@@ -6,6 +6,8 @@ resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 sources:
+  - resource: "opencode://ses_eb335933bffeUeaPkxqOtKDOWi"
+    title: Linked the paused runtime refactor assessment and smaller two-crate option without changing the implemented contract
   - resource: "opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg"
     title: Linked accepted frontier implementation, bounds/liveness verification, and measured single-root scale-out while preserving independent designs and baseline reports
   - resource: "opencode://ses_eb37f1883ffeZ8HgL0aFBFJf4R"
@@ -72,3 +74,11 @@ The [root specification](../README.md) owns the current public contract.
   review choices. Includes a repeatable many-small-directory single-root win.
 - [Raw frontier observations](../perf/results/frontier/README.md): all 495 timing
   observations plus separate physical diagnostics, resources, and fresh census.
+
+## Runtime separation — scope under discussion, not implemented
+
+- [Runtime seam assessment](implementation/refactor0.sol61h.md): recommends a
+  pure engine module in the existing runtime-free library plus a separate Rayon
+  crate; explains when a distinct pure-core package earns its cost and why a
+  Tokio blocking-task adapter is not native asynchronous filesystem I/O. Retains
+  the larger initial proposal, paused before code changes pending user selection.

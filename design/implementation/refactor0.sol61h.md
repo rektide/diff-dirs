@@ -1,13 +1,13 @@
 ---
 type: ImplementationDesign
-title: Runtime-neutral frontier and separate blocking runtime drivers
-description: Package graph, extracted job protocol, cancellation boundary, and migration for serial, Rayon, and Tokio directory comparison.
+title: Runtime-neutral seams — scope assessment and paused larger proposal
+description: Recommends a pure engine module and separate Rayon crate; preserves the unimplemented larger package/Tokio proposal for comparison.
 resource: /design/implementation/refactor0.sol61h.md
-status: implementation-in-progress
+status: assessment-awaiting-scope-selection
 generated: { by: "model:openai/gpt-6.1-sol#high", at: 2026-10-18 }
 sources:
   - resource: opencode://ses_eb335933bffeUeaPkxqOtKDOWi
-    title: Selected runtime-neutral package boundaries and cancellation protocol; implementing and verifying the extraction and adapters
+    title: Recorded the initial larger proposal, paused before code changes on user direction, and assessed a smaller two-crate scope and Tokio costs
   - resource: /design/concurrency/design0.gpt6am.md
     title: Existing ordered reducer, demand reserve, seals, and completion-driven admission design
   - resource: /design/implementation/implementation1.sol61x.md
@@ -18,7 +18,96 @@ sources:
     title: Existing comparison, native-name, prefix-summary, and mutation contracts
 ---
 
-# Selected package graph
+# Current recommendation — smallest useful separation
+
+**Production implementation is paused.** The user questioned the larger scope
+and specifically did not want bounded blocking I/O disguised as async. No
+production code, manifest, test, package, or runtime dependency has changed.
+The original plan below is preserved as a proposal, not accepted direction.
+
+Prefer **two library crates**, keeping the current root package/layout:
+
+```text
+diff-dirs (existing root)
+  model + pure engine module
+  shared std filesystem inspector + existing serial driver
+
+rayon/ (diff-dirs-rayon)
+  depends on diff-dirs + Rayon
+  borrowed caller pool + completion-driven joined directory jobs
+```
+
+This separates runtime *dependencies* without making every conceptual module a
+package. Move mutex/scope dispatch and pool-derived defaults to the Rayon crate;
+extract the existing tested reducer/admission into a filesystem-free engine
+module. Keep root validation, native metadata/readlink, and immediate filesystem
+inspection shared in diff-dirs. Retain the proven serial implementation initially;
+unifying it onto the frontier is a separate optional change, not needed to isolate
+Rayon. No root move to `fs/`, virtual-workspace migration, or perf package is
+necessary. Existing CLI stays serial; its manifest's unused parallel passthrough
+can be deliberately migrated with the adapter change.
+
+The necessary public sibling seam is a narrowly documented adapter-facing module:
+opaque directory job IDs/paths, owned comparison result, bounded admission and
+ordered reduction, acknowledgment/prune, and prefix-summary operations; plus the
+shared blocking inspector. Core limits should be runtime-neutral (`Limits`),
+with pool-derived policy a Rayon helper. Keep test clocks, worker IDs, and locks
+outside the pure engine. This is meaningful sans-I/O at the **module** level;
+it does not claim that the entire diff-dirs crate contains no filesystem code.
+Avoid general executor traits or exposing arena internals.
+
+### Why not separate core/fs now?
+
+A third pure-core crate earns its boundary when there is an actual non-std
+filesystem backend, simulated/in-memory consumer needing core alone, or a firm
+requirement to enforce absence of filesystem implementation via the dependency
+graph. It buys stronger packaging enforcement and independent reuse; it does
+not improve traversal throughput, remove the public adapter seam, or make std
+metadata portable to a different runtime. Today a pure module with simulated
+completion tests obtains the useful algorithmic separation with less API and
+manifest churn. A module can move to a core crate later without replacing its
+protocol. Neither option entails `no_std`: native paths and SystemTime remain
+part of the existing model.
+
+### What would Tokio actually add?
+
+The previously proposed Tokio adapter is **not a native asynchronous filesystem
+backend**. It runs the same blocking std calls, adding runtime blocking tasks,
+join ownership, wakeups, per-directory submission, and cancellation state.
+Its distinct benefits would be async per-record consumption, caller-runtime
+integration, and parallel directory jobs without a Rayon dependency. None is
+an established need here, and none makes filesystem syscalls cancellable.
+
+For a caller needing only a final report, wrapping an entire serial or Rayon
+comparison in one application-owned `spawn_blocking` is the smaller integration.
+One blocking caller can drive the existing borrowed-pool traversal; there is no
+need for a blocking task per directory. It blocks no event-loop worker, but
+cancelling its async waiter does not stop the operation. A caller needing record
+streaming must additionally own a worker/task and a bounded decision handshake,
+or move an owned walk in/out of per-epoch blocking tasks. Those are real lifecycle
+requirements, not a reason to assume that a full Tokio library is already needed.
+
+A Tokio adapter's extra cancellation bookkeeping can preserve a walk across
+cancelled `next` futures and provide async drain, but started blocking jobs still
+run. Joining before every successful yield adds wakeup/drain costs; dropping the
+whole walk cannot promise synchronous quiescence without blocking the runtime.
+It relocates these responsibilities from application to library, rather than
+solving blocking I/O. A true native-async backend would be a different,
+platform-sensitive project requiring concrete syscall/library evidence, not
+relabeling `spawn_blocking` or `tokio::fs` as native async.
+
+**Proportionate next choice:** authorize only the pure module + separate Rayon
+crate if dependency isolation is wanted now. Preserve serial behavior, existing
+frontier tests and performance controls; verify no Rayon in diff-dirs's dependency
+tree and parity/performance after extraction. Defer Tokio and extra package
+boundaries until a concrete consumer justifies them. An even smaller first
+checkpoint is extracting the pure module within the current package before
+deciding whether to move Rayon to a sibling crate. No option is implemented by
+this assessment.
+
+# Preserved initial larger proposal — not selected
+
+## Package graph originally proposed
 
 Use a virtual workspace, not a root facade:
 
