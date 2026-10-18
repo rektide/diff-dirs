@@ -39,10 +39,10 @@ The [root specification](../README.md) owns the current public contract.
 - [Fit assessment](fit/fit0.glm53m.md): jj-waltz's payload seam, the earlier
   deletion that integration must address, and initial contract contradictions.
 - [Integration handoff](fit/handoff0.glm53m.md): parent assessment of the
-  built workspace from the consumer's seat — the still-inverted Model
-  direction bullet, warm-versus-cold walk expectations, the load-bearing
-  guard composition, the concrete Option-B wiring plan with the sync
-  `Applier`, and integration-level suggestions beyond the inventories.
+  built workspace from the consumer's seat — warm-versus-cold walk
+  measurements, the recursive load-bearing guard composition, the concrete
+  Option-B wiring plan with the sync `Applier`, and integration-level
+  suggestions beyond the inventories.
 - [I/O assessment](fit/io0.glm53m.md): std, async wrappers, filesystem libraries,
   and the concrete sequential jj-waltz execution path. Jujutsu itself is a
   subprocess, not an embedded runtime dependency.

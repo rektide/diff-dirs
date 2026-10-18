@@ -1,7 +1,7 @@
 ---
 type: MaintenanceHandoff
 title: "diff-dirs integration handoff: assessment, jj-waltz wiring plan, and integration-level follow-ups"
-description: Parent assessment of the built workspace (core walker, sync applier, frontier, perf corpus) from the integrating consumer's seat — verified green, one README contradiction still live, cold-cache walk variance recorded, and the concrete Option-B integration plan with load-bearing composition guards and new integration-level suggestions not covered by the existing opportunity inventories.
+description: Parent assessment of the built workspace (core walker, sync applier, frontier, perf corpus) from the integrating consumer's seat — verified green with warm walk measurements and cold-cache variance recorded, direction semantics confirmed already-correct, the recursive guard composition documented as load-bearing, and the concrete Option-B integration plan with integration-level suggestions beyond the existing opportunity inventories.
 resource: /design/fit/handoff0.glm53m.md
 tags: [diff-dirs, jj-waltz, integration, handoff, reseed, payload]
 status: draft
@@ -60,33 +60,40 @@ loop" shape the engine needs.
 
 ## Findings requiring decisions or adjustment
 
-1. **The README Model direction bullet is still inverted (fit0 C1, never
-   landed).** Code ([pair.rs](../../src/pair.rs) `one_sided`: original-only
-   → added, target-only → removed), both use cases, and the sync crate all
-   implement *added = copy in, removed = prune*. The Model section states the
-   opposite two definitions. Since the README claims precedence over code,
-   this one bullet should get fit0's two-word swap — ratify and land it; the
-   code is the useful semantics and nothing else agrees with the bullet.
+1. **README direction semantics — verified already correct (corrects this
+   handoff's first draft).** The first draft claimed fit0's C1 inversion was
+   still live; re-reading the current Model section shows the builders landed
+   the amendment: "Added" = original-only (copy to target), "removed" =
+   target-only (delete from target), agreeing with code, use cases, and
+   sync. No action required.
 2. **Warm versus cold walk expectations.** Controlled live measurement
    ([performance0](../performance/performance0.sol61x.md)): paired
    `node_modules` walk, 22,828 directory pairs, **median 1,033 ms** warm,
-   n=5. This handoff's independent single run of the release CLI on the same
-   scope (donor vs the `perfprobe` scratch workspace, quiet-reporting clean,
-   exit 0): **13.9 s wall at 20% CPU** — IO-bound, cold-cache after a day of
-   pool churn. Both numbers are real; integration expectation-setting should
-   quote the controlled warm median and name cold-cache variance explicitly
-   (the Positioning section's "~1–2 s" is the warm figure only). The frontier
-   exists for the latency-sensitive case, with its own measured caveats
-   (default-K saturation, CPU/memory costs; wins need explicit J/K).
-3. **Load-bearing composition with jj-waltz's guards.** `sync` has **no**
-   `.git`/`.jj`/mount exclusions by design. That is safe under jj-waltz only
-   because jj-waltz validates first: selection-time donor payload
-   `validate_tree` (admin entries at any depth) and execute-time
-   `validate_contents` over the whole target tree (admin/special/mount). If
-   jj-waltz ever relaxed those, sync would sweep a nested `.git` in target
-   payload as a target-only deletion. Record this dependency in the
-   integration's comments and docs; do not "simplify" the validations away
-   as redundant with the walk.
+   n=5. This handoff's runs of the release CLI on the same scope (donor vs
+   the `perfprobe` scratch workspace, clean, exit 0): first run after cache
+   eviction **11.4–13.9 s wall at ~20% CPU** (IO-bound), followed
+   immediately by **0.71 s and 0.68 s** — warm steady-state beats even the
+   corpus median. Acceptable for integration: the cold case is a read-only
+   outlier that still undercuts the ~15–18 s destructive churn it replaces,
+   and in the integrated flow jj-waltz's own pre-validation walks
+   (`validate_contents` over the target, donor payload `validate_tree`)
+   touch the same directories immediately before the diff walk, pre-warming
+   it. The Positioning section's "~1–2 s" should still be labeled as the
+   warm figure. The frontier remains the option if cold latency ever
+   matters, with its measured J/K caveats.
+3. **Load-bearing composition with jj-waltz's guards — recursive, not
+   root-only.** `sync` has **no** `.git`/`.jj`/mount exclusions by design.
+   Root-only checking is not safe: administrative entries appear at any
+   depth (a `.git` inside a git-dependency checkout under `node_modules`,
+   test fixtures), and mount points can be nested. jj-waltz already recurses
+   on both sides — selection-time donor payload `validate_tree` (admin
+   entries at any depth) and execute-time `validate_contents` over the whole
+   target tree (admin/special plus `validate_same_mount` with statx mount
+   IDs at every level). That composition is the safety story: if jj-waltz
+   ever relaxed those recursive validations, sync would sweep a nested
+   `.git` in target payload as a target-only deletion. Record the
+   dependency in the integration's comments and docs; do not "simplify" the
+   validations away as redundant with the walk.
 
 ## jj-waltz integration plan (Option B, now concrete)
 
@@ -164,5 +171,6 @@ inventories; these are compositions, not new library capabilities:
 - `cargo build --release -p diff-dirs-cli`: clean.
 - Release CLI, live pair `~/a/a/opencode/node_modules` vs
   `~/src/opencode-perfprobe/node_modules`: complete, clean, exit 0,
-  22,828 directories examined, 13.9 s wall (single cold run; controlled warm
-  median 1,033 ms in performance0). No live tree was mutated.
+  22,828 directories examined. Cold first run 13.9 s (prior day) / 11.4 s
+  (this session); immediate warm repeats **0.71 s / 0.68 s**. Controlled
+  warm median 1,033 ms in performance0. No live tree was mutated.
