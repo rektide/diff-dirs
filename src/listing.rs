@@ -52,6 +52,19 @@ mod backend {
         }
     }
 
+    // linux_dirent64.d_reclen is u16. Twice its representable range comfortably
+    // fits a whole record even after RawDir trims for alignment. EINVAL need not
+    // mean "buffer too small", so do not keep allocating after this limit.
+    const MAX_BUFFER: usize = 2 * (u16::MAX as usize + 1);
+
+    fn grow_buffer(buffer: &mut Vec<MaybeUninit<u8>>, path: &Path, error: rustix::io::Errno) -> Result<(), Error> {
+        if buffer.len() >= MAX_BUFFER {
+            return Err(Error::io(path.to_path_buf(), "read directory entry", error.into()));
+        }
+        buffer.resize((buffer.len() * 2).min(MAX_BUFFER), MaybeUninit::uninit());
+        Ok(())
+    }
+
     pub(super) fn read(path: &Path) -> Result<Vec<Entry>, Error> {
         let parent = Arc::new(Parent {
             dir: Dir::open(path).map_err(|e| Error::io(path.to_path_buf(), "read directory", e))?,
@@ -60,15 +73,15 @@ mod backend {
         let mut entries = Vec::new();
         let mut buffer = vec![MaybeUninit::uninit(); 8192];
         // RawDir owns parsing and returns cached d_type/ino without stat fallback.
-        // On EINVAL grow and continue from the same directory offset, as its API
-        // specifies; never restart the listing or pair it with a std listing.
+        // On EINVAL grow up to MAX_BUFFER and continue from the same directory
+        // offset, as its API specifies; never restart or pair with a std listing.
         loop {
             let mut raw = rustix::fs::RawDir::new(&parent.dir, &mut buffer);
-            let grow = loop {
+            let error = loop {
                 let entry = match raw.next() {
-                    None => break false,
+                    None => return Ok(entries),
                     Some(Err(rustix::io::Errno::INTR)) => continue,
-                    Some(Err(rustix::io::Errno::INVAL)) => break true,
+                    Some(Err(e @ rustix::io::Errno::INVAL)) => break e,
                     Some(Err(e)) => return Err(Error::io(path.to_path_buf(), "read directory entry", e.into())),
                     Some(Ok(entry)) => entry,
                 };
@@ -86,10 +99,51 @@ mod backend {
                 };
                 entries.push(Entry::new(handle, hints));
             };
-            if !grow {
-                return Ok(entries);
+            grow_buffer(&mut buffer, path, error)?;
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn too_small_buffer_can_grow_to_fit_a_maximum_length_record() {
+            let mut buffer = vec![MaybeUninit::uninit(); 8192];
+            // Simulate a backend rejecting buffers smaller than its record.
+            // No filesystem or large fixture is involved.
+            while buffer.len() < usize::from(u16::MAX) {
+                grow_buffer(&mut buffer, Path::new("owned-directory"), rustix::io::Errno::INVAL).unwrap();
             }
-            buffer.resize(buffer.len().checked_mul(2).expect("directory buffer capacity overflow"), MaybeUninit::uninit());
+            assert_eq!(buffer.len(), 65536);
+            assert!(buffer.len() <= MAX_BUFFER);
+        }
+
+        #[test]
+        fn persistent_einval_stops_at_the_bound_with_the_original_directory_error() {
+            let path = Path::new("owned-directory");
+            let mut buffer = vec![MaybeUninit::uninit(); 8192];
+            let mut attempted = Vec::new();
+            let error = loop {
+                attempted.push(buffer.len());
+                match grow_buffer(&mut buffer, path, rustix::io::Errno::INVAL) {
+                    Ok(()) => continue,
+                    Err(error) => break error,
+                }
+            };
+            assert_eq!(attempted, [8192, 16384, 32768, 65536, 131072]);
+            assert_eq!(buffer.len(), MAX_BUFFER);
+            let Error::Io {
+                path: actual,
+                operation,
+                source,
+            } = error
+            else {
+                panic!("expected original I/O error")
+            };
+            assert_eq!(actual, path);
+            assert_eq!(operation, "read directory entry");
+            assert_eq!(source.raw_os_error(), Some(rustix::io::Errno::INVAL.raw_os_error()));
         }
     }
 }

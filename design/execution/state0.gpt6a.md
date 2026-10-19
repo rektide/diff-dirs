@@ -8,7 +8,7 @@ generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-19 }
 updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
   - resource: "opencode://ses_ea9c65f5fffeyf5EYvFs581in4"
-    title: Implemented and verified per-side early facts, opt-in Linux RawDir plus std Dir, unknown completion, root reuse and recursive synchronization after the parent approved the backend boundary
+    title: Implemented and verified early facts and the approved opt-in Linux backend, then bounded EINVAL buffer growth in response to parent review
   - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
     title: Traced context fields, lifetimes and donor identities, then clarified enumeration-provided facts versus additional metadata I/O after the human's dirent question
   - resource: /design/performance/inspection0.sol61x.md#e2
@@ -22,6 +22,8 @@ sources:
     title: Single-pass default/native enumeration, cached hints, shared parent lifetime and deferred metadata
   - resource: "file:///home/rektide/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustix-1.1.5/src/fs/raw_dir.rs"
     title: Verified RawDir continuation and cached name, type and inode accessors
+  - resource: "file:///home/rektide/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.12.1/src/x86_64/general.rs"
+    title: Verified linux_dirent64's 16-bit d_reclen for the bounded EINVAL buffer-growth correction
   - resource: "file:///home/rektide/.rustup/toolchains/nightly-2026-10-14-x86_64-unknown-linux-gnu/share/doc/rust/html/src/std/sys/fs/unix/dir.rs.html#157"
     title: Verified std Dir no-follow basename-relative statx/fstatat implementation
   - resource: "file:///home/rektide/.rustup/toolchains/nightly-2026-10-14-x86_64-unknown-linux-gnu/share/doc/rust/html/src/std/fs.rs.html#2844"
@@ -126,6 +128,16 @@ supplies relative no-follow late metadata; no per-entry open+fstat is introduced
 Unknown hints do not invoke std's hidden `file_type()` metadata fallback. Full
 facts are fetched once only for admitted entries when not already cached. The
 Windows cache branch is source/API-grounded, not exercised platform evidence.
+
+Parent-review correction: EINVAL retries grow the 8 KiB buffer only to **128 KiB**.
+Linux `d_reclen` is 16-bit; this accommodates any representable record plus
+RawDir's alignment adjustment. Persistent EINVAL at that limit returns the
+original directory-read I/O error, path and cause instead of allocating without
+bound or panicking on arithmetic overflow. Normal listing/offset behavior and
+EINTR retries are unchanged. Two no-filesystem helper tests cover successful
+growth and persistent-EINVAL termination; five focused native observation tests,
+native/default core+sync checks, stable-default check, native clippy and formatting
+passed. The previously accepted full suites were not rerun for this correction.
 
 #### Verification of the early seam
 
