@@ -5,7 +5,7 @@ description: Reading paths through consumer fit, I/O research, implementation de
 resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
+updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-19 }
 sources:
   - resource: opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06
     title: Connected implemented early/late operation steering to maintained API/Rustdoc, semantic tests, and the earlier narrower gate and frontier precedents without promoting JW policy proposals
@@ -14,7 +14,7 @@ sources:
   - resource: "opencode://ses_eb24f98a3ffewdVqa9lao6tXQu"
     title: Connected implemented static checks, recursive guarded execution, full read-only audit and selected-root transitions to the earlier proposals and controlled performance evidence
   - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
-    title: Linked the independent shared-inspection-gate design and its jj-waltz integration map, with explicit recursive coverage and refusal-timing alternatives
+    title: Connected the earlier inspection-gate design and authored source-grounded execution/context-state reports with separate generic and JW consumer sections
   - resource: "opencode://ses_eb2c07f5cffe2uTLIC7b1rrD99"
     title: Connected implemented leaf ownership and batch staging to same-compiler controls, source-preservation and failure tests, syscall attribution and explicit negative performance cases
   - resource: "opencode://ses_eb3033c79ffeRIkn14uSNhs7O6"
@@ -42,6 +42,16 @@ sources:
 # Design and implementation evidence
 
 The [root specification](../README.md) owns the current public contract.
+
+## Current execution and state
+
+- [Net execution flow](execution/flow0.gpt6a.md): numbered library trace from
+  name union through early/late steering, finalized plans, recursive application
+  and results; a small generic consumer; and a separate current JW walkthrough.
+- [Context payloads and donor state](execution/state0.gpt6a.md): actual fields,
+  mutability, lifetimes, file-data/descriptor movement and reporting boundaries;
+  separate JW command, visitor, ignore-context and native JJ-state sections.
+  Distinguishes the running sparse-prefill protocol from the adoption experiment.
 
 ## Consumer fit and I/O
 

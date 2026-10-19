@@ -5,14 +5,14 @@ description: Generic deterministic directory comparison, consumer-driven reconci
 resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
+updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-19 }
 sources:
   - resource: opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06
     title: Implemented and refined early/late visitors, metadata-aware special preservation, honest comparison/coverage states, private DirEntry metadata retention, finalized execution, preview and tiny semantic verification
   - resource: /design/performance/inspection0.sol61x.md#e1
     title: Previously verified std DirEntry parent-fd-relative metadata and shared directory-handle lifetime, restored by the visitor refinement without a new measurement
   - resource: opencode://ses_eb262a81effea1HgF0pPS3f1sy
-    title: Parent commission conveying the revised human visitor interface and holding JW integration for library review
+    title: Commissioned and reviewed the visitor interface, then added dedicated source-grounded execution and context/donor-state reading paths
   - resource: opencode://ses_eaecf188affeV49Iu6kJOeHgsX
     title: Implemented pair-wide scope, scoped audit and honest coverage summaries; documented static check/scope specialization and disabled-policy obligations
   - resource: opencode://ses_eb24f98a3ffewdVqa9lao6tXQu
@@ -43,6 +43,10 @@ reflink-sync a payload, print a report, prune a mirror, or feed an audit.
 
 This README is the specification. Implementation follows it; when the README
 and code disagree, the README wins until deliberately revised.
+
+For a numbered walkthrough, see [net execution flow](design/execution/flow0.gpt6a.md)
+and [context payloads and donor state](design/execution/state0.gpt6a.md). Both keep
+the generic library, an example consumer, and JW-specific behavior separate.
 
 ## Positioning
 
