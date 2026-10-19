@@ -17,7 +17,11 @@ impl Fixture {
     pub fn new() -> Self {
         let tmp = Path::new("/tmp/opencode");
         let tmp = if tmp.is_dir() { tmp.to_path_buf() } else { std::env::temp_dir() };
-        let root = tmp.join(format!("diff-dirs-test-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+        Self::new_in(&tmp)
+    }
+
+    pub fn new_in(parent: &Path) -> Self {
+        let root = parent.join(format!("diff-dirs-test-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
         fs::create_dir(&root).unwrap();
         let original = root.join("original");
         let target = root.join("target");

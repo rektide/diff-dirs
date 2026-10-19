@@ -1399,4 +1399,38 @@ mod listing_tests {
         assert_eq!(plan.excluded(), 1);
         assert!(!plan.operations().entries()[0].descends());
     }
+
+    #[cfg(feature = "native-dirent")]
+    #[test]
+    fn real_cached_type_filter_performs_only_the_containing_directory_listing() {
+        struct Filter;
+        impl Visitor for Filter {
+            fn early(&self, names: &mut Names) -> Result<(), CheckError> {
+                for name in names.entries_mut() {
+                    let facts = name.source().unwrap();
+                    assert_eq!(facts.origin(), FactOrigin::Listing);
+                    assert!(facts.inode().is_some());
+                    assert_eq!(facts.kind(), if name.name() == "dir" { FileKind::Directory } else { FileKind::Symlink });
+                    assert!(name.target().is_none());
+                    name.preserve_tree();
+                }
+                Ok(())
+            }
+            fn late(&self, operations: &mut Operations) -> Result<(), CheckError> {
+                assert!(operations.entries().is_empty());
+                Ok(())
+            }
+        }
+        let scratch = Path::new(env!("CARGO_MANIFEST_DIR")).join(".test-agent/native-dirent");
+        fs::create_dir_all(&scratch).unwrap();
+        let f = crate::test_support::Fixture::new_in(&scratch);
+        fs::create_dir(f.original.join("dir")).unwrap();
+        std::os::unix::fs::symlink("missing", f.original.join("link")).unwrap();
+        // Markers are outside callbacks. The narrowly owned syscall proof can
+        // distinguish observation from fixture setup and cleanup without timings.
+        eprintln!("NATIVE_DIRENT_BEGIN");
+        let plan = inspect_directory(&f.original, &f.target, Path::new(""), Some(&f.original), None, Purpose::Copy, &Filter).unwrap();
+        eprintln!("NATIVE_DIRENT_END");
+        assert_eq!(plan.excluded(), 2);
+    }
 }
