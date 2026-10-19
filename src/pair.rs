@@ -141,6 +141,11 @@ pub(crate) mod tests {
         }
     }
     pub(crate) fn observe_worker() {
+        // Other unit tests inspect batches concurrently in this test process.
+        // Only this fixture's caller-owned pool participates in its gate/census.
+        if !std::thread::current().name().is_some_and(|name| name.starts_with("diff-dirs-caller-")) {
+            return;
+        }
         let gate = {
             let mut workers = WORKERS.lock().unwrap();
             workers.push((std::thread::current().name().unwrap_or("unnamed").to_string(), rayon::current_num_threads()));

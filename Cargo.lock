@@ -189,6 +189,7 @@ name = "diff-dirs"
 version = "0.1.0"
 dependencies = [
  "rayon",
+ "rustix",
 ]
 
 [[package]]

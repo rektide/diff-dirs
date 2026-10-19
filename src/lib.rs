@@ -1,3 +1,5 @@
+#![cfg_attr(all(target_os = "linux", feature = "native-dirent"), feature(dirfd))]
+
 //! Deterministic, metadata-based comparison of two existing directory trees.
 //!
 //! `original` is the source of truth: added entries need copying to `target`,
@@ -27,6 +29,7 @@
 mod audit;
 mod check;
 mod error;
+mod listing;
 mod model;
 mod pair;
 mod scope;
@@ -48,8 +51,8 @@ pub use error::Error;
 pub use model::{AddedRemoved, ChangedAddedRemoved, DirDiff, EntryCounts, Execution, ScanState, Summary, WalkOptions};
 pub use scope::{NoScope, Scope, ScopeRef, Visit, scope_includes};
 pub use visitor::{
-    Action, Admission, CheckedScope, Container, DirectoryPlan, Facts, Name, Names, NoVisitor, Operation, Operations, Presence, Visitor, VisitorRef,
-    inspect_directory, inspect_root, inspect_single_root,
+    Action, Admission, CheckedScope, Container, DirectoryPlan, EarlyFacts, FactOrigin, Facts, FileKind, Name, Names, NoVisitor, Operation, Operations,
+    Presence, Visitor, VisitorRef, inspect_directory, inspect_root, inspect_single_root,
 };
 #[doc(hidden)]
 #[cfg(feature = "parallel-bench")]
@@ -59,9 +62,9 @@ pub use walk::{
     walk_with_visitor,
 };
 
-#[cfg(all(test, feature = "parallel"))]
+#[cfg(test)]
 extern crate self as diff_dirs;
 
-#[cfg(all(test, feature = "parallel"))]
+#[cfg(test)]
 #[path = "../tests/support/mod.rs"]
 mod test_support;

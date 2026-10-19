@@ -5,8 +5,10 @@ description: Generic deterministic directory comparison, consumer-driven reconci
 resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-19 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
+  - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
+    title: Implemented immutable per-side early facts and the explicitly opt-in Linux native-dirent backend after the parent's architectural review
   - resource: opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06
     title: Implemented and refined early/late visitors, metadata-aware special preservation, honest comparison/coverage states, private DirEntry metadata retention, finalized execution, preview and tiny semantic verification
   - resource: /design/performance/inspection0.sol61x.md#e1
@@ -227,7 +229,9 @@ shared mutable scheduler. Every name initially participates; supported entries
 initially propose normal mirror work. Equal leaves remain no-ops.
 
 * `early(&mut Names)` sees the native-byte-sorted union of immediate basenames
-  and immutable `Presence::{SourceOnly,Both,TargetOnly}` from listings. It can
+  and immutable per-side [`EarlyFacts`](src/visitor.rs), plus
+  `Presence::{SourceOnly,Both,TargetOnly}` from listings. Available cached kind
+  and inode facts require no additional child observation I/O. It can
   `preserve_tree()` pair-wide or return a refusal, **before child metadata,
   readlink, checks, or entry into that subtree**. Presence is not erased to make
   a hidden source look absent. The containing listing and structural root checks
@@ -296,14 +300,17 @@ per-entry Check/metadata interleaving while retaining deterministic committed DF
 errors and zero counts for a failed directory. Only early can avoid an unwanted
 metadata/readlink failure; late preservation is not a premetadata filter.
 
-Listings retain their private `DirEntry` objects through union/admission instead
-of reconstructing child metadata lookups from full paths. Admitted entries use
-`DirEntry::metadata()` (no-follow); excluded entries are dropped uninspected.
+Listings retain private shared-parent handles through union/admission instead
+of reconstructing child metadata lookups from full paths. Default admitted entries
+use `DirEntry::metadata()` (no-follow); native Linux uses
+`Dir::symlink_metadata(basename)`. Excluded entries are dropped uninspected.
 Handles are released after needed metadata/literal links are collected, before
 late/publication, and never enter frontier plans. This preserves std's existing
 [Linux directory-relative metadata path](design/performance/inspection0.sol61x.md#e1),
-not a new backend or a measured speedup. Readlink remains literal and path-based;
-stable caller-owned trees are still required.
+also in the [opt-in native backend](#optional-cached-linux-dirents), without a
+measured speedup claim. Enumeration-cached full metadata (Windows) is reused;
+otherwise admitted sides obtain full metadata once, even when kind was Unknown.
+Readlink remains literal and path-based; stable caller-owned trees are required.
 
 `DirectoryPlan.diff()` and `Summary.counts` retain baseline observed comparison;
 `DirectoryPlan.work()` and `Summary.planned` count immediate proposed namespace
@@ -546,6 +553,27 @@ when the feature is compiled in.
 The separate `cli/` workspace member owns standalone rendering dependencies.
 The separate `sync/` member owns optional filesystem mutation and its dependencies.
 Path dependency vs vendoring vs publishing remains an integration decision.
+
+### Optional cached Linux dirents
+
+`native-dirent` enables rustix's single-pass raw Linux listing and the experimental
+`std::fs::Dir` API (`dirfd`): **Linux builds with this feature require nightly**.
+It exposes cached type/inode hints to early visitors without hidden stat fallback,
+and retains one shared parent descriptor for admitted relative metadata. Enable
+with `cargo test -p diff-dirs --features native-dirent`, or add
+`features = ["native-dirent"]` to the embedding `diff-dirs` dependency. To exercise
+sync with it: `cargo test -p diff-dirs-sync --features diff-dirs/native-dirent`.
+There is no toolchain pin or default compiler-baseline change. On non-Linux the
+feature leaves the std backend in use.
+
+`Name::source()` / `target()` return `Option<&EarlyFacts>`: None is absent;
+Some with `FileKind::Unknown` is present but its type is unavailable. Facts expose
+`kind()`, optional `inode()`, and `origin()`. Default Unix listings expose inode
+but conservatively leave kind Unknown; std's `file_type()` can stat on DT_UNKNOWN
+and is never used to fill early hints. Native Linux exposes actual cached d_type,
+including Unknown. Windows std uses cached enumeration metadata, reused late.
+Structural roots reuse mandatory metadata (`FactOrigin::RootMetadata`), not
+listing facts. These hints are neither full stat nor equality/replacement proof.
 
 jj-waltz is a prospective consumer, not changed by this library implementation.
 Its integration must preserve selected payload roots through earlier cleanup

@@ -27,6 +27,126 @@ pub enum Admission {
     PreserveTree,
 }
 
+/// No-follow kind hint. Unknown means unavailable/unknown, never an absent side.
+/// A listing hint is not full stat data, equality proof, or protection against
+/// concurrent replacement. Admitted entries still obtain required late facts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FileKind {
+    Unknown,
+    Directory,
+    RegularFile,
+    Symlink,
+    Fifo,
+    Socket,
+    BlockDevice,
+    CharacterDevice,
+    /// A known kind not represented by another variant.
+    Other,
+}
+
+impl FileKind {
+    pub(crate) fn from_metadata(metadata: &Metadata) -> Self {
+        let kind = metadata.file_type();
+        if kind.is_dir() {
+            return Self::Directory;
+        }
+        if kind.is_file() {
+            return Self::RegularFile;
+        }
+        if kind.is_symlink() {
+            return Self::Symlink;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::FileTypeExt;
+            if kind.is_fifo() {
+                return Self::Fifo;
+            }
+            if kind.is_socket() {
+                return Self::Socket;
+            }
+            if kind.is_block_device() {
+                return Self::BlockDevice;
+            }
+            if kind.is_char_device() {
+                return Self::CharacterDevice;
+            }
+        }
+        Self::Other
+    }
+}
+
+/// Where early facts came from; root binding is not a child directory listing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FactOrigin {
+    /// Already returned by enumeration, without extra child observation I/O.
+    Listing,
+    /// Reused mandatory no-follow structural-root metadata.
+    RootMetadata,
+}
+
+/// Immutable already-available facts for one **present** side of an early slot.
+/// Accessors never perform I/O. Linux `native-dirent` exposes cached d_type and
+/// d_ino; DT_UNKNOWN remains Unknown. The default std Unix backend exposes inode
+/// but leaves kind Unknown, avoiding std's hidden file_type metadata fallback.
+/// Windows uses std's cached enumeration metadata; other std platforms may have
+/// neither field. Root singletons instead reuse mandatory root metadata.
+///
+/// ```
+/// use diff_dirs::{CheckError, FileKind, Names, Visitor};
+/// struct LeavesOnly;
+/// impl Visitor for LeavesOnly {
+///     fn early(&self, names: &mut Names) -> Result<(), CheckError> {
+///         if names.is_root() { return Ok(()); } // keep the structural root
+///         for name in names.entries_mut() {
+///             let skip = [name.source(), name.target()].into_iter().flatten()
+///                 .any(|facts| match facts.kind() {
+///                     FileKind::Directory | FileKind::Symlink => true,
+///                     FileKind::Unknown => false, // explicitly defer to observation/late
+///                     _ => false,
+///                 });
+///             if name.name() == ".jj" || skip { name.preserve_tree(); }
+///         }
+///         Ok(())
+///     }
+/// }
+/// ```
+/// Unknown is deliberately admitted here; this example is not a portable final
+/// type policy without a corresponding late decision over completed metadata.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EarlyFacts {
+    pub(crate) kind: FileKind,
+    pub(crate) inode: Option<u64>,
+    pub(crate) origin: FactOrigin,
+}
+
+impl EarlyFacts {
+    /// Cached no-follow kind, or Unknown. Does not trigger a stat fallback.
+    pub fn kind(&self) -> FileKind {
+        self.kind
+    }
+    /// Enumeration inode on Unix, or root metadata inode; None if unavailable.
+    /// This is not a device/inode identity or a guarantee against replacement.
+    pub fn inode(&self) -> Option<u64> {
+        self.inode
+    }
+    /// Listing facts versus the mandatory structural-root exception.
+    pub fn origin(&self) -> FactOrigin {
+        self.origin
+    }
+    fn root(metadata: &Metadata) -> Self {
+        #[cfg(unix)]
+        let inode = Some(std::os::unix::fs::MetadataExt::ino(metadata));
+        #[cfg(not(unix))]
+        let inode = None;
+        Self {
+            kind: FileKind::from_metadata(metadata),
+            inode,
+            origin: FactOrigin::RootMetadata,
+        }
+    }
+}
+
 /// One immutable union name and its mutable admission. Slots cannot be inserted,
 /// renamed, reordered, or have their side presence edited by a visitor.
 #[derive(Debug)]
@@ -34,6 +154,8 @@ pub struct Name {
     name: OsString,
     relative: PathBuf,
     presence: Presence,
+    source: Option<EarlyFacts>,
+    target: Option<EarlyFacts>,
     admission: Admission,
 }
 
@@ -50,6 +172,15 @@ impl Name {
     /// Cheap listing fact, never changed by preservation.
     pub fn presence(&self) -> Presence {
         self.presence
+    }
+    /// Present source's already-available facts; None means genuine absence.
+    /// Some with Unknown kind is present, not absent or implicitly excluded.
+    pub fn source(&self) -> Option<&EarlyFacts> {
+        self.source.as_ref()
+    }
+    /// Present target's already-available facts, independently of source kind.
+    pub fn target(&self) -> Option<&EarlyFacts> {
+        self.target.as_ref()
     }
     /// Current early steering; initially Observe for every union name.
     pub fn admission(&self) -> Admission {
@@ -71,8 +202,9 @@ impl Name {
 /// Sorted union of immediate names. The callback runs after `read_dir`, but
 /// before stat/readlink of **any child** in this batch. Listing the containing
 /// directory and mandatory structural root/ancestor validation are not skipped.
-/// No type, mtime, link text, mount, or repository probes are performed for early
-/// context. A preserved child is not statted, readlinked, or entered.
+/// Already-returned listing hints are available per side without extra child
+/// stat/readlink/open. No mtime, mount or repository probes fill missing hints.
+/// A preserved child is not statted, readlinked, opened, or entered.
 #[derive(Debug)]
 pub struct Names {
     dir: PathBuf,
@@ -489,7 +621,8 @@ pub trait Visitor: Sync {
     fn scoped(&self) -> bool {
         Self::ENABLED
     }
-    /// Steer the sorted union before any child stat/readlink. Return an error to
+    /// Steer the sorted union using already-available per-side facts, before any
+    /// additional child stat/readlink. Return an error to
     /// refuse the batch without publishing its children. The directory listing
     /// and structural root metadata exceptions are specified on [`Names`].
     fn early(&self, _: &mut Names) -> Result<(), CheckError> {
@@ -618,19 +751,18 @@ fn facts(path: &Path, read_link: bool) -> Result<Facts, Error> {
     facts_with_metadata(path, metadata, read_link)
 }
 
-fn listed_facts(entry: fs::DirEntry, read_link: bool) -> Result<Facts, Error> {
+fn listed_facts(entry: crate::listing::Entry, read_link: bool) -> Result<Facts, Error> {
     let path = entry.path();
-    // Preserve std's no-follow, directory-relative metadata path on Linux. Do
-    // not replace this with symlink_metadata(path): the listing already supplied
-    // the usable parent handle. The DirEntry is dropped after facts are copied,
-    // never retained by Operations/DirectoryPlan or the frontier.
+    // Both Linux backends retain a shared parent, not one FD per entry. The std
+    // backend uses DirEntry::metadata; native uses Dir::symlink_metadata(name).
+    // Windows reuses enumeration metadata. No handle reaches late or a plan.
     let metadata = entry.metadata().map_err(|e| Error::io(path.clone(), "inspect entry", e))?;
     facts_with_metadata(&path, metadata, read_link)
 }
 
 struct ListedPair {
-    source: Option<fs::DirEntry>,
-    target: Option<fs::DirEntry>,
+    source: Option<crate::listing::Entry>,
+    target: Option<crate::listing::Entry>,
 }
 
 fn facts_with_metadata(path: &Path, metadata: Metadata, read_link: bool) -> Result<Facts, Error> {
@@ -840,7 +972,7 @@ fn refusal(path: &Path, source: CheckError) -> Error {
 /// A present side must be a real directory (the caller validates admitted routing
 /// ancestors). This function never writes and never follows child symlinks.
 /// No whole-tree catalog/preaudit or additional policy-only I/O is performed.
-/// Listed DirEntry handles remain private through early admission, then supply
+/// Listed handles remain private through early admission, then supply
 /// admitted no-follow metadata and are dropped before late/publication. Excluded
 /// handles are dropped without metadata/readlink; none become plan/catalog data.
 pub fn inspect_directory<V: Visitor>(
@@ -872,12 +1004,24 @@ pub(crate) fn inspect_directory_execution<V: Visitor>(
     let mut raw = Vec::new();
     for (side, path) in [(Side::Original, source), (Side::Target, target)] {
         if let Some(path) = path {
-            for entry in fs::read_dir(path).map_err(|e| Error::io(path.to_path_buf(), "read directory", e))? {
-                let entry = entry.map_err(|e| Error::io(path.to_path_buf(), "read directory entry", e))?;
+            for entry in crate::listing::read(path)? {
                 raw.push((entry.file_name(), side, entry));
             }
         }
     }
+    inspect_listed(source_root, target_root, dir, purpose, visitor, execution, raw)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn inspect_listed<V: Visitor>(
+    source_root: &Path,
+    target_root: &Path,
+    dir: &Path,
+    purpose: Purpose,
+    visitor: &V,
+    execution: crate::Execution,
+    mut raw: Vec<(OsString, Side, crate::listing::Entry)>,
+) -> Result<DirectoryPlan, Error> {
     raw.sort_unstable_by(|a, b| a.0.as_encoded_bytes().cmp(b.0.as_encoded_bytes()).then((a.1 as u8).cmp(&(b.1 as u8))));
     let mut names = Names {
         dir: dir.to_path_buf(),
@@ -910,6 +1054,8 @@ pub(crate) fn inspect_directory_execution<V: Visitor>(
             relative: dir.join(&name),
             name,
             presence: presence(pair.source.is_some(), pair.target.is_some()),
+            source: pair.source.as_ref().map(crate::listing::Entry::hints),
+            target: pair.target.as_ref().map(crate::listing::Entry::hints),
             admission: Admission::Observe,
         });
         listed.push(pair);
@@ -1025,6 +1171,8 @@ fn finish_root<V: Visitor>(source: &Path, target: &Path, s: Facts, t: Option<Fac
             name: source.file_name().unwrap_or(source.as_os_str()).to_os_string(),
             relative: PathBuf::new(),
             presence: presence(true, t.is_some()),
+            source: Some(EarlyFacts::root(&s.metadata)),
+            target: t.as_ref().map(|facts| EarlyFacts::root(&facts.metadata)),
             admission: Admission::Observe,
         }],
     };
@@ -1066,6 +1214,8 @@ pub fn inspect_single_root<V: Visitor>(root: &Path, side: Side, purpose: Purpose
             name: root.file_name().unwrap_or(root.as_os_str()).to_os_string(),
             relative: PathBuf::new(),
             presence: if side == Side::Original { Presence::SourceOnly } else { Presence::TargetOnly },
+            source: (side == Side::Original).then(|| EarlyFacts::root(&observed.metadata)),
+            target: (side == Side::Target).then(|| EarlyFacts::root(&observed.metadata)),
             admission: Admission::Observe,
         }],
     };
@@ -1118,15 +1268,17 @@ pub fn inspect_single_root<V: Visitor>(root: &Path, side: Side, purpose: Purpose
     Ok(plan)
 }
 
-#[cfg(all(test, feature = "parallel", target_os = "linux"))]
+#[cfg(all(test, target_os = "linux"))]
 mod listing_tests {
     use super::*;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
     fn listed_metadata_uses_the_held_parent_not_a_reconstructed_lookup() {
         let f = crate::test_support::Fixture::new();
         fs::write(f.original.join("leaf"), b"held directory metadata").unwrap();
-        let entry = fs::read_dir(&f.original).unwrap().next().unwrap().unwrap();
+        let entry = crate::listing::read(&f.original).unwrap().pop().unwrap();
         let old_path = entry.path();
         // Owned fixture only, outside any visitor: test std's configured Linux
         // directory-relative metadata path, not public traversal under writers.
@@ -1143,10 +1295,108 @@ mod listing_tests {
         let f = crate::test_support::Fixture::new();
         let literal = Path::new("../target//./missing");
         std::os::unix::fs::symlink(literal, f.original.join("link")).unwrap();
-        let entry = fs::read_dir(&f.original).unwrap().next().unwrap().unwrap();
+        let entry = crate::listing::read(&f.original).unwrap().pop().unwrap();
         let observed = listed_facts(entry, true).unwrap();
         assert!(observed.metadata().is_symlink());
         assert!(!observed.metadata().is_dir());
         assert_eq!(observed.link_target().unwrap().as_os_str(), literal.as_os_str());
+    }
+
+    #[test]
+    fn early_known_and_unknown_preservation_make_zero_metadata_calls_and_admitted_unknown_completes_once() {
+        struct Filter(Arc<AtomicUsize>);
+        impl Visitor for Filter {
+            fn early(&self, batch: &mut Names) -> Result<(), CheckError> {
+                assert_eq!(self.0.load(Ordering::Relaxed), 0);
+                for name in batch.entries_mut() {
+                    assert_eq!(name.source().unwrap().origin(), FactOrigin::Listing);
+                    assert!(name.source().unwrap().inode().is_some());
+                    // Name preservation works even when BOTH types are unknown.
+                    if name.name() == ".jj" {
+                        assert_eq!(name.source().unwrap().kind(), FileKind::Unknown);
+                        assert_eq!(name.target().unwrap().kind(), FileKind::Unknown);
+                        name.preserve_tree();
+                    } else if name.source().is_some_and(|f| matches!(f.kind(), FileKind::Directory | FileKind::Symlink)) {
+                        name.preserve_tree();
+                    } else {
+                        assert_eq!(name.name(), "unknown-link");
+                        assert_eq!(name.source().unwrap().kind(), FileKind::Unknown);
+                        assert!(name.target().is_none()); // not present-unknown
+                    }
+                }
+                Ok(())
+            }
+            fn late(&self, batch: &mut Operations) -> Result<(), CheckError> {
+                assert_eq!(self.0.load(Ordering::Relaxed), 1);
+                assert_eq!(batch.entries().len(), 1);
+                let facts = batch.entries()[0].source().unwrap();
+                assert!(facts.metadata().is_symlink());
+                assert_eq!(facts.link_target().unwrap().as_os_str(), "missing//./literal");
+                Ok(())
+            }
+        }
+        let f = crate::test_support::Fixture::new();
+        f.both_dir(".jj/never");
+        f.both_file(".jj/never/child", b"not entered");
+        fs::create_dir(f.original.join("known-dir")).unwrap();
+        std::os::unix::fs::symlink("never-follow", f.original.join("known-link")).unwrap();
+        std::os::unix::fs::symlink("missing//./literal", f.original.join("unknown-link")).unwrap();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let mut raw = Vec::new();
+        for (side, root) in [(Side::Original, &f.original), (Side::Target, &f.target)] {
+            for mut entry in crate::listing::read(root).unwrap() {
+                let name = entry.file_name();
+                // Controlled backend seam, independent of the filesystem's real
+                // d_type support; no metadata is needed to inject these hints.
+                entry.set_kind(match name.to_str().unwrap() {
+                    "known-dir" => FileKind::Directory,
+                    "known-link" => FileKind::Symlink,
+                    _ => FileKind::Unknown,
+                });
+                entry.calls = Some(Arc::clone(&calls));
+                raw.push((name, side, entry));
+            }
+        }
+        let plan = inspect_listed(
+            &f.original,
+            &f.target,
+            Path::new(""),
+            Purpose::Compare,
+            &Filter(Arc::clone(&calls)),
+            crate::Execution::Sequential,
+            raw,
+        )
+        .unwrap();
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
+        assert_eq!(plan.excluded(), 3);
+        assert_eq!(plan.diff().files.added, ["unknown-link"]);
+    }
+
+    #[test]
+    fn root_early_reuses_mandatory_binding_facts_without_a_second_lookup() {
+        struct RootFacts;
+        impl Visitor for RootFacts {
+            fn early(&self, names: &mut Names) -> Result<(), CheckError> {
+                assert!(names.is_root());
+                let name = &mut names.entries_mut().next().unwrap();
+                for facts in [name.source().unwrap(), name.target().unwrap()] {
+                    assert_eq!(facts.origin(), FactOrigin::RootMetadata);
+                    assert_eq!(facts.kind(), FileKind::Directory);
+                    assert!(facts.inode().is_some());
+                }
+                name.preserve_tree();
+                Ok(())
+            }
+        }
+        let f = crate::test_support::Fixture::new();
+        let source = fs::symlink_metadata(&f.original).unwrap();
+        let target = fs::symlink_metadata(&f.target).unwrap();
+        // Owned fixture only, before inspection: if root finalization restats
+        // either bound path, it fails. This does not promise traversal under writers.
+        fs::rename(&f.original, f.original.with_file_name("moved-source")).unwrap();
+        fs::rename(&f.target, f.target.with_file_name("moved-target")).unwrap();
+        let plan = inspect_bound_root(&f.original, &f.target, &source, &target, &RootFacts).unwrap();
+        assert_eq!(plan.excluded(), 1);
+        assert!(!plan.operations().entries()[0].descends());
     }
 }
