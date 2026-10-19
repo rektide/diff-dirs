@@ -43,7 +43,7 @@ impl Visitor for Select<'_> {
             self.seen.lock().unwrap().push(entry.relative_path().to_string_lossy().into_owned());
             if entry.name() == "same" {
                 assert!(!entry.is_different());
-                assert_eq!(entry.action(), Action::KeepLeaf);
+                assert_eq!(entry.action(), Some(Action::KeepLeaf));
                 assert!(entry.source().unwrap().metadata().is_file());
                 assert!(entry.target().unwrap().metadata().is_file());
             }
@@ -192,6 +192,85 @@ fn named_refusal_uses_actual_slot_while_arbitrary_error_paths_remain_only_causes
     }
     let mut walk = diff_dirs::walk_with_visitor(&f.original, &f.target, Refuse { early: false, inject: true }).unwrap();
     assert_eq!(walk.next().unwrap().unwrap_err().path(), f.target);
+}
+
+#[cfg(unix)]
+#[test]
+fn late_special_preservation_is_uncompared_not_a_normal_leaf_delta() {
+    use std::os::unix::fs::FileTypeExt;
+    use std::os::unix::net::UnixListener;
+
+    struct PreserveSpecials<'a>(&'a Mutex<Vec<Presence>>);
+    impl Visitor for PreserveSpecials<'_> {
+        fn late(&self, batch: &mut Operations) -> Result<(), CheckError> {
+            for entry in batch.entries_mut() {
+                assert!(!entry.relative_path().starts_with("d-special-dir") || entry.relative_path() == std::path::Path::new("d-special-dir"));
+                if [entry.source(), entry.target()]
+                    .into_iter()
+                    .flatten()
+                    .any(|facts| facts.metadata().file_type().is_socket())
+                {
+                    self.0.lock().unwrap().push(entry.presence());
+                    assert_eq!(entry.comparison(), None);
+                    assert!(!entry.is_different()); // not a claim of equality
+                    assert_eq!(entry.baseline(), None);
+                    assert_eq!(entry.action(), None);
+                    entry.preserve_tree();
+                    assert_eq!(entry.action(), Some(Action::PreserveTree));
+                }
+            }
+            Ok(())
+        }
+    }
+    let f = Fixture::new();
+    let _sockets = [
+        UnixListener::bind(f.original.join("a-source")).unwrap(),
+        UnixListener::bind(f.target.join("b-target")).unwrap(),
+        UnixListener::bind(f.original.join("c-special-file")).unwrap(),
+        UnixListener::bind(f.original.join("d-special-dir")).unwrap(),
+    ];
+    support::file(&f.target.join("c-special-file"), b"preserved peer");
+    std::fs::create_dir(f.target.join("d-special-dir")).unwrap();
+    support::file(&f.target.join("d-special-dir/never"), b"no child admission");
+    let seen = Mutex::new(Vec::new());
+    let visitor = PreserveSpecials(&seen);
+    let plan = diff_dirs::inspect_directory(
+        &f.original,
+        &f.target,
+        std::path::Path::new(""),
+        Some(&f.original),
+        Some(&f.target),
+        diff_dirs::Purpose::Compare,
+        &visitor,
+    )
+    .unwrap();
+    assert!(plan.diff().is_empty());
+    assert_eq!(plan.work(), 0);
+    assert_eq!(plan.retained(), 4);
+    assert_eq!(plan.excluded(), 0); // metadata was intentionally observed late
+    assert_eq!(
+        *seen.lock().unwrap(),
+        [Presence::SourceOnly, Presence::TargetOnly, Presence::Both, Presence::Both]
+    );
+    let mut walk = diff_dirs::walk_with_visitor(&f.original, &f.target, visitor.borrowed()).unwrap();
+    assert!(walk.next().is_none());
+    let summary = walk.into_summary();
+    assert_eq!(summary.counts, diff_dirs::EntryCounts::default());
+    assert_eq!(summary.planned, 0);
+    assert_eq!(summary.retained, 4);
+    assert!(!summary.is_complete());
+    assert!(!summary.is_clean());
+    let audited = diff_dirs::audit_with_visitor(&f.original, diff_dirs::Side::Original, &visitor).unwrap();
+    assert_eq!(audited.retained_specials, 3);
+    assert_eq!(audited.files, 0);
+    assert_eq!(audited.directories, 1);
+    let error = diff_dirs::walk(&f.original, &f.target).unwrap().next().unwrap().unwrap_err();
+    assert!(matches!(error, diff_dirs::Error::UnsupportedEntry { .. }));
+    assert_eq!(error.path(), f.original.join("a-source"));
+    assert!(matches!(
+        diff_dirs::walk_with_visitor(f.original.join("a-source"), &f.target, visitor),
+        Err(diff_dirs::Error::NotDirectory { .. })
+    ));
 }
 
 #[cfg(feature = "parallel")]

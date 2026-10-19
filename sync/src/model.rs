@@ -77,7 +77,9 @@ pub struct Policy {
     /// `apply_report`, this covers only the supplied record, not the whole tree.
     /// This is false on Failure and is not a full-root cleanliness certificate.
     pub satisfied: bool,
-    /// Retained leaves, pruned NeverRemove branches, and structural containers.
+    /// Retained committed comparison slots (including uncomparable specials),
+    /// recursive retained entries, and necessary structural containers. Slots in
+    /// yielded batches are not counted twice when combining walk/application.
     pub retained: u64,
     /// Excluded boundaries encountered during application, not subtree sizes.
     /// Comparison exclusions are separately in `Report.observed`.

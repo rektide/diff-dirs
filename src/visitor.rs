@@ -124,6 +124,7 @@ pub enum Container {
 /// | two directories | Keep container, descend or stop |
 /// | source leaf / target directory | ReplaceWithLeaf, or keep target directory |
 /// | source directory / target leaf | ReplaceWithDirectory, or KeepLeaf |
+/// | unsupported kind on either side | no comparison/proposal; explicit PreserveTree only |
 ///
 /// Equal leaves cannot be force-installed. Replacements are **coupled**: no
 /// delete-half/create-half authority exists. Removing a directory requires
@@ -131,8 +132,11 @@ pub enum Container {
 /// directory cannot Keep an absent container while admitting child writes.
 /// PreserveTree always stops descent and performs no local work. Keeping a
 /// directory container while descending permits selected pruning below it.
-/// Unsupported special types have no legal operation and are still refused;
-/// exclude them in early when they must be preserved without observation.
+/// Unsupported special types have no comparison or baseline mutation proposal.
+/// Late may explicitly preserve the entire pair after inspecting its metadata;
+/// any other action, or an unchanged unavailable proposal, is refused. Early
+/// preservation additionally avoids that metadata cost. Unsupported structural
+/// roots remain errors rather than bypassing the caller's root binding contract.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
     /// Retain this name/subtree, with neither namespace work nor descent.
@@ -167,6 +171,9 @@ pub struct Facts {
 }
 
 impl Facts {
+    fn supported(&self) -> bool {
+        self.metadata.is_dir() || self.metadata.is_file() || self.metadata.is_symlink()
+    }
     /// Actual no-follow metadata, borrowed without an additional stat.
     pub fn metadata(&self) -> &Metadata {
         &self.metadata
@@ -186,9 +193,9 @@ pub struct Operation {
     relative: PathBuf,
     source: Option<Facts>,
     target: Option<Facts>,
-    different: bool,
-    action: Action,
-    baseline: Action,
+    different: Option<bool>,
+    action: Option<Action>,
+    baseline: Option<Action>,
 }
 
 impl Operation {
@@ -212,28 +219,39 @@ impl Operation {
     pub fn presence(&self) -> Presence {
         presence(self.source.is_some(), self.target.is_some())
     }
-    /// Immediate stat-key/literal-link delta, independent of steering or progress.
-    /// Matched directories have no immediate difference; their children may differ.
+    /// True only for a known supported stat-key/literal-link difference. False
+    /// alone does not prove equality: unsupported kinds have no comparison.
+    /// Use [`Self::comparison`] when that distinction matters.
     pub fn is_different(&self) -> bool {
+        self.different == Some(true)
+    }
+    /// Immediate supported comparison, independent of steering/progress. None
+    /// means an unsupported kind was observed on at least one side: no normal
+    /// file comparison is claimed. Matched directories are Some(false), but their
+    /// children may differ. One-sided supported entries are Some(true).
+    pub fn comparison(&self) -> Option<bool> {
         self.different
     }
-    /// Current proposed work, changed only through typed steering methods.
-    pub fn action(&self) -> Action {
+    /// Current proposal, changed only through typed steering methods. Initially
+    /// None for unsupported kinds; late must explicitly select PreserveTree or
+    /// the batch refuses. Every successfully finalized entry has Some(action).
+    pub fn action(&self) -> Option<Action> {
         self.action
     }
-    /// Original mirror proposal, never rewritten when current work is retained.
-    pub fn baseline(&self) -> Action {
+    /// Original mirror proposal, never rewritten by steering. None means the
+    /// observed kind has no supported baseline work, not a fictitious leaf op.
+    pub fn baseline(&self) -> Option<Action> {
         self.baseline
     }
     /// Change work only. The complete batch is validated after late returns,
     /// before application or child publication, even if an invalid action is
     /// later never executed. No partial entry operation is published on error.
     pub fn set_action(&mut self, action: Action) {
-        self.action = action;
+        self.action = Some(action);
     }
     /// No local writes or descendant work, including at type collisions.
     pub fn preserve_tree(&mut self) {
-        self.action = Action::PreserveTree;
+        self.action = Some(Action::PreserveTree);
     }
     /// Refuse this observed slot at its logical final target coordinate. Only
     /// the cause is caller-supplied; names/paths remain those actually observed.
@@ -243,9 +261,12 @@ impl Operation {
     }
     /// Keep an existing target container but allow descendant work. For an
     /// absent target container this stops the subtree instead of authorizing
-    /// impossible child creation. Existing leaves are simply retained.
+    /// impossible child creation. Existing leaves are simply retained. If either
+    /// side is unsupported, preserve the whole pair without descendant work.
     pub fn retain(&mut self) {
-        self.action = if self.target.as_ref().is_some_and(|f| f.metadata.is_dir()) {
+        self.action = Some(if self.different.is_none() {
+            Action::PreserveTree
+        } else if self.target.as_ref().is_some_and(|f| f.metadata.is_dir()) {
             Action::Directory {
                 container: Container::Keep,
                 descend: true,
@@ -254,14 +275,14 @@ impl Operation {
             Action::KeepLeaf
         } else {
             Action::PreserveTree
-        };
+        });
     }
     /// Whether this entry's directory children may be inspected. Replacement
     /// preparation and target removal are handled by the mutation consumer.
     pub fn descends(&self) -> bool {
         matches!(
             self.action,
-            Action::Directory { descend: true, .. } | Action::ReplaceWithDirectory { descend: true }
+            Some(Action::Directory { descend: true, .. } | Action::ReplaceWithDirectory { descend: true })
         )
     }
     /// Whether a namespace action is proposed for this name. Directory removal
@@ -269,26 +290,31 @@ impl Operation {
     pub fn has_work(&self) -> bool {
         matches!(
             self.action,
-            Action::InstallLeaf
-                | Action::RemoveLeaf
-                | Action::ReplaceWithLeaf
-                | Action::ReplaceWithDirectory { .. }
-                | Action::Directory {
-                    container: Container::Create | Container::Remove,
-                    ..
-                }
+            Some(
+                Action::InstallLeaf
+                    | Action::RemoveLeaf
+                    | Action::ReplaceWithLeaf
+                    | Action::ReplaceWithDirectory { .. }
+                    | Action::Directory {
+                        container: Container::Create | Container::Remove,
+                        ..
+                    }
+            )
         )
     }
     fn validate(&self) -> Result<(), CheckError> {
+        let Some(action) = self.action else {
+            return Err("entry has no supported operation proposal".into());
+        };
         let s = self.source.as_ref().map(|f| &f.metadata);
         let t = self.target.as_ref().map(|f| &f.metadata);
         let sd = s.is_some_and(Metadata::is_dir);
         let td = t.is_some_and(Metadata::is_dir);
         let leaf = |m: &Metadata| m.is_file() || m.is_symlink();
-        let valid = match self.action {
+        let valid = match action {
             Action::PreserveTree => true,
             Action::KeepLeaf => t.is_some_and(leaf) || (t.is_none() && s.is_some_and(leaf)),
-            Action::InstallLeaf => s.is_some_and(leaf) && !td && self.different,
+            Action::InstallLeaf => s.is_some_and(leaf) && !td && self.is_different(),
             Action::RemoveLeaf => s.is_none() && t.is_some_and(leaf),
             Action::ReplaceWithLeaf => s.is_some_and(leaf) && td,
             Action::ReplaceWithDirectory { .. } => sd && t.is_some_and(leaf),
@@ -376,7 +402,9 @@ impl DirectoryPlan {
     pub fn operations(&self) -> &Operations {
         &self.operations
     }
-    /// Baseline observed delta, not a filtered application report.
+    /// Baseline supported delta, not a filtered application report. A special
+    /// retained late has no normal file comparison and is omitted from these
+    /// categories; its retained slot still prevents a full-root clean claim.
     pub fn diff(&self) -> &DirDiff {
         &self.diff
     }
@@ -609,23 +637,28 @@ fn operation(
 ) -> Result<Operation, Error> {
     let sd = source.as_ref().is_some_and(|f| f.metadata.is_dir());
     let td = target.as_ref().is_some_and(|f| f.metadata.is_dir());
-    let different = match (&source, &target) {
-        (Some(_), Some(_)) if sd && td => false,
-        (Some(s), Some(t)) if s.metadata.is_file() && t.metadata.is_file() => {
-            s.metadata.len() != t.metadata.len()
-                || s.metadata
-                    .modified()
-                    .map_err(|e| Error::io(source_root.join(&relative), "read modification time", e))?
-                    != t.metadata
+    let comparable = [&source, &target].into_iter().flatten().all(Facts::supported);
+    let different = if comparable {
+        Some(match (&source, &target) {
+            (Some(_), Some(_)) if sd && td => false,
+            (Some(s), Some(t)) if s.metadata.is_file() && t.metadata.is_file() => {
+                s.metadata.len() != t.metadata.len()
+                    || s.metadata
                         .modified()
-                        .map_err(|e| Error::io(target_root.join(&relative), "read modification time", e))?
-        }
-        (Some(s), Some(t)) if s.metadata.is_symlink() && t.metadata.is_symlink() => {
-            s.link.as_ref().map(|p| p.as_os_str()) != t.link.as_ref().map(|p| p.as_os_str())
-        }
-        _ => true,
+                        .map_err(|e| Error::io(source_root.join(&relative), "read modification time", e))?
+                        != t.metadata
+                            .modified()
+                            .map_err(|e| Error::io(target_root.join(&relative), "read modification time", e))?
+            }
+            (Some(s), Some(t)) if s.metadata.is_symlink() && t.metadata.is_symlink() => {
+                s.link.as_ref().map(|p| p.as_os_str()) != t.link.as_ref().map(|p| p.as_os_str())
+            }
+            _ => true,
+        })
+    } else {
+        None
     };
-    let action = match (source.is_some(), target.is_some(), sd, td) {
+    let action = comparable.then(|| match (source.is_some(), target.is_some(), sd, td) {
         (true, true, true, true) => Action::Directory {
             container: Container::Keep,
             descend: true,
@@ -640,10 +673,10 @@ fn operation(
             container: Container::Remove,
             descend: true,
         },
-        (true, _, _, _) if different => Action::InstallLeaf,
+        (true, _, _, _) if different == Some(true) => Action::InstallLeaf,
         (false, true, _, _) => Action::RemoveLeaf,
         _ => Action::KeepLeaf,
-    };
+    });
     Ok(Operation {
         name,
         relative,
@@ -684,7 +717,8 @@ fn finish<V: Visitor>(mut operations: Operations, excluded: u64, visitor: &V) ->
         let path = operations.target_root.join(&entry.relative);
         for (root, facts) in [(&operations.source_root, &entry.source), (&operations.target_root, &entry.target)] {
             if let Some(facts) = facts
-                && !(facts.metadata.is_dir() || facts.metadata.is_file() || facts.metadata.is_symlink())
+                && !facts.supported()
+                && (operations.root || entry.action != Some(Action::PreserveTree))
             {
                 return Err(Error::UnsupportedEntry {
                     path: root.join(&entry.relative),
@@ -694,7 +728,7 @@ fn finish<V: Visitor>(mut operations: Operations, excluded: u64, visitor: &V) ->
         entry.validate().map_err(|source| refusal(&path, source))?;
         planned += u64::from(entry.has_work());
         retained += u64::from(entry.action != entry.baseline);
-        if entry.different {
+        if entry.is_different() {
             let sd = entry.source.as_ref().is_some_and(|f| f.metadata.is_dir());
             let td = entry.target.as_ref().is_some_and(|f| f.metadata.is_dir());
             if entry.source.is_some() && entry.target.is_some() && !sd && !td {
@@ -1023,10 +1057,10 @@ pub fn inspect_single_root<V: Visitor>(root: &Path, side: Side, purpose: Purpose
     };
     let mut entry = operation(names.entries.remove(0).name, PathBuf::new(), source, target, root, root)?;
     if directory && side == Side::Target {
-        entry.action = Action::Directory {
+        entry.action = Some(Action::Directory {
             container: Container::Keep,
             descend: true,
-        };
+        });
         entry.baseline = entry.action;
     }
     if excluded != 0 {
@@ -1048,10 +1082,12 @@ pub fn inspect_single_root<V: Visitor>(root: &Path, side: Side, purpose: Purpose
         && side == Side::Target
         && !matches!(
             plan.operations.entries[0].action,
-            Action::Directory {
-                container: Container::Keep,
-                ..
-            } | Action::PreserveTree
+            Some(
+                Action::Directory {
+                    container: Container::Keep,
+                    ..
+                } | Action::PreserveTree
+            )
         )
     {
         return Err(refusal(root, "selected target root is a retained structural container".into()));

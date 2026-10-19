@@ -9,6 +9,9 @@ use crate::{Check, CheckedScope, Error, Facts, NoScope, Purpose, Scope, Side, Vi
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Audit {
     pub excluded: u64,
+    /// Actual special-kind observations retained late, outside normal file/link/
+    /// directory comparison and mutation support. No special contents are read.
+    pub retained_specials: u64,
     pub directories: u64,
     pub files: u64,
     pub symlinks: u64,
@@ -66,6 +69,8 @@ pub fn audit_with_visitor<V: Visitor>(root: impl AsRef<Path>, side: Side, visito
             inspected.files += 1;
         } else if facts.metadata().is_symlink() {
             inspected.symlinks += 1;
+        } else {
+            inspected.retained_specials += 1;
         }
     }
     fn visit<V: Visitor>(root: &Path, relative: &Path, side: Side, visitor: &V, inspected: &mut Audit) -> Result<(), Error> {

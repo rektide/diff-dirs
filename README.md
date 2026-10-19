@@ -8,7 +8,7 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
   - resource: opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06
-    title: Implemented the human-directed mutable early-name and late-operation visitor, finalized-plan traversal/application, preview, compatibility projections, Rustdoc and tiny semantic regressions
+    title: Implemented and refined human-directed early/late visitors, including metadata-aware special preservation, honest comparison/coverage states, finalized traversal/application, preview, compatibility projections and tiny semantic verification
   - resource: opencode://ses_eb262a81effea1HgF0pPS3f1sy
     title: Parent commission conveying the revised human visitor interface and holding JW integration for library review
   - resource: opencode://ses_eaecf188affeV49Iu6kJOeHgsX
@@ -217,8 +217,8 @@ distinction between them. See [Use cases](#use-cases).
 
 `Visitor: Sync` has **one early name batch and one late operation batch per
 directory**. It is statically dispatched Rust, not an interpreted rule list or a
-shared mutable scheduler. Every name initially participates; every observed
-entry initially proposes normal mirror work. Equal leaves remain no-ops.
+shared mutable scheduler. Every name initially participates; supported entries
+initially propose normal mirror work. Equal leaves remain no-ops.
 
 * `early(&mut Names)` sees the native-byte-sorted union of immediate basenames
   and immutable `Presence::{SourceOnly,Both,TargetOnly}` from listings. It can
@@ -296,6 +296,19 @@ actions, with a collision counted once. Conditional directory removal may later
 retain a necessary ancestor. `retained` counts changed action slots, including
 stopped clean descent. These are neither recursive payload catalogs nor actual
 completed operations. Exclusions/retention never certify full-root cleanliness.
+
+An unsupported observed kind (socket, FIFO, etc.) has `comparison() == None`,
+`baseline() == None`, and initially `action() == None`: no normal file comparison
+or mutation is invented. Late can inspect its real metadata and explicitly
+`preserve_tree()` for the **whole pair**. Other actions/defaults still refuse;
+structural root requirements remain mandatory. Such names are omitted from
+`DirDiff` categories, contribute one retained slot and zero planned work, and
+prevent a full-root complete/clean claim even if `has_differences()` is false.
+`is_different()` means a known supported difference, not proof of equality when
+false. Successfully finalized entries always have `Some(action)`; `action()` and
+`baseline()` are optional in this revised rich-batch API. No special contents are
+opened or read. Explicit audit separately counts them as `retained_specials`,
+never as regular files. Early preservation still avoids their metadata entirely.
 
 Visitors must use frozen caller facts and supplied observations: no filesystem
 I/O/mutation, processes, printing or order/count-dependent decisions. Parallel

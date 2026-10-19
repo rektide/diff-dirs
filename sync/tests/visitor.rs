@@ -262,6 +262,141 @@ fn late_retention_keeps_existing_inodes_modes_and_times_without_parent_chmod() {
     fs::set_permissions(&f.target, fs::Permissions::from_mode(0o755)).unwrap();
 }
 
+#[cfg(unix)]
+struct PreserveSpecials<'a>(&'a Mutex<Vec<(PathBuf, Presence)>>);
+#[cfg(unix)]
+impl Visitor for PreserveSpecials<'_> {
+    fn late(&self, batch: &mut Operations) -> Result<(), CheckError> {
+        for entry in batch.entries_mut() {
+            assert!(!entry.relative_path().starts_with("e-special-dir") || entry.relative_path() == Path::new("e-special-dir"));
+            if [entry.source(), entry.target()].into_iter().flatten().any(|facts| {
+                let m = facts.metadata();
+                !m.is_dir() && !m.is_file() && !m.is_symlink()
+            }) {
+                self.0.lock().unwrap().push((entry.relative_path().to_path_buf(), entry.presence()));
+                assert_eq!(entry.comparison(), None);
+                assert_eq!(entry.baseline(), None);
+                assert_eq!(entry.action(), None);
+                entry.preserve_tree();
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn late_special_preservation_leaves_socket_pairs_and_peers_untouched() {
+    use std::os::unix::fs::{FileTypeExt, MetadataExt};
+    use std::os::unix::net::UnixListener;
+    struct NoOp;
+    impl Visitor for NoOp {}
+    struct RemoveSpecial;
+    impl Visitor for RemoveSpecial {
+        fn late(&self, batch: &mut Operations) -> Result<(), CheckError> {
+            for entry in batch.entries_mut() {
+                if entry.comparison().is_none() {
+                    entry.set_action(Action::RemoveLeaf);
+                }
+            }
+            Ok(())
+        }
+    }
+    let fingerprint = |p: &Path| {
+        let m = fs::symlink_metadata(p).unwrap();
+        (m.ino(), m.mode(), m.mtime(), m.mtime_nsec(), m.ctime(), m.ctime_nsec())
+    };
+    for &parallel in modes() {
+        let f = Fixture::new();
+        let _sockets = [
+            UnixListener::bind(f.source.join("a-source")).unwrap(),
+            UnixListener::bind(f.target.join("b-target")).unwrap(),
+            UnixListener::bind(f.source.join("c-special-file")).unwrap(),
+            UnixListener::bind(f.target.join("d-file-special")).unwrap(),
+            UnixListener::bind(f.source.join("e-special-dir")).unwrap(),
+        ];
+        file(f.target.join("c-special-file"), b"keep peer file");
+        file(f.source.join("d-file-special"), b"do not install over socket");
+        file(f.target.join("e-special-dir/never"), b"keep peer subtree");
+        let paths = [
+            &f.source,
+            &f.target,
+            &f.target.join("b-target"),
+            &f.target.join("c-special-file"),
+            &f.target.join("d-file-special"),
+            &f.target.join("e-special-dir"),
+            &f.target.join("e-special-dir/never"),
+        ];
+        let before: Vec<_> = paths.iter().map(|p| fingerprint(p)).collect();
+        let seen = Mutex::new(Vec::new());
+        let binding = f.bind().visitor(PreserveSpecials(&seen));
+        let preview = binding.preview().unwrap();
+        assert_eq!(preview.planned, 0);
+        assert_eq!(preview.completed, Progress::default());
+        assert_eq!(preview.policy.retained, 5);
+        seen.lock().unwrap().clear();
+        let report = run(&binding, parallel).unwrap();
+        assert_eq!(report.planned, 0);
+        assert_eq!(report.completed, Progress::default());
+        assert_eq!(report.policy.retained, 5);
+        let observed = report.observed.unwrap();
+        assert_eq!(observed.counts, diff_dirs::EntryCounts::default());
+        assert_eq!(observed.retained, 5);
+        assert_eq!(observed.planned, 0);
+        assert!(!observed.is_clean());
+        assert!(!observed.is_complete());
+        assert_eq!(seen.lock().unwrap().len(), 5);
+        assert_eq!(paths.iter().map(|p| fingerprint(p)).collect::<Vec<_>>(), before);
+        assert!(fs::symlink_metadata(f.source.join("a-source")).unwrap().file_type().is_socket());
+        assert!(fs::symlink_metadata(f.target.join("b-target")).unwrap().file_type().is_socket());
+        assert_eq!(fs::read(f.target.join("c-special-file")).unwrap(), b"keep peer file");
+        assert_eq!(fs::read(f.target.join("e-special-dir/never")).unwrap(), b"keep peer subtree");
+        for failure in [
+            f.bind().run().unwrap_err(),
+            run(&f.bind().visitor(NoOp), parallel).unwrap_err(),
+            run(&f.bind().visitor(RemoveSpecial), parallel).unwrap_err(),
+        ] {
+            assert_eq!(failure.primary.path, f.source.join("a-source"));
+            assert_eq!(failure.completed, Progress::default());
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn late_special_preservation_never_opens_source_or_target_fifos() {
+    use std::os::unix::fs::{FileTypeExt, MetadataExt};
+    let f = Fixture::new();
+    let source = f.source.join("source-fifo");
+    let target = f.target.join("target-fifo");
+    for path in [&source, &target] {
+        rustix::fs::mkfifoat(rustix::fs::CWD, path, rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR).unwrap();
+    }
+    let before = (fs::symlink_metadata(&source).unwrap().ino(), fs::symlink_metadata(&target).unwrap().ino());
+    let seen = Mutex::new(Vec::new());
+    let report = f.bind().visitor(PreserveSpecials(&seen)).run().unwrap();
+    assert_eq!(report.completed, Progress::default());
+    assert_eq!(report.planned, 0);
+    assert_eq!(report.policy.retained, 2);
+    assert_eq!(seen.lock().unwrap().len(), 2);
+    for path in [&source, &target] {
+        assert!(fs::symlink_metadata(path).unwrap().file_type().is_fifo());
+    }
+    assert_eq!(
+        (fs::symlink_metadata(&source).unwrap().ino(), fs::symlink_metadata(&target).unwrap().ino()),
+        before
+    );
+    let audited = f.bind().visitor(PreserveSpecials(&seen)).audit().unwrap();
+    assert_eq!(audited.original.retained_specials, 1);
+    assert_eq!(audited.target.retained_specials, 1);
+    let cleared = diff_dirs_sync::clear_with_visitor(&f.target, PreserveSpecials(&seen)).unwrap();
+    assert_eq!(cleared.completed, Progress::default());
+    assert_eq!(cleared.planned, 0);
+    assert_eq!(cleared.policy.retained, 2); // FIFO and the selected container
+    assert!(f.bind().run().is_err());
+    assert!(fs::symlink_metadata(&target).unwrap().file_type().is_fifo());
+}
+
 struct RetainBlocker;
 impl Visitor for RetainBlocker {
     fn late(&self, batch: &mut Operations) -> Result<(), CheckError> {
@@ -391,7 +526,7 @@ fn retained_absent_or_leaf_root_has_no_staging_namespace_or_permission_writes() 
 }
 
 #[test]
-fn public_plan_cannot_override_binding_actions_or_inject_observations() {
+fn public_plan_cannot_override_binding_actions_or_install_supplied_metadata() {
     let f = Fixture::new();
     file(f.source.join("new"), b"real bound source");
     let plan = diff_dirs::inspect_directory(
@@ -419,6 +554,10 @@ fn public_plan_cannot_override_binding_actions_or_inject_observations() {
         &NoVisitor,
     )
     .unwrap();
+    assert_ne!(
+        fabricated.operations().entries()[0].source().unwrap().metadata().len(),
+        fs::metadata(f.source.join("new")).unwrap().len()
+    );
     f.bind().apply_plan(&fabricated).unwrap();
     assert_eq!(fs::read(f.target.join("new")).unwrap(), b"real bound source");
     assert!(

@@ -179,7 +179,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                 report.original = failure.inspected;
                 return Err(AuditFailure {
                     error: failure.error,
-                    inspected: report,
+                    inspected: Box::new(report),
                 });
             }
         }
@@ -192,7 +192,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                         operation: "inspect audit target",
                         source: std::io::Error::other(failure),
                     },
-                    inspected: report,
+                    inspected: Box::new(report),
                 });
             }
             Ok(true) => {}
@@ -206,7 +206,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                 report.target = failure.inspected;
                 Err(AuditFailure {
                     error: failure.error,
-                    inspected: report,
+                    inspected: Box::new(report),
                 })
             }
         }
@@ -238,7 +238,8 @@ pub struct AuditReport {
 #[derive(Debug)]
 pub struct AuditFailure {
     pub error: diff_dirs::Error,
-    pub inspected: AuditReport,
+    /// Cold finalized-prefix counters, boxed to keep the streaming error compact.
+    pub inspected: Box<AuditReport>,
 }
 
 impl std::fmt::Display for AuditFailure {
@@ -314,8 +315,12 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
         let mut completed = Progress::default();
         let mut policy = Policy::default();
         let mut planned = 0;
+        let mut applied_retained = 0;
         while let Some(item) = walk.next() {
-            match item.map_err(Failure::comparison).and_then(|plan| self.apply_plan_with(&plan, false)) {
+            match item.map_err(Failure::comparison).and_then(|plan| {
+                applied_retained += plan.retained();
+                self.apply_plan_with(&plan, false)
+            }) {
                 Ok(report) => {
                     planned += report.planned;
                     completed += report.completed;
@@ -325,16 +330,22 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                     failure.planned += planned;
                     failure.completed += completed;
                     *failure.policy += policy;
-                    failure.observed = Some(Box::new(walk.into_summary()));
+                    let observed = walk.into_summary();
+                    failure.policy.retained += observed.retained.saturating_sub(applied_retained);
+                    failure.observed = Some(Box::new(observed));
                     return Err(failure);
                 }
             }
         }
+        let observed = walk.into_summary();
+        // Late preservation can leave no normal DirDiff to yield/application to
+        // count. Include those committed slots without counting yielded ones twice.
+        policy.retained += observed.retained.saturating_sub(applied_retained);
         Ok(Report {
             planned,
             policy: Policy { satisfied: true, ..policy },
             completed,
-            observed: Some(walk.into_summary()),
+            observed: Some(observed),
         })
     }
 
@@ -356,11 +367,12 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
         let mut completed = Progress::default();
         let mut policy = Policy::default();
         let mut planned = 0;
+        let mut applied_retained = 0;
         while let Some(item) = walk.next() {
-            match item
-                .map_err(Failure::comparison)
-                .and_then(|plan| pool.install(|| self.apply_plan_with(&plan, true)))
-            {
+            match item.map_err(Failure::comparison).and_then(|plan| {
+                applied_retained += plan.retained();
+                pool.install(|| self.apply_plan_with(&plan, true))
+            }) {
                 Ok(report) => {
                     planned += report.planned;
                     completed += report.completed;
@@ -370,16 +382,20 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                     failure.planned += planned;
                     failure.completed += completed;
                     *failure.policy += policy;
-                    failure.observed = Some(Box::new(walk.into_summary()));
+                    let observed = walk.into_summary();
+                    failure.policy.retained += observed.retained.saturating_sub(applied_retained);
+                    failure.observed = Some(Box::new(observed));
                     return Err(failure);
                 }
             }
         }
+        let observed = walk.into_summary();
+        policy.retained += observed.retained.saturating_sub(applied_retained);
         Ok(Report {
             planned,
             policy: Policy { satisfied: true, ..policy },
             completed,
-            observed: Some(walk.into_summary()),
+            observed: Some(observed),
         })
     }
 

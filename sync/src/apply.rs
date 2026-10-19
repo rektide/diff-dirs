@@ -68,7 +68,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                     }
                     return Err(Failure::invalid("validate record ancestor", &dir, "ancestor missing"));
                 };
-                if entry.action() == Action::PreserveTree {
+                if entry.action() == Some(Action::PreserveTree) {
                     if expected.is_some() {
                         return Err(Failure::invalid("apply plan", entry.relative_path(), "ancestor is preserved"));
                     }
@@ -92,7 +92,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
             }
             let plan = context.plan(&dir, Some(&self.original.join(&dir)), Some(&self.target.join(&dir)))?;
             if let Some(expected) = expected {
-                let signature = |entry: &Operation| (entry.name().to_os_string(), entry.action(), entry.presence(), entry.is_different());
+                let signature = |entry: &Operation| (entry.name().to_os_string(), entry.action(), entry.presence(), entry.comparison());
                 if plan.diff() != expected.diff()
                     || plan
                         .operations()
@@ -104,7 +104,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                     return Err(Failure::invalid(
                         "apply plan",
                         &dir,
-                        "batch does not match current observations and this binding's finalized visitor actions",
+                        "batch projection does not match current classification and this binding's finalized visitor actions",
                     ));
                 }
             }
@@ -115,7 +115,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                     .binary_search_by(|e| e.name().as_encoded_bytes().cmp(name.as_encoded_bytes()))
                 {
                     let entry = &plan.operations().entries()[index];
-                    if shape(entry) != *mask {
+                    if shape(entry) != Some(*mask) {
                         return Err(Failure::invalid("validate record", &dir.join(name), "entry type does not match record"));
                     }
                 } else if !plan.preserves(name) {
@@ -129,8 +129,10 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
 
     /// Apply an externally obtained finalized batch. This public boundary freshly
     /// validates real routing ancestors and re-finalizes under **this binding's**
-    /// visitor. Different observations/actions refuse before writes, rather than
-    /// silently overriding supplied steering or trusting another policy's plan.
+    /// visitor. It compares the legacy diff, names, actions, presence and supported
+    /// comparison classification; a mismatch refuses before writes. It does not
+    /// compare every metadata value or file bytes with the supplied plan. Actual
+    /// work always uses fresh facts, not a stale plan's metadata certificate.
     /// The internal run/walker seam reuses just-observed facts without this extra
     /// public validation. Neither interface is a concurrent-replacement sandbox.
     pub fn apply_plan(&self, plan: &DirectoryPlan) -> Result<Report, Failure> {
@@ -306,11 +308,12 @@ fn inspect<C: Check, S: Scope, A: Absence, V: Visitor>(
     }
 }
 
-fn shape(entry: &Operation) -> u8 {
+fn shape(entry: &Operation) -> Option<u8> {
+    entry.comparison()?;
     let sd = entry.source().is_some_and(|f| f.metadata().is_dir());
     let td = entry.target().is_some_and(|f| f.metadata().is_dir());
     if entry.source().is_some() && entry.target().is_some() && !sd && !td {
-        return CHANGED;
+        return Some(CHANGED);
     }
     let mut mask = 0;
     if entry.source().is_some() {
@@ -319,7 +322,7 @@ fn shape(entry: &Operation) -> u8 {
     if entry.target().is_some() {
         mask |= if td { REMOVE_DIR } else { REMOVE_LEAF };
     }
-    mask
+    Some(mask)
 }
 
 fn metadata_kind(path: &Path, metadata: &Metadata) -> Result<Kind, Failure> {
@@ -463,7 +466,7 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
         let relative = entry.relative_path();
         let from = self.original.join(relative);
         let to = self.target.join(relative);
-        let (source, target) = match entry.action() {
+        let (source, target) = match entry.action().expect("finalized entry has an action") {
             Action::Directory { descend: true, .. } => (
                 entry.source().is_some_and(|f| f.metadata().is_dir()).then_some(from.as_path()),
                 entry.target().is_some_and(|f| f.metadata().is_dir()).then_some(to.as_path()),
@@ -495,17 +498,18 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
     ) -> Result<(Progress, bool), Failure> {
         #[cfg(all(test, feature = "parallel"))]
         tests::observe(to);
-        match entry.action() {
+        let action = entry.action().expect("finalized entry has an action");
+        match action {
             Action::PreserveTree | Action::KeepLeaf => Ok((Progress::default(), entry.target().is_some())),
             Action::InstallLeaf | Action::ReplaceWithLeaf => {
-                if entry.action() == Action::ReplaceWithLeaf {
+                if action == Action::ReplaceWithLeaf {
                     self.removable(to, entry.relative_path(), true)?;
                 }
                 let source = entry.source().expect("validated source leaf");
                 self.copy_leaf_with(
                     from,
                     to,
-                    entry.action() == Action::ReplaceWithLeaf,
+                    action == Action::ReplaceWithLeaf,
                     source.metadata(),
                     source.link_target(),
                     &arena.entry(index, to)?,
@@ -969,7 +973,7 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
             ));
         }
         for entry in plan.operations().entries() {
-            match entry.action() {
+            match entry.action().expect("finalized entry has an action") {
                 Action::RemoveLeaf => {}
                 Action::Directory {
                     container: Container::Remove,

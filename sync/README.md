@@ -8,7 +8,7 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
   - resource: "opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06"
-    title: Replaced filesystem policy decisions with finalized early/late visitor batches, added recursive presets, joint preview, guarded public plans, Rustdoc and bounded semantic tests
+    title: Implemented and refined finalized visitor steering, metadata-aware special preservation, honest comparison/coverage reporting, recursive presets, preview, guarded public plans and bounded semantic tests
   - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
     title: Parent commission conveying the human's revised visitor-steering implementation direction; JW integration remains paused for review
   - resource: "opencode://ses_eaecf188affeV49Iu6kJOeHgsX"
@@ -113,6 +113,19 @@ leaves and matched-directory descent. Only existing action slots are mutable.
 `name.refuse(cause)` / `entry.refuse(cause)` report an actual logical slot; a
 generic callback error reports its batch, not an arbitrary injected path.
 
+Late may preserve a socket/FIFO or another unsupported kind based on its actual
+metadata. Its `comparison()` and `baseline()` are None, and its initial `action()`
+is None rather than a fictitious file operation. Explicit PreserveTree retains
+**both sides and descendants**, including a supported peer at that name. Default
+visitors and non-preservation actions still refuse; structural root binding is
+unchanged. These names have no normal `DirDiff` category, zero planned/completed
+work, and retained coverage that prevents a full-root clean claim. `Report.policy`
+includes committed retained slots even when no normal diff batch was yielded.
+Audit reports special observations separately as `retained_specials`. No special
+file is opened/read; early filtering remains the zero-child-metadata choice.
+`AuditFailure.inspected` boxes its cold prefix counters; ordinary field access
+still dereferences transparently.
+
 Useful compiled presets, not additional mode flags:
 
 | Visitor | Work |
@@ -176,8 +189,11 @@ Compatibility Absence does not prune explicit audit coverage.
 
 The new rich `DirectoryPlan` is sealed against public fact/action fabrication.
 `apply_plan(&plan)` is still a public trust boundary: it freshly validates all
-real routing ancestors and re-finalizes under this binding's visitor, refusing
-mismatched actions/observations rather than silently ignoring supplied steering.
+real routing ancestors and re-finalizes under this binding's visitor. Its fresh
+signature compares the legacy diff, names, actions, presence and supported
+comparison classification, refusing a mismatch rather than ignoring steering.
+It does **not** compare every supplied metadata value or file bytes: actual work
+uses the fresh facts, and stable trees remain required.
 Only `run`'s just-inspected internal seam reuses its batch without that public
 revalidation. Public `DirDiff` application also cannot reopen a preserved or
 stopped ancestor. Stable, nonhostile caller-owned trees remain required.

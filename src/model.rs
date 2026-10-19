@@ -115,6 +115,9 @@ impl Summary {
         self.state == ScanState::Complete && self.pruned.is_empty() && !self.scoped && self.excluded == 0 && self.retained == 0
     }
 
+    /// Known supported comparison differences. Late-preserved special kinds
+    /// have no normal delta; they contribute retained coverage instead, so false
+    /// here alone must not be treated as a clean-root certificate.
     pub fn has_differences(&self) -> bool {
         self.counts != EntryCounts::default()
     }
