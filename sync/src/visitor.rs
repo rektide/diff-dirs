@@ -65,3 +65,40 @@ impl Visitor for Seed {
         Ok(())
     }
 }
+
+/// Create and update source-present names, preserving whole target-only trees.
+/// A directory-to-leaf collision still requires its target-only descendants to
+/// be removable, so this preset refuses a nonempty such collision intact.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Update;
+impl Visitor for Update {
+    fn late(&self, operations: &mut Operations) -> Result<(), CheckError> {
+        for entry in operations.entries_mut() {
+            if entry.presence() == Presence::TargetOnly {
+                entry.preserve_tree();
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Remove target-only names while retaining source-present leaves and type
+/// collisions. Matched directory containers are kept and descended, allowing
+/// pruning below them. Source-only containers are not created. A collision is
+/// never reinterpreted as absence permission for its removed-directory half.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Prune;
+impl Visitor for Prune {
+    fn late(&self, operations: &mut Operations) -> Result<(), CheckError> {
+        for entry in operations.entries_mut() {
+            if entry.presence() != Presence::TargetOnly {
+                if entry.source().is_some_and(|f| f.metadata().is_dir()) && entry.target().is_some_and(|f| f.metadata().is_dir()) {
+                    entry.retain();
+                } else {
+                    entry.preserve_tree();
+                }
+            }
+        }
+        Ok(())
+    }
+}

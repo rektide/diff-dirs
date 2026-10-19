@@ -28,6 +28,10 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
     }
 
     pub(crate) fn apply_reported(&self, diff: &diff_dirs::DirDiff, parallel: bool) -> Result<Report, Failure> {
+        self.apply_public(diff, parallel, None)
+    }
+
+    fn apply_public(&self, diff: &diff_dirs::DirDiff, parallel: bool, expected: Option<&DirectoryPlan>) -> Result<Report, Failure> {
         let names = paths::names(diff)?;
         let context = Context::checked(
             self.policy,
@@ -45,6 +49,9 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
             let root = diff_dirs::inspect_root(&self.original, &self.target, Purpose::Compare, &self.steering()).map_err(Failure::checked)?;
             context.excluded.fetch_add(root.excluded(), Ordering::Relaxed);
             if !root.operations().entries()[0].descends() {
+                if expected.is_some() {
+                    return Err(Failure::invalid("apply plan", &self.target, "root descent is not admitted"));
+                }
                 return Ok(Progress::default());
             }
             let mut dir = PathBuf::new();
@@ -53,11 +60,17 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                 let entry = plan.operations().entries().iter().find(|e| e.name() == component.as_os_str());
                 let Some(entry) = entry else {
                     if plan.preserves(component.as_os_str()) {
+                        if expected.is_some() {
+                            return Err(Failure::invalid("apply plan", &dir.join(component), "ancestor is preserved"));
+                        }
                         return Ok(Progress::default());
                     }
                     return Err(Failure::invalid("validate record ancestor", &dir, "ancestor missing"));
                 };
                 if entry.action() == Action::PreserveTree {
+                    if expected.is_some() {
+                        return Err(Failure::invalid("apply plan", entry.relative_path(), "ancestor is preserved"));
+                    }
                     context.retained.fetch_add(1, Ordering::Relaxed);
                     return Ok(Progress::default());
                 }
@@ -69,13 +82,38 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                     ));
                 }
                 if !entry.descends() {
+                    if expected.is_some() {
+                        return Err(Failure::invalid("apply plan", entry.relative_path(), "ancestor descent is not admitted"));
+                    }
                     return Ok(Progress::default());
                 }
                 dir.push(component);
             }
             let plan = context.plan(&dir, Some(&self.original.join(&dir)), Some(&self.target.join(&dir)))?;
+            if let Some(expected) = expected {
+                let signature = |entry: &Operation| (entry.name().to_os_string(), entry.action(), entry.presence(), entry.is_different());
+                if plan.diff() != expected.diff()
+                    || plan
+                        .operations()
+                        .entries()
+                        .iter()
+                        .map(signature)
+                        .ne(expected.operations().entries().iter().map(signature))
+                {
+                    return Err(Failure::invalid(
+                        "apply plan",
+                        &dir,
+                        "batch does not match current observations and this binding's finalized visitor actions",
+                    ));
+                }
+            }
             for (name, mask) in &names {
-                if let Some(entry) = plan.operations().entries().iter().find(|e| e.name() == name) {
+                if let Ok(index) = plan
+                    .operations()
+                    .entries()
+                    .binary_search_by(|e| e.name().as_encoded_bytes().cmp(name.as_encoded_bytes()))
+                {
+                    let entry = &plan.operations().entries()[index];
                     if shape(entry) != *mask {
                         return Err(Failure::invalid("validate record", &dir.join(name), "entry type does not match record"));
                     }
@@ -88,10 +126,12 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
         context.finish(result)
     }
 
-    /// Apply an opaque finalized batch produced by the visitor walker. It must
-    /// belong to this exact binding; facts remain subject to caller quiescence.
-    /// Paired child directories stay with the walk; one-sided work recurses using
-    /// this binding's same visitor and shared staged operation kernel.
+    /// Apply an externally obtained finalized batch. This public boundary freshly
+    /// validates real routing ancestors and re-finalizes under **this binding's**
+    /// visitor. Different observations/actions refuse before writes, rather than
+    /// silently overriding supplied steering or trusting another policy's plan.
+    /// The internal run/walker seam reuses just-observed facts without this extra
+    /// public validation. Neither interface is a concurrent-replacement sandbox.
     pub fn apply_plan(&self, plan: &DirectoryPlan) -> Result<Report, Failure> {
         if plan.operations().source_root() != self.original || plan.operations().target_root() != self.target || plan.operations().is_root() {
             return Err(Failure::invalid(
@@ -100,10 +140,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                 "plan does not belong to these directory roots",
             ));
         }
-        // A public batch is not an ancestor/admission certificate. Freshly apply
-        // its names through this binding's visitor; the internal streaming seam
-        // alone can reuse a just-inspected plan with already-admitted ancestors.
-        self.apply_reported(plan.diff(), false)
+        self.apply_public(plan.diff(), false, Some(plan))
     }
 
     pub(crate) fn apply_plan_with(&self, plan: &DirectoryPlan, parallel: bool) -> Result<Report, Failure> {
@@ -127,6 +164,37 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
         context.excluded.fetch_add(plan.excluded(), Ordering::Relaxed);
         let dir = plan.operations().dir();
         let result = context.execute_batch(plan, &self.original.join(dir), &self.target.join(dir), false, None);
+        context.finish(result)
+    }
+
+    /// Read-only joint preview of the same root and recursive visitor actions as
+    /// run, including one-sided interiors and coupled collision blockers. It
+    /// never probes clone capability, stages, chmods, or writes. Planned counters
+    /// are predictions from current facts, not completed work or durable authority.
+    /// This is explicit extra work for callers requesting preview, never an
+    /// implicit preaudit performed by normal execution. `observed` is None: this
+    /// is not the legacy both-directory comparison projection.
+    pub fn preview(&self) -> Result<Report, Failure> {
+        paths::directory(&self.original)?;
+        paths::root_with_leaf(&self.target, true, self.replace_root)?;
+        let context = Context::checked(
+            self.policy,
+            false,
+            &self.original,
+            &self.target,
+            &self.check,
+            &self.scope,
+            &self.absence,
+            &self.visitor,
+        );
+        let result = (|| {
+            let root = diff_dirs::inspect_root(&self.original, &self.target, Purpose::Compare, &self.steering()).map_err(Failure::checked)?;
+            context.excluded.fetch_add(root.excluded(), Ordering::Relaxed);
+            context.retained.fetch_add(root.retained(), Ordering::Relaxed);
+            context.planned.fetch_add(root.work(), Ordering::Relaxed);
+            context.preview_entry(&root.operations().entries()[0])?;
+            Ok(Progress::default())
+        })();
         context.finish(result)
     }
 
@@ -349,8 +417,12 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
     }
 
     fn plan(&self, relative: &Path, source: Option<&Path>, target: Option<&Path>) -> Result<DirectoryPlan, Failure> {
-        let plan =
-            diff_dirs::inspect_directory(self.original, self.target, relative, source, target, Purpose::Compare, &self.steering()).map_err(Failure::checked)?;
+        let purpose = match (source.is_some(), target.is_some()) {
+            (true, false) => Purpose::Copy,
+            (false, true) => Purpose::Remove,
+            _ => Purpose::Compare,
+        };
+        let plan = diff_dirs::inspect_directory(self.original, self.target, relative, source, target, purpose, &self.steering()).map_err(Failure::checked)?;
         self.excluded.fetch_add(plan.excluded(), Ordering::Relaxed);
         Ok(plan)
     }
@@ -368,7 +440,13 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
             .operations()
             .entries()
             .iter()
-            .filter(|e| selected.is_none_or(|names| names.iter().any(|(name, _)| name == e.name())))
+            .filter(|e| {
+                selected.is_none_or(|names| {
+                    names
+                        .binary_search_by(|(name, _)| name.as_encoded_bytes().cmp(e.name().as_encoded_bytes()))
+                        .is_ok()
+                })
+            })
             .collect();
         self.planned
             .fetch_add(entries.iter().filter(|e| e.has_work()).count() as u64, Ordering::Relaxed);
@@ -378,6 +456,31 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
                 .map(|(done, _)| done)
         });
         arena.finish(result, self)
+    }
+
+    fn preview_entry(&self, entry: &Operation) -> Result<(), Failure> {
+        let relative = entry.relative_path();
+        let from = self.original.join(relative);
+        let to = self.target.join(relative);
+        let (source, target) = match entry.action() {
+            Action::Directory { descend: true, .. } => (
+                entry.source().is_some_and(|f| f.metadata().is_dir()).then_some(from.as_path()),
+                entry.target().is_some_and(|f| f.metadata().is_dir()).then_some(to.as_path()),
+            ),
+            Action::ReplaceWithDirectory { descend: true } => (Some(from.as_path()), None),
+            Action::ReplaceWithLeaf => {
+                self.removable(&to, relative, true)?;
+                (None, Some(to.as_path()))
+            }
+            _ => return Ok(()),
+        };
+        let plan = self.plan(relative, source, target)?;
+        self.retained.fetch_add(plan.retained(), Ordering::Relaxed);
+        self.planned.fetch_add(plan.work(), Ordering::Relaxed);
+        for child in plan.operations().entries() {
+            self.preview_entry(child)?;
+        }
+        Ok(())
     }
 
     fn execute_entry(

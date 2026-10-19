@@ -112,7 +112,7 @@ pub struct Summary {
 impl Summary {
     /// True only after normal exhaustion without any pruning.
     pub fn is_complete(&self) -> bool {
-        self.state == ScanState::Complete && self.pruned.is_empty() && !self.scoped
+        self.state == ScanState::Complete && self.pruned.is_empty() && !self.scoped && self.excluded == 0 && self.retained == 0
     }
 
     pub fn has_differences(&self) -> bool {

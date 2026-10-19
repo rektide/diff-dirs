@@ -10,15 +10,20 @@ use crate::{Check, CheckError, DirDiff, Entry, Error, NoCheck, NoScope, Purpose,
 /// Suppression never changes this fact and therefore cannot manufacture absence.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Presence {
+    /// The name appeared only in the source listing.
     SourceOnly,
+    /// The name appeared in both listings, independently of its types.
     Both,
+    /// The name appeared only in the target listing.
     TargetOnly,
 }
 
 /// Pair-wide early admission. Preserving a name preserves its entire subtree.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Admission {
+    /// Collect the normal observations and propose baseline work.
     Observe,
+    /// Omit both sides and all descendants without child metadata/readlink.
     PreserveTree,
 }
 
@@ -33,6 +38,8 @@ pub struct Name {
 }
 
 impl Name {
+    /// Lossless native basename. A root singleton uses the source root basename
+    /// (or the sole bound tree's basename); `is_root` disambiguates that slot.
     pub fn name(&self) -> &OsStr {
         &self.name
     }
@@ -40,9 +47,11 @@ impl Name {
     pub fn relative_path(&self) -> &Path {
         &self.relative
     }
+    /// Cheap listing fact, never changed by preservation.
     pub fn presence(&self) -> Presence {
         self.presence
     }
+    /// Current early steering; initially Observe for every union name.
     pub fn admission(&self) -> Admission {
         self.admission
     }
@@ -65,6 +74,7 @@ pub struct Names {
 }
 
 impl Names {
+    /// Logical containing directory, empty at the root. No staging coordinate.
     pub fn dir(&self) -> &Path {
         &self.dir
     }
@@ -73,9 +83,12 @@ impl Names {
     pub fn is_root(&self) -> bool {
         self.root
     }
+    /// Native-byte sorted union slots with immutable identities/presence.
     pub fn entries(&self) -> &[Name] {
         &self.entries
     }
+    /// Steer existing slots only. Reordering opaque entries with `mem::swap` is
+    /// rejected before child observations, rather than changing error order.
     pub fn entries_mut(&mut self) -> impl Iterator<Item = &mut Name> {
         self.entries.iter_mut()
     }
@@ -84,8 +97,11 @@ impl Names {
 /// Local container work, independent of descending into its children.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Container {
+    /// Keep the existing directory inode, independently of child work.
     Keep,
+    /// Create an absent directory needed as a legal routing ancestor.
     Create,
+    /// Remove after child reconciliation only if no descendant survives.
     Remove,
 }
 
@@ -108,14 +124,29 @@ pub enum Container {
 /// directory cannot Keep an absent container while admitting child writes.
 /// PreserveTree always stops descent and performs no local work. Keeping a
 /// directory container while descending permits selected pruning below it.
+/// Unsupported special types have no legal operation and are still refused;
+/// exclude them in early when they must be preserved without observation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
+    /// Retain this name/subtree, with neither namespace work nor descent.
     PreserveTree,
+    /// No leaf installation/removal. At an absent target, leave it absent.
     KeepLeaf,
+    /// Install a different or absent source leaf using target-side preparation.
     InstallLeaf,
+    /// Delete a source-absent target leaf, never a half of a collision.
     RemoveLeaf,
+    /// Independent container authority and child admission, subject to the table
+    /// above. Removing with descent stopped, or keeping an absent container, is
+    /// invalid; the library never silently creates a refused routing ancestor.
     Directory { container: Container, descend: bool },
+    /// Coupled directory-to-leaf replacement. Sync locally checks removability
+    /// of this affected target subtree before staging/chmod/dismantling it.
+    /// A retained descendant refuses intact; later I/O failure can be partial.
     ReplaceWithLeaf,
+    /// Coupled leaf-to-directory replacement. Sync prepares admitted source
+    /// contents before removing the old leaf, using final logical visitor paths.
+    /// `descend: false` deliberately prepares an empty directory.
     ReplaceWithDirectory { descend: bool },
 }
 
@@ -129,9 +160,12 @@ pub struct Facts {
 }
 
 impl Facts {
+    /// Actual no-follow metadata, borrowed without an additional stat.
     pub fn metadata(&self) -> &Metadata {
         &self.metadata
     }
+    /// Literal readlink spelling where already needed. Compare native `OsStr`
+    /// spellings, not Path equality (which normalizes repeated separators).
     pub fn link_target(&self) -> Option<&Path> {
         self.link.as_deref()
     }
@@ -151,18 +185,23 @@ pub struct Operation {
 }
 
 impl Operation {
+    /// Immutable native name from the union (or structural root singleton).
     pub fn name(&self) -> &OsStr {
         &self.name
     }
+    /// Final root-relative coordinate; never a private physical staging path.
     pub fn relative_path(&self) -> &Path {
         &self.relative
     }
+    /// Actual admitted source facts; None is genuine source absence, not filtering.
     pub fn source(&self) -> Option<&Facts> {
         self.source.as_ref()
     }
+    /// Actual admitted target facts; source-only preparation has no target facts.
     pub fn target(&self) -> Option<&Facts> {
         self.target.as_ref()
     }
+    /// Immutable listing/observation presence. Type collisions remain Both.
     pub fn presence(&self) -> Presence {
         presence(self.source.is_some(), self.target.is_some())
     }
@@ -171,9 +210,11 @@ impl Operation {
     pub fn is_different(&self) -> bool {
         self.different
     }
+    /// Current proposed work, changed only through typed steering methods.
     pub fn action(&self) -> Action {
         self.action
     }
+    /// Original mirror proposal, never rewritten when current work is retained.
     pub fn baseline(&self) -> Action {
         self.baseline
     }
@@ -210,6 +251,8 @@ impl Operation {
             Action::Directory { descend: true, .. } | Action::ReplaceWithDirectory { descend: true }
         )
     }
+    /// Whether a namespace action is proposed for this name. Directory removal
+    /// is conditional on descendants; this is not a claim of completed work.
     pub fn has_work(&self) -> bool {
         matches!(
             self.action,
@@ -268,24 +311,34 @@ pub struct Operations {
 }
 
 impl Operations {
+    /// Final root-relative containing directory; empty for the root pair.
     pub fn dir(&self) -> &Path {
         &self.dir
     }
+    /// Whether these are mandatory structural root facts, not child entries.
     pub fn is_root(&self) -> bool {
         self.root
     }
+    /// Comparison, source-only preparation, target-only pruning, or explicit audit.
     pub fn purpose(&self) -> Purpose {
         self.purpose
     }
+    /// Logical source binding, including while target output is privately staged.
     pub fn source_root(&self) -> &Path {
         &self.source_root
     }
+    /// Logical final target binding; never the private output directory.
     pub fn target_root(&self) -> &Path {
         &self.target_root
     }
+    /// All admitted immediate observations/proposals, including unchanged leaves
+    /// and matched directory descent. Excluded early names have no facts here.
     pub fn entries(&self) -> &[Operation] {
         &self.entries
     }
+    /// Edit only actions of existing entries. Names, metadata, presence and
+    /// baseline comparison cannot be fabricated or edited; swapping slots is
+    /// rejected at finalization. Invalid combinations refuse this entire batch.
     pub fn entries_mut(&mut self) -> impl Iterator<Item = &mut Operation> {
         self.entries.iter_mut()
     }
@@ -304,6 +357,7 @@ pub struct DirectoryPlan {
 }
 
 impl DirectoryPlan {
+    /// Finalized immutable observations and actions; no mutable projection exists.
     pub fn operations(&self) -> &Operations {
         &self.operations
     }
@@ -311,6 +365,7 @@ impl DirectoryPlan {
     pub fn diff(&self) -> &DirDiff {
         &self.diff
     }
+    /// Count of premetadata-excluded immediate boundaries, not hidden entries.
     pub fn excluded(&self) -> u64 {
         self.excluded
     }
@@ -323,9 +378,12 @@ impl DirectoryPlan {
     pub fn preserves(&self, name: &OsStr) -> bool {
         self.preserved.iter().any(|n| n == name)
     }
+    /// Declared scoped coverage, not proof that some particular action changed.
     pub fn steered(&self) -> bool {
         self.steered
     }
+    /// Immediate slots whose action differs from the mirror baseline, including
+    /// stopping otherwise-clean descent. Not unique-path or recursive counts.
     pub fn retained(&self) -> u64 {
         self.operations.entries.iter().filter(|e| e.action != e.baseline).count() as u64
     }
@@ -375,20 +433,32 @@ pub trait Visitor: Sync {
     /// False promises both callbacks are unconditional no-ops, with no reliance
     /// on invocation. It permits skipping dispatch and callback error mapping;
     /// observations and plan construction needed by the operation still run.
+    /// The paired-root callback-only observation/context is also skipped in the
+    /// disabled walk; mandatory root binding/type validation still runs. This
+    /// does not eliminate the ordinary per-directory observation/action batch.
     /// Leave true for any steering/refusal. No measured speedup is claimed.
     const ENABLED: bool = true;
     /// Whether mere exhaustion must not certify unqualified full-root coverage.
     /// Refusal-only compatibility checks override this; steering visitors keep
     /// the conservative default even if no excluded name happened to occur.
+    /// Returning false promises that this visitor never suppresses coverage or
+    /// changes work. Actual exclusion/retention still invalidates completeness.
     fn scoped(&self) -> bool {
         Self::ENABLED
     }
+    /// Steer the sorted union before any child stat/readlink. Return an error to
+    /// refuse the batch without publishing its children. The directory listing
+    /// and structural root metadata exceptions are specified on [`Names`].
     fn early(&self, _: &mut Names) -> Result<(), CheckError> {
         Ok(())
     }
+    /// Steer actual proposals using already-needed immutable facts. This runs
+    /// outside frontier locks, before even a clean result exposes child jobs.
+    /// A normal return is followed by whole-immediate-batch action validation.
     fn late(&self, _: &mut Operations) -> Result<(), CheckError> {
         Ok(())
     }
+    /// Lend the same frozen visitor without losing static no-op specialization.
     fn borrowed(&self) -> VisitorRef<'_, Self>
     where
         Self: Sized,
@@ -404,6 +474,7 @@ impl Visitor for NoVisitor {
     const ENABLED: bool = false;
 }
 
+/// Borrowed compiled visitor, forwarding both callbacks and ENABLED's promise.
 #[derive(Clone, Copy, Debug)]
 pub struct VisitorRef<'a, V: ?Sized>(pub &'a V);
 impl<V: Visitor + ?Sized> Visitor for VisitorRef<'_, V> {
@@ -422,11 +493,15 @@ impl<V: Visitor + ?Sized> Visitor for VisitorRef<'_, V> {
 /// Thin compatibility projection of old path scope and side-local refusal.
 #[derive(Debug)]
 pub struct CheckedScope<C = NoCheck, S = NoScope> {
+    /// Side-local refusal projection, run on immutable late facts.
     pub check: C,
+    /// Pair-wide early preservation projection.
     pub scope: S,
     roots_checked: bool,
 }
 impl<C, S> CheckedScope<C, S> {
+    /// Compose the legacy interfaces as one compiled visitor, with no separate
+    /// policy engine or filesystem observations solely for these projections.
     pub fn new(check: C, scope: S) -> Self {
         Self {
             check,
@@ -497,6 +572,10 @@ fn presence(source: bool, target: bool) -> Presence {
 
 fn facts(path: &Path, read_link: bool) -> Result<Facts, Error> {
     let metadata = fs::symlink_metadata(path).map_err(|e| Error::io(path.to_path_buf(), "inspect entry", e))?;
+    facts_with_metadata(path, metadata, read_link)
+}
+
+fn facts_with_metadata(path: &Path, metadata: Metadata, read_link: bool) -> Result<Facts, Error> {
     let link = if metadata.is_symlink() && read_link {
         Some(fs::read_link(path).map_err(|e| Error::io(path.to_path_buf(), "read symlink", e))?)
     } else {
@@ -575,15 +654,13 @@ fn finish<V: Visitor>(mut operations: Operations, excluded: u64, visitor: &V) ->
     };
     for entry in &operations.entries {
         let path = operations.target_root.join(&entry.relative);
-        if entry.action != Action::PreserveTree {
-            for (root, facts) in [(&operations.source_root, &entry.source), (&operations.target_root, &entry.target)] {
-                if let Some(facts) = facts {
-                    if !(facts.metadata.is_dir() || facts.metadata.is_file() || facts.metadata.is_symlink()) {
-                        return Err(Error::UnsupportedEntry {
-                            path: root.join(&entry.relative),
-                        });
-                    }
-                }
+        for (root, facts) in [(&operations.source_root, &entry.source), (&operations.target_root, &entry.target)] {
+            if let Some(facts) = facts
+                && !(facts.metadata.is_dir() || facts.metadata.is_file() || facts.metadata.is_symlink())
+            {
+                return Err(Error::UnsupportedEntry {
+                    path: root.join(&entry.relative),
+                });
             }
         }
         entry.validate().map_err(|source| refusal(&path, source))?;
@@ -780,7 +857,7 @@ pub(crate) fn inspect_directory_execution<V: Visitor>(
 pub fn inspect_root<V: Visitor>(source: &Path, target: &Path, purpose: Purpose, visitor: &V) -> Result<DirectoryPlan, Error> {
     let s = facts(source, true)?;
     let t = match fs::symlink_metadata(target) {
-        Ok(_) => Some(facts(target, true)?),
+        Ok(metadata) => Some(facts_with_metadata(target, metadata, s.metadata.is_symlink() || purpose == Purpose::Audit)?),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
         Err(e) => return Err(Error::io(target.to_path_buf(), "inspect root", e)),
     };

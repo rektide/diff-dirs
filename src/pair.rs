@@ -4,7 +4,9 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::{Check, CheckedScope, DirDiff, DirectoryPlan, Entry, Error, Execution, Purpose, Scope, Side, Visitor};
+use crate::{Check, DirDiff, DirectoryPlan, Entry, Error, Execution, Purpose, Side, Visitor};
+#[cfg(feature = "parallel")]
+use crate::{CheckedScope, Scope};
 
 #[derive(Debug)]
 pub(crate) struct Roots {
@@ -47,6 +49,7 @@ impl Roots {
         Ok(roots)
     }
 
+    #[cfg(feature = "parallel")]
     pub fn inspect_scoped<C: Check, S: Scope>(&self, dir: PathBuf, execution: Execution, check: &C, scope: &S) -> Result<ComparedPair, Error> {
         self.inspect_visitor(dir, execution, &CheckedScope::new(check.borrowed(), scope.borrowed()).roots_checked())
     }

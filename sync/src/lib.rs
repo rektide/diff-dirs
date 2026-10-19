@@ -12,7 +12,7 @@ mod visitor;
 pub use apply::{clear, clear_with_visitor, seed_leaves};
 pub use authority::{Absence, NeverRemove, RemoveAll};
 pub use model::{CopyPolicy, Failure, Issue, Policy, Progress, Report};
-pub use visitor::Seed;
+pub use visitor::{Prune, Seed, Update};
 
 use std::path::{Path, PathBuf};
 
@@ -268,7 +268,7 @@ pub fn mirror_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<P
 /// the local precheck leaves that old subtree intact. Use [`Applier::scope`] for
 /// exclusions, and [`Applier::absence`] for mixed deletion regions.
 pub fn update(original: impl AsRef<Path>, target: impl AsRef<Path>, policy: CopyPolicy) -> Result<Report, Failure> {
-    Applier::new(original, target, policy)?.absence(NeverRemove).run()
+    Applier::new(original, target, policy)?.visitor(Update).run()
 }
 
 /// Optional borrowed-pool comparison and application. Creates/configures no
