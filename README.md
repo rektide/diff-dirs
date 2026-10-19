@@ -5,7 +5,12 @@ description: Generic deterministic directory comparison, consumer-driven reconci
 resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
+  - resource: opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06
+    title: Implemented the human-directed mutable early-name and late-operation visitor, finalized-plan traversal/application, preview, compatibility projections, Rustdoc and tiny semantic regressions
+  - resource: opencode://ses_eb262a81effea1HgF0pPS3f1sy
+    title: Parent commission conveying the revised human visitor interface and holding JW integration for library review
   - resource: opencode://ses_eaecf188affeV49Iu6kJOeHgsX
     title: Implemented pair-wide scope, scoped audit and honest coverage summaries; documented static check/scope specialization and disabled-policy obligations
   - resource: opencode://ses_eb24f98a3ffewdVqa9lao6tXQu
@@ -67,7 +72,7 @@ motivation, not a claim of measured end-to-end sync speedup.
   literal native readlink target, not normalized path components. Regular-file
   ↔ symlink is `files.changed`. Directory ↔ leaf produces paired added/removed
   categories in one record. Directories are structure, never stat-compared —
-  a both-sided subdir is always descended and its contents compared
+  by default a both-sided subdir is descended and its contents compared
   entry-by-entry.
 - **Trust model (stated plainly):** file-level stat equality is the same
   grade as jj's working-copy cache; it does not catch an in-place byte edit
@@ -165,9 +170,10 @@ Consuming an unstarted walk or breaking early never claims a clean scan.
 
 ## Driving the walk
 
-The walker remains a pull iterator running inside the consumer's loop. An
-optional statically dispatched accept/refuse check deliberately amends the old
-"no callbacks, no traits" restriction; it does not drive mutation or edit records.
+The walker remains a pull iterator running inside the consumer's loop. Compiled
+early/late visitors supersede the old "no callbacks, no traits" restriction.
+Legacy checks and scopes are thin visitor projections; plain `DirDiff` loops
+remain usable with their default comparison meanings.
 
 ```rust,no_run
 fn compare(original: &std::path::Path, target: &std::path::Path)
@@ -207,7 +213,116 @@ Ok(walk.into_summary())             // topmost divergent subtrees, counts
 Both consumption styles below run over this same walk — the library makes no
 distinction between them. See [Use cases](#use-cases).
 
+## Visitor-steered planning
+
+`Visitor: Sync` has **one early name batch and one late operation batch per
+directory**. It is statically dispatched Rust, not an interpreted rule list or a
+shared mutable scheduler. Every name initially participates; every observed
+entry initially proposes normal mirror work. Equal leaves remain no-ops.
+
+* `early(&mut Names)` sees the native-byte-sorted union of immediate basenames
+  and immutable `Presence::{SourceOnly,Both,TargetOnly}` from listings. It can
+  `preserve_tree()` pair-wide or return a refusal, **before child metadata,
+  readlink, checks, or entry into that subtree**. Presence is not erased to make
+  a hidden source look absent. The containing listing and structural root checks
+  are still necessary. A structural-root singleton is explicitly marked and its
+  metadata necessarily precedes steering.
+* `late(&mut Operations)` sees actual no-follow metadata, already-needed literal
+  links, immutable baseline comparison and **all** admitted proposals, including
+  clean leaves and matched-directory descent. It edits existing `Action` slots,
+  not names, facts, types, or injected paths. `retain()` keeps an existing target
+  directory while allowing child work; `preserve_tree()` also stops descent.
+  Named `refuse(cause)` methods attach an actual slot's final logical coordinate.
+* A whole immediate batch is validated before application or child publication.
+  `Directory { container: Keep/Create/Remove, descend }` separates container work
+  from descent. Keeping an absent source-only container while admitting child
+  writes is invalid. Directory↔leaf replacements are **coupled actions**, never
+  independently editable delete/create halves. Equal-leaf force installation is
+  deliberately not supported. The exact authority table and staging contract
+  are in [`Action`'s Rustdoc](src/visitor.rs).
+
+```rust,no_run
+use diff_dirs::{CheckError, Names, Operations, Presence, Visitor};
+struct SeedExceptAdministrative;
+impl Visitor for SeedExceptAdministrative {
+    fn early(&self, names: &mut Names) -> Result<(), CheckError> {
+        for name in names.entries_mut() {
+            if name.name() == ".jj" { name.preserve_tree(); }
+        }
+        Ok(())
+    }
+    fn late(&self, batch: &mut Operations) -> Result<(), CheckError> {
+        for entry in batch.entries_mut() {
+            if entry.presence() != Presence::SourceOnly {
+                let paired_dirs = entry.source().is_some_and(|f| f.metadata().is_dir())
+                    && entry.target().is_some_and(|f| f.metadata().is_dir());
+                if paired_dirs { entry.retain(); } else { entry.preserve_tree(); }
+            }
+        }
+        Ok(())
+    }
+}
+# fn main() -> Result<(), diff_dirs::Error> {
+let mut walk = diff_dirs::walk_with_visitor("source", "target", SeedExceptAdministrative)?;
+for batch in walk.by_ref() {
+    let batch = batch?; // immutable DirectoryPlan; core never applies it
+    println!("{:?}: {} planned actions", batch.operations().dir(), batch.work());
+}
+let observed = walk.into_summary();
+assert!(!observed.is_clean()); // selected coverage is not full-root equality
+# Ok(()) }
+```
+
+`walk_with_options_visitor` and `walk_in_pool_visitor` share the existing DFS,
+joined epochs, J/K demand reservation and divergence seals. The **finalized**
+batch determines child admission; a clean directory whose descent was stopped
+cannot expose descendant jobs. Callbacks run outside frontier locks. A rich walk
+still yields only observed divergent directory batches and leaves one-sided
+interiors opaque; clean batches nevertheless run late and contribute steering
+coverage. [`diff-dirs-sync`](sync/README.md#visitor-steered-synchronization)
+recursively inspects those interiors through the same contexts and consumes
+finalized actions, not a filtered report.
+
+Phase failure order is explicit: listing, early steering, admitted metadata in
+native-name/source-before-target order, late steering, then action validation.
+Late never receives an incomplete metadata batch. This deliberately changes old
+per-entry Check/metadata interleaving while retaining deterministic committed DFS
+errors and zero counts for a failed directory. Only early can avoid an unwanted
+metadata/readlink failure; late preservation is not a premetadata filter.
+
+`DirectoryPlan.diff()` and `Summary.counts` retain baseline observed comparison;
+`DirectoryPlan.work()` and `Summary.planned` count immediate proposed namespace
+actions, with a collision counted once. Conditional directory removal may later
+retain a necessary ancestor. `retained` counts changed action slots, including
+stopped clean descent. These are neither recursive payload catalogs nor actual
+completed operations. Exclusions/retention never certify full-root cleanliness.
+
+Visitors must use frozen caller facts and supplied observations: no filesystem
+I/O/mutation, processes, printing or order/count-dependent decisions. Parallel
+calls may be speculative, repeated or uncommitted, not ordered notifications.
+Refusal prevents this batch's writes/admission; prior work or started siblings
+can remain. There is no snapshot, rollback, or finite stalled-call latency bound.
+`NoVisitor::ENABLED == false` skips hook dispatch/error mapping and callback-only
+root construction, not ordinary observations or directory-plan construction.
+Declaring false promises both callbacks are semantic no-ops and may never run;
+no measured performance improvement is claimed.
+
+`audit_with_visitor(root, side, &visitor)` provides explicit read-only one-sided
+coverage, using the same final descent decisions and literal links. Its counts
+describe successfully finalized directory batches, not deletion predictions.
+Use sync's joint `preview()` when collision and create/delete decisions matter.
+
+This extends the earlier [constrained inspection-gate proposal](design/fit/policy0.gpt6a.md#3-the-gate-a-constrained-prefilter):
+that proposal deliberately deferred zero-stat exclusion and limited edits to
+preservation/refusal. The revised human-directed interface adds the early phase
+and actual typed work steering without accepting its independent JW policies.
+The [frontier design](design/concurrency/design0.gpt6am.md) remains the ordering,
+joining and admission precedent, not a reason to expose children before late.
+
 ## Checked inspection and read-only audit
+
+Compatibility surface: `Check` and `Scope` project into the visitor batches
+below; they are not separate decision or filesystem engines.
 
 ```rust,no_run
 use diff_dirs::{CheckError, Entry};
@@ -270,7 +385,7 @@ compares roots nor builds a plan. Sync's audit binds roots and combines both sid
 
 `walk_scoped(original, target, check, scope)`, `walk_with_options_scoped`, and
 `walk_in_pool_scoped` use the same traversal and scheduler as the plain APIs.
-`Scope: Sync` returns `Visit::Reconcile` or `Visit::PreserveTree` for a logical
+`Scope: Sync` is a compatibility early visitor returning `Visit::Reconcile` or `Visit::PreserveTree` for a logical
 root-relative path. Closures implement the trait; `NoScope` compiles away the
 selection. `Scope::borrowed()` preserves static specialization.
 
@@ -524,11 +639,12 @@ benefit has not yet been measured.
 
 ## Non-goals
 
-- No mutation **in the diff core**, no rename detection (a rename is add+remove), no ignore-rule
-  handling (compare exactly the roots given), no content hashing.
+- No mutation **in the diff core**, no rename detection (a rename is add+remove),
+  no built-in ignore language/repository policy, no content hashing. Callers can
+  compile their own early/late policy in a visitor.
 
 Settled during spec review (recorded so they don't resurface as questions):
-single always-descending walk — no stat pruning, no mode flags; the consumer
+single default always-descending walk — no stat pruning, no mode flags; the consumer
 drives the walk as a pull iterator in its own loop (`prune_here()` for
 wholesale subtrees, `break` to stop, `into_summary()` for the aggregate);
 records carry names and classification only, never stats; aggregate directory

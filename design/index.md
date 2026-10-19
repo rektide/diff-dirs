@@ -5,7 +5,10 @@ description: Reading paths through consumer fit, I/O research, implementation de
 resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
+  - resource: opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06
+    title: Connected implemented early/late operation steering to maintained API/Rustdoc, semantic tests, and the earlier narrower gate and frontier precedents without promoting JW policy proposals
   - resource: opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu
     title: Linked the accepted tooling assessment, completed Rust-only takeover and current native tool guide
   - resource: "opencode://ses_eb24f98a3ffewdVqa9lao6tXQu"
@@ -61,8 +64,9 @@ The [root specification](../README.md) owns the current public contract.
   proofs in jw, and alternatives for strict preflight, caller-owned cursors,
   uniform tree execution, and source-to-many streaming. Includes a linked
    jj-waltz call-site map; proposed, not an amendment to the active specification.
-  The narrower accept/refuse implementation is linked below; the proposal's
-  preserve/editable-view and broader alternatives were not implemented.
+  The narrower accept/refuse implementation is linked below. The later human-
+  directed early/late visitor below goes beyond this proposal's monotone gate;
+  that does not ratify its separate JW defaults or broader alternatives.
 - [I/O assessment](fit/io0.glm53m.md): std, async wrappers, filesystem libraries,
   and the concrete sequential jj-waltz execution path. Jujutsu itself is a
   subprocess, not an embedded runtime dependency.
@@ -114,6 +118,16 @@ The [root specification](../README.md) owns the current public contract.
 
 ## Filesystem synchronization — separate optional consumer
 
+- [Early/late visitor API](../README.md#visitor-steered-planning) and
+  [visitor synchronization](../sync/README.md#visitor-steered-synchronization):
+  implemented mutable premetadata name admission and late typed operation
+  steering, immutable facts, coupled collisions, finalized child admission,
+  recursive presets, logical staged paths, read-only joint preview and public
+  plan validation. [Core tests](../tests/visitor.rs) and
+  [sync tests](../sync/tests/visitor.rs) use tiny semantic fixtures, not a new
+  performance campaign. This extends the earlier gate's metadata boundary and
+  editable-work authority while retaining the frontier's joined DFS guarantees.
+  JW product/configuration/state-protocol integration remains outside this slice.
 - [Selected sync brief](sync/brief0.gpt6a.md): application direction, copy policy,
   metadata/replacement discipline, and the bounded scope without a runtime refactor.
 - [Maintained sync API](../sync/README.md): plain, caller-loop, and borrowed-pool

@@ -5,11 +5,16 @@ description: Root-bound record application, explicit copy policies, staged repla
 resource: /sync/README.md
 status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
+  - resource: "opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06"
+    title: Replaced filesystem policy decisions with finalized early/late visitor batches, added recursive presets, joint preview, guarded public plans, Rustdoc and bounded semantic tests
+  - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
+    title: Parent commission conveying the human's revised visitor-steering implementation direction; JW integration remains paused for review
   - resource: "opencode://ses_eaecf188affeV49Iu6kJOeHgsX"
     title: Implemented authority-based scoped reconciliation and shared seed/clear kernels, refined parent-batched seeding, and documented static check specialization with bounded semantic verification
   - resource: "file:///home/rektide/src/jj-waltz/design/sync-scope/design0.gpt6a.md"
-    title: Selected authority-based generic synchronization direction, superseding ignored-root selection without moving repository meaning into this library
+    title: Earlier authority-based proposal, retained for failure and type-preservation reasoning; its Scope/Absence organizing model and JW defaults were not human-selected constraints on the revised visitor
   - resource: "opencode://ses_eb24f98a3ffewdVqa9lao6tXQu"
     title: Added static checked execution through equal comparison, recursive copy/removal, absent roots and staged root transitions, plus explicit full read-only audit
   - resource: "opencode://ses_eb2c07f5cffe2uTLIC7b1rrD99"
@@ -26,10 +31,11 @@ sources:
 
 # diff-dirs-sync
 
-Optional filesystem synchronization over `diff-dirs`: source presence updates
-participating paths; **source absence deletes only with explicit authority**.
-The default mirror grants that authority everywhere. The read-only core
-never depends on this crate. Ordinary execution needs no Rayon; feature
+Optional filesystem synchronization over `diff-dirs`' finalized **early/late
+visitor batches**. Default proposals mirror the source: create absent names,
+replace different collisions, prune target-only names, and descend directories.
+The visitor can independently steer that work without editing observed facts.
+The read-only core never depends on this crate. Ordinary execution needs no Rayon; feature
 `parallel` adds borrowed caller-pool comparison and application.
 
 ## Mirror
@@ -65,7 +71,137 @@ supports it. Symlink metadata is not mirrored. Unsupported special entries fail
 with their path; copied opaque subtrees validate while visiting, without a
 separate whole-tree preflight or content-reading pass.
 
+## Visitor-steered synchronization
+
+`Applier::visitor(V)` uses the same statically dispatched `Visitor` throughout:
+paired comparison (including clean entries), recursive source-only copy,
+target-only pruning, absent-target initialization, explicit leaf-root replacement,
+both directory↔leaf transitions, and explicit audit/preview. Root binding/type
+checks remain mandatory. There is no separate visitor mirror engine beside an
+old Scope/Absence engine: compatibility policies project into the same early
+`Names` and late `Operations`, then one staged operation kernel consumes the
+validated final `Action` of each named entry.
+
+```rust,no_run
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use diff_dirs::{CheckError, Names, Operations, Visitor};
+use diff_dirs_sync::{Applier, CopyPolicy, Seed};
+struct Payload;
+impl Visitor for Payload {
+    fn early(&self, names: &mut Names) -> Result<(), CheckError> {
+        for name in names.entries_mut() {
+            if name.name() == ".jj" { name.preserve_tree(); }
+        }
+        Ok(())
+    }
+    fn late(&self, batch: &mut Operations) -> Result<(), CheckError> {
+        Seed.late(batch) // create absent names; keep existing leaves/collisions
+    }
+}
+let report = Applier::new("source", "target", CopyPolicy::ReflinkRequired)?
+    .visitor(Payload).run()?; // no automatic audit/preview first
+assert!(report.policy.satisfied);
+# Ok(()) }
+```
+
+The [core visitor contract](../README.md#visitor-steered-planning) and
+[`Action` Rustdoc](../src/visitor.rs) define the authority table. Early starts
+with every sorted union name admitted and immutable listing presence, **before
+any child stat/readlink**. A suppressed name cannot become fake source absence.
+Late starts with actual comparison facts and normal work, including unchanged
+leaves and matched-directory descent. Only existing action slots are mutable.
+`name.refuse(cause)` / `entry.refuse(cause)` report an actual logical slot; a
+generic callback error reports its batch, not an arbitrary injected path.
+
+Useful compiled presets, not additional mode flags:
+
+| Visitor | Work |
+|---|---|
+| `diff_dirs::NoVisitor` (default) | Normal mirror; equal leaves are no-ops. |
+| `Seed` | Recursive tree-level create-if-absent. Keep matched-directory descent; preserve existing leaves, target-only trees and type collisions. |
+| `Update` | Create/update source-present names; preserve target-only trees. A nonempty directory-to-leaf collision is blocked intact. |
+| `Prune` | Delete target-only names, including below matched directories; retain source-present leaves/collisions and never create source-only containers. |
+
+For custom decisions, `entry.retain()` keeps an existing target directory
+container **and continues descent**. `entry.preserve_tree()` also stops descent.
+This permits pruning selected children below a retained target-only parent.
+Surviving descendants keep every necessary ancestor. `Directory { container:
+Create, descend: false }` explicitly creates an empty source-only container;
+Keep on an absent container with child work is invalid, never silently overridden.
+Whole immediate batches validate before their writes or child admission. A later
+child-batch refusal can leave its already-authorized newly created ancestor.
+
+Collisions remain `Presence::Both`: `ReplaceWithLeaf` and
+`ReplaceWithDirectory` are indivisible named-entry actions. A policy cannot
+authorize only the deletion half as though the source were absent. A
+directory-to-leaf replacement locally prechecks **only its affected subtree**
+through the same visitor, refusing any static retained descendant before staging,
+chmod or dismantling that subtree. A leaf-to-directory replacement prepares the
+admitted source subtree before removing the old leaf. Callbacks always receive
+final logical paths, even inside private preparation. Owned staging cleanup is
+separate from user policy and cannot be blocked by exclusions.
+
+`run_in_pool` uses the core's same joined epochs, deterministic committed DFS,
+J/K bounds, demand reserve and divergence seals. Finalized descent alone exposes
+children; there are no jobs beneath discarded clean descent. Callbacks run
+outside scheduler locks. They must be pure decisions over supplied/frozen facts:
+no filesystem I/O/mutation, subprocesses, printing or order-dependent state.
+They may repeat, overlap or be speculative, not ordered notifications. Already
+started application siblings or prior batches can remain on failure; there is no
+rollback, snapshot or finite cancellation-latency promise for stalled I/O.
+
+### Observation, final plan, preview, and progress
+
+* `DirectoryPlan.diff()` / `Report.observed` describe baseline observation, not
+  an action-filtered diff or post-sync verification. `Summary.planned` counts
+  only immediate actions in the committed paired-comparison prefix.
+* `Report.planned` / `Failure.planned` count finalized named namespace proposals
+  encountered by application, including recursive batches. A coupled collision
+  counts once, plus its descendant work. Directory removal is conditional on no
+  surviving descendants, so planned counts are not success counters.
+* `Report.completed` / `Failure.completed` count actual visible installations,
+  removals and permission work. Discarded private preparation is not completed
+  installation. Retained-only/unchanged branches do **zero namespace, staging or
+  chmod writes**. Equal-leaf force installation is not supported.
+
+`preview()` is an explicit **read-only joint traversal** using the same early/
+late actions, recursive coverage and local collision blockers. It returns
+planned/policy counts with zero completed work and no legacy `observed` summary.
+It never stages, chmods, probes clone capability or reads file contents. A preview
+is not durable authorization after writers resume and does not establish that
+real required clones or later namespace operations will succeed. Normal `run`
+does not invoke it. `audit()` instead inspects each side separately using
+`Purpose::Audit`; it honors visitor descent, but is not a joint collision plan.
+Compatibility Absence does not prune explicit audit coverage.
+
+The new rich `DirectoryPlan` is sealed against public fact/action fabrication.
+`apply_plan(&plan)` is still a public trust boundary: it freshly validates all
+real routing ancestors and re-finalizes under this binding's visitor, refusing
+mismatched actions/observations rather than silently ignoring supplied steering.
+Only `run`'s just-inspected internal seam reuses its batch without that public
+revalidation. Public `DirDiff` application also cannot reopen a preserved or
+stopped ancestor. Stable, nonhostile caller-owned trees remain required.
+Public record application now observes/finalizes its complete immediate directory
+batch before selecting its requested names for writes; unchanged siblings can
+therefore reach late/Check. Normal `run` reuses the just-observed batch instead
+of restatting every selected leaf. Exact old per-entry callback interleaving and
+purpose labeling are not an additional compatibility promise; the core specifies
+listing → early → metadata → late → validation failure order.
+
+`Applier<C = NoCheck, S = NoScope, A = RemoveAll, V = NoVisitor>` retains old
+construction/checked mirror APIs. New `Summary` and `Report`/`Failure` count fields
+require updating exhaustive literals; native Rust performance consumers compile
+with this change, but no performance campaign was run. This generic library
+work does not select JW transfer defaults, migrate its configuration, move `.jj`
+metadata, or settle its paused working-copy protocol.
+
 ## Scope and absence authority
+
+Compatibility adapters, not the organizing model: Scope modifies early admission,
+Check projects immutable late facts into side-local refusals, and Absence edits
+late target-only actions. No filesystem engine consults these policies separately.
+The caller's `.visitor(...)` runs after these compiled projections; early excluded
+slots never reach late and cannot be reopened there.
 
 ```rust,no_run
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -88,7 +224,7 @@ let report = update.run()?;
 # Ok(()) }
 ```
 
-`Applier<C = NoCheck, S = NoScope, A = RemoveAll>` preserves existing unscoped
+`Applier<C = NoCheck, S = NoScope, A = RemoveAll, V = NoVisitor>` preserves existing unscoped
 construction and mirror APIs. `.scope(S)` and `.absence(A)` consume the binding
 and retain the same validated roots. `run()` / `run_in_pool(pool, limits)` honor
 the selected policies; existing `.mirror()` / `.mirror_in_pool()` are aliases
@@ -184,6 +320,13 @@ Only O(listed names) and the active routing stack are retained, not a discovered
 payload/metadata/operation catalog. This first installer is sequential, including inside a caller pool;
 no new worker scheduler or parallel admission layer is introduced.
 
+This explicit known-path interface retains its existing Check-only contract and
+parent-batched installer; it does not expose early/late steering or silently list
+the whole payload to manufacture it. General recursive tree seed is the `Seed`
+visitor above. A caller-listed operation's absence refusal/sorted-prefix failure
+semantics remain distinct from general mirror and from a whole-directory late
+batch. Both still share the actual staged leaf/clone/metadata kernel.
+
 `clear(target, scope, check)` binds an existing real directory and deletes its
 participating contents through the **same recursive remover** as sync. It never
 removes the bound container, never follows a leaf link, and keeps preserved
@@ -269,8 +412,9 @@ intentionally does **not** run caller policy.
 Binding itself performs structural path validation, not interior checks. Operations
 check roots before their mutation; the checked walker also checks roots at construction.
 
-Refusal is **streaming**, not whole-batch preflight: earlier permitted siblings or
-records may already have changed. The offending entry is not copied, chmodded,
+Refusal is **directory-batched**, not whole-tree preflight: every immediate batch
+finalizes before its writes, but earlier batches, legal new ancestors, or already
+started parallel siblings may have changed. The offending entry is not copied, chmodded,
 removed, or descended. Directory-to-leaf replacement additionally prechecks only
 that affected subtree before dismantling it. Surviving accepted ancestors regain prior permissions.
 Failed private preparations are discarded. Failures retain completed operations;
@@ -279,7 +423,8 @@ incomplete observed prefix. There is no rollback or automatic retry. Resolve the
 violation, then start a fresh comparison. A successful checked mirror establishes
 full visited-policy coverage and stat-key convergence without a second walk;
 its `observed` is still a pre-application comparison, not a verification scan.
-A manual unchecked walk plus checked apply cannot validate unmentioned equal entries.
+A manual unchecked walk plus checked apply still cannot validate equal entries
+in clean directories that never yield a record.
 
 `Applier::audit()` inspects each existing side fully, original then target, without
 comparison or writes. It is currently a sequential sorted DFS, independent of
@@ -395,7 +540,7 @@ journal, snapshot, or automatic subtree replacement heuristic is provided.
 
 `Report.observed` is the diff's complete **pre-application observed delta**, not
 a post-sync verification. It is `None` for absent-root initialization or explicit
-whole-root leaf replacement.
+whole-root leaf replacement or explicit joint preview.
 `Report.completed` counts installed copied/reflinked files and logical bytes,
 created links/directories, recursive removals, and directory permission calls.
 Replacing a leaf counts its installation, not a fictitious separate unlink.
@@ -468,7 +613,30 @@ construction (including less-optimized builds). Declaring false promises
 unconditional acceptance and no reliance on invocation. This rationale is not a
 measured speedup claim.
 
-Verification for this slice (session cited above): required-reflink core/sync
+### Visitor revision verification
+
+The 2026-10-19 visitor revision (session
+`opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06`) passed:
+
+- `DIFF_DIRS_SYNC_REQUIRE_REFLINK=1 cargo nextest run -p diff-dirs -p diff-dirs-sync --all-features --lib --tests`: **115 passed**, none skipped.
+- The same command with `--no-default-features` instead of `--all-features`: **89 passed**, none skipped.
+- All-feature core/sync doctests: **15 passed**.
+- Workspace/all-target/all-feature clippy, plus std-only core/sync all-target clippy, both with `-D warnings`.
+- Core/sync all-feature Rustdoc generation with `RUSTDOCFLAGS='-D warnings'`, and `cargo fmt --all --check`.
+
+Direct visitor cases cover premetadata exclusion, clean late callbacks, independent
+creation/collision/prune decisions, legal containers versus stopped descent,
+recursive/staged/root paths, coupled collision blockers, public-plan/ancestor
+validation, equal-leaf force refusal, zero-write inode/mode/time retention,
+deterministic parallel admission/joining, and observed/planned/completed counters.
+Existing required-reflink failure, metadata, permission, staging and parent-batched
+seed regressions run through the retained suite. New fixtures are tiny; no live
+workspace import, benchmark, performance run, new tooling or JW production change
+was performed. Linux is verified; other platforms remain unverified.
+
+### Earlier scope and seed checkpoints
+
+The preceding scope/absence checkpoint's required-reflink core/sync
 nextest passed **70 tests without default features** and **95 with all features**;
 all-feature doctests passed 9 examples. Workspace/all-target/all-feature clippy
 with `-D warnings` and `cargo fmt --all --check` passed. New semantic pairs are
