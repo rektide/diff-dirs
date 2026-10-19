@@ -91,6 +91,11 @@ pub struct Summary {
     pub scoped: bool,
     /// Union-name boundaries excluded before observation (not subtree sizes).
     pub excluded: u64,
+    /// Immediate finalized namespace actions in the committed comparison prefix,
+    /// not recursive application work or completed filesystem operations.
+    pub planned: u64,
+    /// Committed slots whose finalized action differs from normal mirror work.
+    pub retained: u64,
     pub counts: EntryCounts,
     /// Directly divergent directories with no directly divergent ancestor,
     /// in depth-first pre-order. Empty path denotes the root.

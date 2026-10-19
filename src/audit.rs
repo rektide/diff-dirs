@@ -1,10 +1,9 @@
 //! Read-only, one-tree-at-a-time coverage, including opaque diff interiors.
 
 use std::fmt;
-use std::fs;
 use std::path::Path;
 
-use crate::{Check, Entry, Error, NoScope, Purpose, Scope, Side};
+use crate::{Check, CheckedScope, Error, Facts, NoScope, Purpose, Scope, Side, Visitor};
 
 /// Successfully checked observations, including the root. Not diff counts.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -49,58 +48,73 @@ pub fn audit<C: Check>(root: impl AsRef<Path>, side: Side, check: &C) -> Result<
 /// still runs. This is entry validation, not a deletion plan or a certificate
 /// authorizing later writes after writers resume. Callers own ancestor stability.
 pub fn audit_scoped<C: Check, S: Scope>(root: impl AsRef<Path>, side: Side, check: &C, scope: &S) -> Result<Audit, AuditFailure> {
-    fn visit<C: Check, S: Scope>(root: &Path, path: &Path, side: Side, check: &C, scope: &S, inspected: &mut Audit) -> Result<(), Error> {
-        if path != root && S::ENABLED && scope.at(path.strip_prefix(root).expect("audit descendant")) == crate::Visit::PreserveTree {
-            inspected.excluded += 1;
-            return Ok(());
-        }
-        let metadata = fs::symlink_metadata(path).map_err(|e| Error::io(path.to_path_buf(), "inspect audit entry", e))?;
-        let link = if metadata.is_symlink() {
-            Some(fs::read_link(path).map_err(|e| Error::io(path.to_path_buf(), "read symlink", e))?)
-        } else {
-            None
-        };
-        Entry {
-            root,
-            path,
-            name: path.file_name().unwrap_or(path.as_os_str()),
-            side,
-            purpose: Purpose::Audit,
-            metadata: &metadata,
-            link_target: link.as_deref(),
-        }
-        .check(check)?;
-        if metadata.is_dir() {
+    audit_with_visitor(root, side, &CheckedScope::new(check.borrowed(), scope.borrowed()))
+}
+
+/// Read-only recursive coverage using the exact early/late action contexts.
+/// Actions are never applied; finalized descent determines coverage, including
+/// explicit PreserveTree. Audit deliberately supplies literal link text on both
+/// sides. Counts describe successfully finalized batches, not predicted work or
+/// a certificate authorizing future writes. A refused batch contributes no child
+/// observations; earlier completed directory batches remain in the prefix.
+pub fn audit_with_visitor<V: Visitor>(root: impl AsRef<Path>, side: Side, visitor: &V) -> Result<Audit, AuditFailure> {
+    fn count(facts: &Facts, inspected: &mut Audit) {
+        if facts.metadata().is_dir() {
             inspected.directories += 1;
-            if path == root && !crate::scope_includes(scope, Path::new("")) {
-                inspected.excluded += 1;
-                return Ok(());
-            }
-            let mut children = fs::read_dir(path)
-                .map_err(|e| Error::io(path.to_path_buf(), "read audit directory", e))?
-                .map(|entry| {
-                    entry
-                        .map(|entry| entry.file_name())
-                        .map_err(|e| Error::io(path.to_path_buf(), "read directory entry", e))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            children.sort_unstable_by(|a, b| a.as_encoded_bytes().cmp(b.as_encoded_bytes()));
-            for name in children {
-                visit(root, &path.join(name), side, check, scope, inspected)?;
-            }
-        } else if metadata.is_file() {
+        } else if facts.metadata().is_file() {
             inspected.files += 1;
-        } else if metadata.is_symlink() {
+        } else if facts.metadata().is_symlink() {
             inspected.symlinks += 1;
-        } else {
-            return Err(Error::UnsupportedEntry { path: path.to_path_buf() });
+        }
+    }
+    fn visit<V: Visitor>(root: &Path, relative: &Path, side: Side, visitor: &V, inspected: &mut Audit) -> Result<(), Error> {
+        let path = root.join(relative);
+        let plan = crate::inspect_directory(
+            root,
+            root,
+            relative,
+            (side == Side::Original).then_some(path.as_path()),
+            (side == Side::Target).then_some(path.as_path()),
+            Purpose::Audit,
+            visitor,
+        )?;
+        inspected.excluded += plan.excluded();
+        for entry in plan.operations().entries() {
+            count(
+                if side == Side::Original {
+                    entry.source().unwrap()
+                } else {
+                    entry.target().unwrap()
+                },
+                inspected,
+            );
+            if entry.descends() {
+                visit(root, entry.relative_path(), side, visitor, inspected)?;
+            }
         }
         Ok(())
     }
 
     let root = root.as_ref();
     let mut inspected = Audit::default();
-    match visit(root, root, side, check, scope, &mut inspected) {
+    let result = (|| {
+        let plan = crate::inspect_single_root(root, side, Purpose::Audit, visitor)?;
+        let entry = &plan.operations().entries()[0];
+        count(
+            if side == Side::Original {
+                entry.source().unwrap()
+            } else {
+                entry.target().unwrap()
+            },
+            &mut inspected,
+        );
+        inspected.excluded += plan.excluded();
+        if entry.descends() {
+            visit(root, Path::new(""), side, visitor, &mut inspected)?;
+        }
+        Ok(())
+    })();
+    match result {
         Ok(()) => Ok(inspected),
         Err(error) => Err(AuditFailure { error, inspected }),
     }

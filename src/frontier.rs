@@ -11,7 +11,7 @@ use std::sync::Mutex;
 
 use crate::pair::ComparedPair;
 use crate::parallel::ParallelLimits;
-use crate::{DirDiff, Error, ScanState, Summary};
+use crate::{DirDiff, DirectoryPlan, Error, ScanState, Summary};
 
 #[cfg(any(test, feature = "parallel-diagnostics"))]
 #[derive(Clone, Debug, Default)]
@@ -123,6 +123,7 @@ struct ReadyPair {
     scoped: bool,
     diff: DirDiff,
     children: Children,
+    plan: Option<DirectoryPlan>,
 }
 
 /// Admitted children are always a prefix of remaining sorted names. Because
@@ -191,7 +192,7 @@ pub(crate) struct Frontier {
     outstanding: usize,
     active: usize,
     stop: Stop,
-    output: Option<Result<DirDiff, Error>>,
+    output: Option<Result<(DirDiff, Option<DirectoryPlan>), Error>>,
     prune_eligible: bool,
     summary: Summary,
     #[cfg(any(test, feature = "parallel-diagnostics"))]
@@ -227,6 +228,21 @@ impl Frontier {
     }
 
     pub(crate) fn next_with<F>(&mut self, inspect: F) -> Option<Result<DirDiff, Error>>
+    where
+        F: Fn(&Path) -> Result<ComparedPair, Error> + Sync,
+    {
+        self.next_finalized(inspect).map(|result| result.map(|(diff, _)| diff))
+    }
+
+    pub(crate) fn next_plan_with<F>(&mut self, inspect: F) -> Option<Result<DirectoryPlan, Error>>
+    where
+        F: Fn(&Path) -> Result<ComparedPair, Error> + Sync,
+    {
+        self.next_finalized(inspect)
+            .map(|result| result.map(|(_, plan)| plan.expect("visitor inspection carries a plan")))
+    }
+
+    fn next_finalized<F>(&mut self, inspect: F) -> Option<Result<(DirDiff, Option<DirectoryPlan>), Error>>
     where
         F: Fn(&Path) -> Result<ComparedPair, Error> + Sync,
     {
@@ -334,6 +350,10 @@ impl Frontier {
                         self.summary.excluded += pair.excluded;
                         self.summary.scoped |= pair.scoped;
                         self.summary.counts.add(&pair.diff);
+                        if let Some(plan) = &pair.plan {
+                            self.summary.planned += plan.work();
+                            self.summary.retained += plan.retained();
+                        }
                         if changed && !direct_ancestor {
                             self.summary.topmost_divergent.push(node.dir.clone());
                         }
@@ -353,7 +373,7 @@ impl Frontier {
                         });
                         if changed {
                             self.prune_eligible = true;
-                            self.output = Some(Ok(pair.diff));
+                            self.output = Some(Ok((pair.diff, pair.plan)));
                             self.set_stop(Stop::Yield);
                             return;
                         }
@@ -536,6 +556,7 @@ impl Frontier {
             scoped: pair.scoped,
             diff: pair.diff,
             children: Children::from_names(pair.children),
+            plan: pair.plan,
         }));
         self.pump()
     }

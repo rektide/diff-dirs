@@ -122,6 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     "diff-only",
                                     elapsed,
                                     &Report {
+                                        planned: 0,
                                         policy: Default::default(),
                                         completed: Default::default(),
                                         observed: Some(summary),

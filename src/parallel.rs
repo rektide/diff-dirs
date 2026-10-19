@@ -6,7 +6,7 @@ use rayon::ThreadPool;
 
 use crate::frontier::Frontier;
 use crate::pair::Roots;
-use crate::{Check, DirDiff, Error, NoCheck, NoScope, Scope, Summary};
+use crate::{Check, DirDiff, DirectoryPlan, Error, Execution, NoCheck, NoScope, PlanWalk, Scope, Summary, Visitor, WalkOptions};
 
 /// Per-walk admission budgets, not worker counts or a byte-memory bound.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -142,3 +142,46 @@ impl<C: Check, S: Scope> Iterator for ParallelWalk<'_, C, S> {
 }
 
 impl<C: Check, S: Scope> FusedIterator for ParallelWalk<'_, C, S> {}
+
+/// Finalized visitor batches borrowing the same bounded, joined frontier and
+/// caller-owned pool as the comparison projection. No callbacks run under its
+/// lock, and only finalized descent can expose children of a clean result.
+#[derive(Debug)]
+pub struct ParallelPlanWalk<'pool, V> {
+    walk: PlanWalk<V>,
+    pool: &'pool ThreadPool,
+}
+
+pub fn walk_in_pool_visitor<V: Visitor>(
+    original: impl AsRef<Path>,
+    target: impl AsRef<Path>,
+    pool: &ThreadPool,
+    limits: ParallelLimits,
+    visitor: V,
+) -> Result<ParallelPlanWalk<'_, V>, Error> {
+    let mut walk = crate::walk_with_options_visitor(
+        original,
+        target,
+        WalkOptions {
+            execution: Execution::Parallel,
+        },
+        visitor,
+    )?;
+    walk.frontier = Some(Box::new(Frontier::new(limits)));
+    Ok(ParallelPlanWalk { walk, pool })
+}
+impl<V: Visitor> ParallelPlanWalk<'_, V> {
+    pub fn prune_here(&mut self) -> bool {
+        self.walk.prune_here()
+    }
+    pub fn into_summary(self) -> Summary {
+        self.walk.into_summary()
+    }
+}
+impl<V: Visitor> Iterator for ParallelPlanWalk<'_, V> {
+    type Item = Result<DirectoryPlan, Error>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.walk.next_in_pool(self.pool)
+    }
+}
+impl<V: Visitor> FusedIterator for ParallelPlanWalk<'_, V> {}

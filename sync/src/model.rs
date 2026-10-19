@@ -53,6 +53,9 @@ impl AddAssign for Progress {
 /// No retained/processed per-file catalog is built. See [`crate::Applier::run`].
 #[derive(Debug)]
 pub struct Report {
+    /// Finalized immediate namespace actions encountered by application,
+    /// including recursive batches. Not completed work; collisions are coupled.
+    pub planned: u64,
     /// Visible completed operations, not hypothetical actions from a diff or
     /// discarded private preparations. A clean/retained-only run is all zero.
     pub completed: Progress,
@@ -115,6 +118,7 @@ impl Error for Issue {
 /// errors. Not a transaction or a promise that only a serial prefix changed.
 #[derive(Debug)]
 pub struct Failure {
+    pub planned: u64,
     /// Encountered retention/exclusion counters; satisfaction is always false.
     pub policy: Box<Policy>,
     pub primary: Box<Issue>,
@@ -129,6 +133,7 @@ pub struct Failure {
 impl Failure {
     pub(crate) fn io(operation: &'static str, path: &Path, cause: io::Error) -> Self {
         Self {
+            planned: 0,
             policy: Box::default(),
             primary: Box::new(Issue {
                 operation,
@@ -150,12 +155,16 @@ impl Failure {
     }
 
     pub(crate) fn checked(cause: diff_dirs::Error) -> Self {
+        if let diff_dirs::Error::Io { path, operation, source } = cause {
+            return Self::io(operation, &path, source);
+        }
         Self::from_check_error("check", cause)
     }
 
     fn from_check_error(operation: &'static str, cause: diff_dirs::Error) -> Self {
         let path = cause.path().to_path_buf();
         Self {
+            planned: 0,
             policy: Box::default(),
             primary: Box::new(Issue {
                 operation,
@@ -169,6 +178,7 @@ impl Failure {
     }
 
     pub(crate) fn append(&mut self, other: Self) {
+        self.planned += other.planned;
         *self.policy += *other.policy;
         self.completed += other.completed;
         self.secondary.push(*other.primary);

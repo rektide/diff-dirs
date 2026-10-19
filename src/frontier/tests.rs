@@ -20,6 +20,7 @@ fn pair(dir: &Path, children: &[&str], changed: bool) -> ComparedPair {
         diff.files.added.push("new".into());
     }
     ComparedPair {
+        plan: None,
         excluded: 0,
         scoped: false,
         diff,
@@ -125,7 +126,7 @@ fn all_completion_priorities_preserve_records_prefixes_errors_and_seals() {
             assert_ne!(state.stop, Stop::Running);
             let outcome = state.output.take().unwrap();
             match outcome {
-                Ok(diff) => {
+                Ok((diff, _)) => {
                     delivered.push(diff.dir.clone());
                     let summary = snapshot(&state);
                     assert_eq!(summary.state, ScanState::Incomplete);

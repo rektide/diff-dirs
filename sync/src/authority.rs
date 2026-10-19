@@ -31,6 +31,9 @@ use std::path::Path;
 /// Other failures remain partial progress; see [`crate::Report`] and
 /// [`crate::Failure`], not a whole-root equality/rollback promise.
 pub trait Absence: Sync {
+    /// False promises unconditional removal authority; compatibility forwarding
+    /// can then elide this late visitor adapter.
+    const ENABLED: bool = true;
     /// Set true only when every path is retained. This permits pruning a whole
     /// target-only branch without querying descendants (as in NeverRemove).
     const NEVER: bool = false;
@@ -62,6 +65,7 @@ impl Absence for NeverRemove {
 /// Preservation still retains protected descendants and their real ancestors.
 pub struct RemoveAll;
 impl Absence for RemoveAll {
+    const ENABLED: bool = false;
     fn remove(&self, _: &Path) -> bool {
         true
     }

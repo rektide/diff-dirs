@@ -7,25 +7,28 @@ mod authority;
 mod model;
 mod paths;
 mod platform;
+mod visitor;
 
-pub use apply::{clear, seed_leaves};
+pub use apply::{clear, clear_with_visitor, seed_leaves};
 pub use authority::{Absence, NeverRemove, RemoveAll};
 pub use model::{CopyPolicy, Failure, Issue, Policy, Progress, Report};
+pub use visitor::Seed;
 
 use std::path::{Path, PathBuf};
 
-use diff_dirs::{Check, DirDiff, NoCheck, NoScope, Scope};
+use diff_dirs::{Check, DirDiff, NoCheck, NoScope, NoVisitor, Scope, Visitor};
 
 /// Validated, non-overlapping roots. Construction performs no writes.
 /// The source must be a real directory; the target may be absent.
 #[derive(Debug)]
-pub struct Applier<C = NoCheck, S = NoScope, A = RemoveAll> {
+pub struct Applier<C = NoCheck, S = NoScope, A = RemoveAll, V = NoVisitor> {
     original: PathBuf,
     target: PathBuf,
     policy: CopyPolicy,
     check: C,
     scope: S,
     absence: A,
+    visitor: V,
     replace_root: bool,
 }
 
@@ -61,17 +64,18 @@ impl<C: Check> Applier<C> {
             check,
             scope: NoScope,
             absence: RemoveAll,
+            visitor: NoVisitor,
             replace_root,
         })
     }
 }
 
-impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
+impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
     /// Replace pair-wide scope without changing binding or absence authority.
     /// A preserved ancestor wins over descendant inclusion and over any absence
     /// authority, including during recursive copy/removal and private staging.
     /// See [`Scope`] for pure callback and no-scope specialization obligations.
-    pub fn scope<T: Scope>(self, scope: T) -> Applier<C, T, A> {
+    pub fn scope<T: Scope>(self, scope: T) -> Applier<C, T, A, V> {
         Applier {
             original: self.original,
             target: self.target,
@@ -79,6 +83,7 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
             check: self.check,
             scope,
             absence: self.absence,
+            visitor: self.visitor,
             replace_root: self.replace_root,
         }
     }
@@ -87,7 +92,7 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
     /// `run` and per-record application both honor the selected policy.
     /// Target-only routing directories still need descent for arbitrary mixed
     /// policies; retaining a directory name does not retain every descendant.
-    pub fn absence<B: Absence>(self, absence: B) -> Applier<C, S, B> {
+    pub fn absence<B: Absence>(self, absence: B) -> Applier<C, S, B, V> {
         Applier {
             original: self.original,
             target: self.target,
@@ -95,6 +100,7 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
             check: self.check,
             scope: self.scope,
             absence,
+            visitor: self.visitor,
             replace_root: self.replace_root,
         }
     }
@@ -109,6 +115,32 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
 
     pub fn check(&self) -> &C {
         &self.check
+    }
+
+    /// Steer the same finalized early/late batches used by comparison, recursive
+    /// one-sided work, initialization and staged type transitions. Compatibility
+    /// checks/scope/absence are compiled adapters into these contexts; the caller
+    /// visitor runs last. Facts and coupled replacement authority remain immutable.
+    pub fn visitor<W: Visitor>(self, visitor: W) -> Applier<C, S, A, W> {
+        Applier {
+            original: self.original,
+            target: self.target,
+            policy: self.policy,
+            check: self.check,
+            scope: self.scope,
+            absence: self.absence,
+            visitor,
+            replace_root: self.replace_root,
+        }
+    }
+
+    fn steering(&self) -> visitor::Steering<'_, C, S, A, V> {
+        visitor::Steering {
+            check: &self.check,
+            scope: &self.scope,
+            absence: &self.absence,
+            visitor: &self.visitor,
+        }
     }
 
     /// Borrow this binding's exact scope for a caller-owned comparison loop.
@@ -139,7 +171,7 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
     /// one-sided interiors. Does not compare, apply, or build an operation map.
     pub fn audit(&self) -> Result<AuditReport, AuditFailure> {
         let mut report = AuditReport::default();
-        match diff_dirs::audit_scoped(&self.original, diff_dirs::Side::Original, &self.check, &self.scope) {
+        match diff_dirs::audit_with_visitor(&self.original, diff_dirs::Side::Original, &self.steering()) {
             Ok(inspected) => report.original = inspected,
             Err(failure) => {
                 report.original = failure.inspected;
@@ -163,7 +195,7 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
             }
             Ok(true) => {}
         }
-        match diff_dirs::audit_scoped(&self.target, diff_dirs::Side::Target, &self.check, &self.scope) {
+        match diff_dirs::audit_with_visitor(&self.target, diff_dirs::Side::Target, &self.steering()) {
             Ok(inspected) => {
                 report.target = inspected;
                 Ok(report)
@@ -252,7 +284,7 @@ pub fn mirror_in_pool(
     Applier::new(original, target, policy)?.mirror_in_pool(pool, limits)
 }
 
-impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
+impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
     /// Stream compare/apply, or initialize/explicitly replace a selected root.
     /// Does not run `audit` first. Every visited entry uses this binding's check.
     pub fn mirror(&self) -> Result<Report, Failure> {
@@ -274,16 +306,19 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
             return Ok(report);
         }
         // Preserve NoCheck specialization across the comparison/application seam.
-        let mut walk = diff_dirs::walk_scoped(self.original(), self.target(), self.check.borrowed(), self.scope.borrowed()).map_err(Failure::comparison)?;
+        let mut walk = diff_dirs::walk_with_visitor(self.original(), self.target(), self.steering()).map_err(Failure::comparison)?;
         let mut completed = Progress::default();
         let mut policy = Policy::default();
+        let mut planned = 0;
         while let Some(item) = walk.next() {
-            match item.map_err(Failure::comparison).and_then(|diff| self.apply_reported(&diff, false)) {
+            match item.map_err(Failure::comparison).and_then(|plan| self.apply_plan_with(&plan, false)) {
                 Ok(report) => {
+                    planned += report.planned;
                     completed += report.completed;
                     policy += report.policy;
                 }
                 Err(mut failure) => {
+                    failure.planned += planned;
                     failure.completed += completed;
                     *failure.policy += policy;
                     failure.observed = Some(Box::new(walk.into_summary()));
@@ -292,6 +327,7 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
             }
         }
         Ok(Report {
+            planned,
             policy: Policy { satisfied: true, ..policy },
             completed,
             observed: Some(walk.into_summary()),
@@ -312,20 +348,22 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
         if let Some(report) = pool.install(|| self.whole_root(true))? {
             return Ok(report);
         }
-        let mut walk = diff_dirs::walk_in_pool_scoped(self.original(), self.target(), pool, limits, self.check.borrowed(), self.scope.borrowed())
-            .map_err(Failure::comparison)?;
+        let mut walk = diff_dirs::walk_in_pool_visitor(self.original(), self.target(), pool, limits, self.steering()).map_err(Failure::comparison)?;
         let mut completed = Progress::default();
         let mut policy = Policy::default();
+        let mut planned = 0;
         while let Some(item) = walk.next() {
             match item
                 .map_err(Failure::comparison)
-                .and_then(|diff| pool.install(|| self.apply_reported(&diff, true)))
+                .and_then(|plan| pool.install(|| self.apply_plan_with(&plan, true)))
             {
                 Ok(report) => {
+                    planned += report.planned;
                     completed += report.completed;
                     policy += report.policy;
                 }
                 Err(mut failure) => {
+                    failure.planned += planned;
                     failure.completed += completed;
                     *failure.policy += policy;
                     failure.observed = Some(Box::new(walk.into_summary()));
@@ -334,6 +372,7 @@ impl<C: Check, S: Scope, A: Absence> Applier<C, S, A> {
             }
         }
         Ok(Report {
+            planned,
             policy: Policy { satisfied: true, ..policy },
             completed,
             observed: Some(walk.into_summary()),
