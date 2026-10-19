@@ -426,8 +426,10 @@ its `observed` is still a pre-application comparison, not a verification scan.
 A manual unchecked walk plus checked apply still cannot validate equal entries
 in clean directories that never yield a record.
 
-`Applier::audit()` inspects each existing side fully, original then target, without
-comparison or writes. It is currently a sequential sorted DFS, independent of
+`Applier::audit()` inspects each existing side's visitor-admitted coverage,
+original then target, without joint comparison or writes. With only a Check and
+no exclusions/stopped descent this is full side coverage. It is currently a
+sequential sorted DFS, independent of
 the optional execution pool. `AuditReport` has side-local entry counts including roots;
 `AuditFailure` retains its checked prefix and refusal/I/O cause. An absent target
 has zero target observations. A dry-run is a current observation, not a durable

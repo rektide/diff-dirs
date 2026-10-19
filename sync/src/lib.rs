@@ -167,8 +167,10 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
         self.replace_root_with(false)
     }
 
-    /// Read-only full coverage of both existing sides, source first, including
-    /// one-sided interiors. Does not compare, apply, or build an operation map.
+    /// Read-only visitor-selected coverage of each existing side, source first,
+    /// including admitted one-sided interiors. Presence is side-local, not a
+    /// joint comparison; use [`Self::preview`] for collision-aware planning.
+    /// Does not apply or build a retained operation map.
     pub fn audit(&self) -> Result<AuditReport, AuditFailure> {
         let mut report = AuditReport::default();
         match diff_dirs::audit_with_visitor(&self.original, diff_dirs::Side::Original, &self.steering()) {
@@ -226,7 +228,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
     }
 }
 
-/// Full read-only checked coverage; counters include each present root.
+/// Read-only selected side-local coverage; counters include each present root.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AuditReport {
     pub original: diff_dirs::Audit,
