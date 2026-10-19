@@ -1,4 +1,6 @@
 //! Borrowed observations and statically dispatched accept/refuse checks.
+//! Compatibility checks project from Visitor late facts; they do not form a
+//! separate traversal or mutation-policy pipeline.
 
 use std::ffi::OsStr;
 use std::fs::Metadata;

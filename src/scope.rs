@@ -1,3 +1,6 @@
+//! Compatibility path selection, projected into Visitor early name admission.
+//! Traversal and synchronization consume that same finalized visitor plan.
+
 use std::path::Path;
 
 /// Pair-wide name admission, before metadata, readlink, or child admission.

@@ -121,6 +121,8 @@ enum NodeState {
 struct ReadyPair {
     excluded: u64,
     scoped: bool,
+    planned: u64,
+    retained: u64,
     diff: DirDiff,
     children: Children,
     plan: Option<DirectoryPlan>,
@@ -350,10 +352,8 @@ impl Frontier {
                         self.summary.excluded += pair.excluded;
                         self.summary.scoped |= pair.scoped;
                         self.summary.counts.add(&pair.diff);
-                        if let Some(plan) = &pair.plan {
-                            self.summary.planned += plan.work();
-                            self.summary.retained += plan.retained();
-                        }
+                        self.summary.planned += pair.planned;
+                        self.summary.retained += pair.retained;
                         if changed && !direct_ancestor {
                             self.summary.topmost_divergent.push(node.dir.clone());
                         }
@@ -554,6 +554,8 @@ impl Frontier {
         self.nodes.get_mut(id).state = NodeState::Ready(result.map(|pair| ReadyPair {
             excluded: pair.excluded,
             scoped: pair.scoped,
+            planned: pair.planned,
+            retained: pair.retained,
             diff: pair.diff,
             children: Children::from_names(pair.children),
             plan: pair.plan,

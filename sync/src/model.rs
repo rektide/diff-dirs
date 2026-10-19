@@ -64,7 +64,7 @@ pub struct Report {
     /// Pre-application observed delta, not a verification scan. Opaque directory
     /// records count boundaries, not recursively applied children. Scoped scans
     /// cannot claim full clean coverage. None for initialization, root replacement,
-    /// explicit clear, and per-record application (no both-sided walk).
+    /// explicit clear, joint preview, and per-record application (no both-sided walk).
     pub observed: Option<diff_dirs::Summary>,
 }
 
@@ -118,6 +118,7 @@ impl Error for Issue {
 /// errors. Not a transaction or a promise that only a serial prefix changed.
 #[derive(Debug)]
 pub struct Failure {
+    /// Finalized encountered namespace proposals, independently of completed work.
     pub planned: u64,
     /// Encountered retention/exclusion counters; satisfaction is always false.
     pub policy: Box<Policy>,

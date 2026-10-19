@@ -152,6 +152,10 @@ pub struct ParallelPlanWalk<'pool, V> {
     pool: &'pool ThreadPool,
 }
 
+/// Borrow a caller pool and its J/K limits for finalized visitor planning.
+/// No pool is created or reconfigured; callbacks complete outside frontier locks
+/// before clean results can publish children. No `Send` bound is imposed on the
+/// owned visitor: worker closures share `&V` under its `Sync` contract.
 pub fn walk_in_pool_visitor<V: Visitor>(
     original: impl AsRef<Path>,
     target: impl AsRef<Path>,
@@ -171,9 +175,11 @@ pub fn walk_in_pool_visitor<V: Visitor>(
     Ok(ParallelPlanWalk { walk, pool })
 }
 impl<V: Visitor> ParallelPlanWalk<'_, V> {
+    /// Stop pending paired descent once after a yielded divergent plan.
     pub fn prune_here(&mut self) -> bool {
         self.walk.prune_here()
     }
+    /// Consume only committed DFS coverage; does no I/O and has no running jobs.
     pub fn into_summary(self) -> Summary {
         self.walk.into_summary()
     }

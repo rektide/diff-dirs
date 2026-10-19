@@ -5,15 +5,21 @@ use std::path::{Path, PathBuf};
 use crate::pair::Roots;
 use crate::{Check, CheckedScope, DirDiff, DirectoryPlan, Error, NoCheck, NoScope, NoVisitor, ScanState, Scope, Summary, Visitor, WalkOptions};
 
+/// Construct a lazy default comparison of two existing real directory roots.
+/// Source-only and target-only directories remain opaque comparison boundaries.
 pub fn walk(original: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Walk, Error> {
     walk_with_options(original, target, WalkOptions::default())
 }
+/// Default comparison with explicit execution; contents remain lazy.
 pub fn walk_with_options(original: impl AsRef<Path>, target: impl AsRef<Path>, options: WalkOptions) -> Result<Walk, Error> {
     walk_with_options_checked(original, target, options, NoCheck)
 }
+/// Legacy late-fact refusal adapter, including equal entries and structural
+/// roots. Checks do not edit work; use [`walk_with_visitor`] for that authority.
 pub fn walk_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<Path>, check: C) -> Result<Walk<C>, Error> {
     walk_with_options_checked(original, target, WalkOptions::default(), check)
 }
+/// Checked compatibility comparison with explicit execution.
 pub fn walk_with_options_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<Path>, options: WalkOptions, check: C) -> Result<Walk<C>, Error> {
     walk_with_options_scoped(original, target, options, check, NoScope)
 }
@@ -22,6 +28,8 @@ pub fn walk_with_options_checked<C: Check>(original: impl AsRef<Path>, target: i
 pub fn walk_scoped<C: Check, S: Scope>(original: impl AsRef<Path>, target: impl AsRef<Path>, check: C, scope: S) -> Result<Walk<C, S>, Error> {
     walk_with_options_scoped(original, target, WalkOptions::default(), check, scope)
 }
+/// Scoped compatibility comparison with explicit execution, using the same
+/// finalized visitor inspection and traversal as ordinary and rich walks.
 pub fn walk_with_options_scoped<C: Check, S: Scope>(
     original: impl AsRef<Path>,
     target: impl AsRef<Path>,
@@ -43,9 +51,11 @@ pub struct Walk<C = NoCheck, S = NoScope> {
     pub(crate) inner: PlanWalk<CheckedScope<C, S>>,
 }
 impl<C: Check, S: Scope> Walk<C, S> {
+    /// Stop pending paired descent once immediately after a successful record.
     pub fn prune_here(&mut self) -> bool {
         self.inner.prune_here()
     }
+    /// Consume committed-prefix coverage without further I/O or callbacks.
     pub fn into_summary(self) -> Summary {
         self.inner.into_summary()
     }
@@ -67,6 +77,8 @@ impl<C: Check, S: Scope> FusedIterator for Walk<C, S> {}
 pub fn walk_with_visitor<V: Visitor>(original: impl AsRef<Path>, target: impl AsRef<Path>, visitor: V) -> Result<PlanWalk<V>, Error> {
     walk_with_options_visitor(original, target, WalkOptions::default(), visitor)
 }
+/// Rich visitor walk with explicit execution. Normal callbacks are lazy except
+/// mandatory structural binding; each next call joins its admitted epoch.
 pub fn walk_with_options_visitor<V: Visitor>(
     original: impl AsRef<Path>,
     target: impl AsRef<Path>,
@@ -178,13 +190,12 @@ impl<V: Visitor> PlanWalk<V> {
             };
             let pair = self.roots.inspect_visitor(dir, self.options.execution, &self.visitor)?;
             let changed = !pair.diff.is_empty();
-            let plan = pair.plan.expect("visitor plan");
             self.summary.examined_directories += 1;
             self.summary.scoped |= pair.scoped;
             self.summary.excluded += pair.excluded;
             self.summary.counts.add(&pair.diff);
-            self.summary.planned += plan.work();
-            self.summary.retained += plan.retained();
+            self.summary.planned += pair.planned;
+            self.summary.retained += pair.retained;
             if changed && !direct_ancestor {
                 self.summary.topmost_divergent.push(pair.diff.dir.clone());
             }
@@ -195,7 +206,7 @@ impl<V: Visitor> PlanWalk<V> {
                 subtree_changed: changed,
             });
             if changed {
-                return Ok(Some(plan));
+                return Ok(Some(pair.plan.expect("divergent visitor plan")));
             }
         }
     }

@@ -291,12 +291,14 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
         self.run()
     }
 
-    /// Exhaust the bound scope/absence policy with one streaming compare/apply
-    /// traversal, or scoped initialization/explicit root replacement. Never runs
+    /// Exhaust finalized early/late visitor decisions with one streaming
+    /// compare/apply traversal, or initialize/explicitly replace the selected
+    /// root through those same contexts. Legacy policies are compiled adapters.
+    /// Never runs
     /// an audit first and never interprets a missing source as an empty tree.
     ///
-    /// Paired equal entries still pass Check. Recursive one-sided work applies
-    /// the same scope at logical final paths; excluded names cannot authorize
+    /// Paired equal entries still reach late (and compatibility Check). Recursive
+    /// one-sided work uses the same visitor at logical final paths; excluded names cannot authorize
     /// deletion. Retained-only/clean regions make zero namespace, staging, or
     /// chmod writes. [`Report::policy`] means declared-policy completion, not
     /// full-root equality. Failure retains actual work, not a rollback promise;

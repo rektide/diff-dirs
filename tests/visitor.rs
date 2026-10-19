@@ -161,6 +161,39 @@ fn swapping_opaque_slots_is_rejected_rather_than_changing_native_error_order() {
     }
 }
 
+#[test]
+fn named_refusal_uses_actual_slot_while_arbitrary_error_paths_remain_only_causes() {
+    struct Refuse {
+        early: bool,
+        inject: bool,
+    }
+    impl Visitor for Refuse {
+        fn early(&self, batch: &mut Names) -> Result<(), CheckError> {
+            if self.early && !batch.is_root() {
+                return Err(batch.entries()[0].refuse("early name refusal"));
+            }
+            Ok(())
+        }
+        fn late(&self, batch: &mut Operations) -> Result<(), CheckError> {
+            if !self.early && !batch.is_root() {
+                if self.inject {
+                    return Err(Box::new(diff_dirs::Error::UnsupportedEntry { path: "invented-path".into() }));
+                }
+                return Err(batch.entries()[0].refuse("late observed refusal"));
+            }
+            Ok(())
+        }
+    }
+    let f = Fixture::new();
+    f.both_file("leaf", b"same");
+    for early in [false, true] {
+        let mut walk = diff_dirs::walk_with_visitor(&f.original, &f.target, Refuse { early, inject: false }).unwrap();
+        assert_eq!(walk.next().unwrap().unwrap_err().path(), f.target.join("leaf"));
+    }
+    let mut walk = diff_dirs::walk_with_visitor(&f.original, &f.target, Refuse { early: false, inject: true }).unwrap();
+    assert_eq!(walk.next().unwrap().unwrap_err().path(), f.target);
+}
+
 #[cfg(feature = "parallel")]
 #[test]
 fn finalized_clean_descent_is_identical_at_k_zero_and_speculative_lookahead() {

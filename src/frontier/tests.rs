@@ -21,6 +21,8 @@ fn pair(dir: &Path, children: &[&str], changed: bool) -> ComparedPair {
     }
     ComparedPair {
         plan: None,
+        planned: 0,
+        retained: 0,
         excluded: 0,
         scoped: false,
         diff,

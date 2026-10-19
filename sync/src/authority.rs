@@ -1,3 +1,6 @@
+//! Compatibility source-absence policy, projected into late target-only actions.
+//! The filesystem kernel consumes final Visitor actions, not this trait directly.
+
 use std::path::Path;
 
 /// Authority for source absence, independent of presence updates and scope.

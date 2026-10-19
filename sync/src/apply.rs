@@ -48,6 +48,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
             paths::directory(&self.target)?;
             let root = diff_dirs::inspect_root(&self.original, &self.target, Purpose::Compare, &self.steering()).map_err(Failure::checked)?;
             context.excluded.fetch_add(root.excluded(), Ordering::Relaxed);
+            context.retained.fetch_add(root.retained(), Ordering::Relaxed);
             if !root.operations().entries()[0].descends() {
                 if expected.is_some() {
                     return Err(Failure::invalid("apply plan", &self.target, "root descent is not admitted"));
@@ -635,23 +636,32 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
             }
             Ok(progress.clone())
         })();
-        let result = arena.finish(result, self);
-        let mut progress = result?;
-        if !kept {
-            parent.ensure().map_err(|mut failure| {
-                failure.completed += progress.clone();
-                failure
-            })?;
-            fs::remove_dir(path).map_err(|error| {
-                let mut failure = Failure::io("remove directory", path, error);
-                failure.completed = progress.clone();
-                failure
-            })?;
-            progress.directories_removed += 1;
+        let (result, writable) = arena.finish_preparation(result, self);
+        let result = result.and_then(|mut progress| {
+            if !kept {
+                parent.ensure().map_err(|mut failure| {
+                    failure.completed += progress.clone();
+                    failure
+                })?;
+                fs::remove_dir(path).map_err(|error| {
+                    let mut failure = Failure::io("remove directory", path, error);
+                    failure.completed = progress.clone();
+                    failure
+                })?;
+                progress.directories_removed += 1;
+            } else {
+                self.retained.fetch_add(1, Ordering::Relaxed);
+            }
+            Ok(progress)
+        });
+        // Keep the lease until removal actually succeeds. Retained or failed
+        // directories regain their mode; removed ones need no redundant chmod.
+        let result = if !kept && result.is_ok() {
+            writable.removed(result)
         } else {
-            self.retained.fetch_add(1, Ordering::Relaxed);
-        }
-        Ok((progress, kept))
+            writable.finish(result)
+        };
+        result.map(|progress| (progress, kept))
     }
 
     #[cfg(test)]
@@ -664,6 +674,8 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
     }
 
     /// Offer already-needed facts to the caller's accept/refuse policy.
+    /// This direct compatibility helper is used by the explicit known-path seed
+    /// installer; general tree work uses finalized Visitor batches instead.
     ///
     /// `C::ENABLED` is an associated constant of the concrete generic checker,
     /// not a per-entry runtime flag or a trait-object dispatch. For `NoCheck`
@@ -1027,6 +1039,8 @@ pub fn clear_with_visitor<V: Visitor>(target: impl AsRef<Path>, visitor: V) -> R
     let context = Context::checked(CopyPolicy::Copy, false, &target, &target, &NoCheck, &NoScope, &RemoveAll, &visitor);
     paths::directory(&target)?;
     let root = diff_dirs::inspect_single_root(&target, Side::Target, Purpose::Remove, &visitor).map_err(Failure::checked)?;
+    context.excluded.fetch_add(root.excluded(), Ordering::Relaxed);
+    context.retained.fetch_add(root.retained(), Ordering::Relaxed);
     let writable = Writable::new(target.parent().expect("bound parent"));
     let result = if root.operations().entries()[0].descends() {
         context
@@ -1347,6 +1361,15 @@ impl<'a> Staging<'a> {
         result: Result<Progress, Failure>,
         context: &Context<'_, C, S, A, V>,
     ) -> Result<Progress, Failure> {
+        let (result, writable) = self.finish_preparation(result, context);
+        writable.finish(result)
+    }
+
+    fn finish_preparation<C: Check, S: Scope, A: Absence, V: Visitor>(
+        self,
+        result: Result<Progress, Failure>,
+        context: &Context<'_, C, S, A, V>,
+    ) -> (Result<Progress, Failure>, Writable<'a>) {
         let result = match self.temporary.into_inner().unwrap() {
             Some(temporary) => {
                 // A stopped sibling can leave a successfully prepared directory
@@ -1357,7 +1380,7 @@ impl<'a> Staging<'a> {
             }
             None => result,
         };
-        self.writable.finish(result)
+        (result, self.writable)
     }
 }
 
@@ -1366,7 +1389,6 @@ impl<'a> Staging<'a> {
 struct Writable<'a> {
     path: &'a Path,
     state: Mutex<Option<(Permissions, bool)>>,
-    enabled: bool,
     verified: Option<Permissions>,
 }
 
@@ -1375,14 +1397,10 @@ impl<'a> Writable<'a> {
         Self {
             path,
             state: Mutex::new(None),
-            enabled: true,
             verified: None,
         }
     }
     fn ensure(&self) -> Result<(), Failure> {
-        if !self.enabled {
-            return Ok(());
-        }
         let mut state = self.state.lock().unwrap();
         if state.is_none() {
             *state = Some(match &self.verified {
@@ -1400,7 +1418,6 @@ impl<'a> Writable<'a> {
         Self {
             path,
             state: Mutex::new(None),
-            enabled: true,
             verified: Some(permissions),
         }
     }
@@ -1410,6 +1427,19 @@ impl<'a> Writable<'a> {
             Some((permissions, relaxed)) => finish_permissions(result, self.path, permissions, relaxed, true),
             None => result,
         }
+    }
+
+    fn removed(self, mut result: Result<Progress, Failure>) -> Result<Progress, Failure> {
+        if self.state.into_inner().unwrap().is_some_and(|(_, relaxed)| relaxed) {
+            add_progress(
+                &mut result,
+                Progress {
+                    directory_permissions_set: 1,
+                    ..Progress::default()
+                },
+            );
+        }
+        result
     }
 }
 

@@ -59,6 +59,13 @@ impl Name {
     pub fn preserve_tree(&mut self) {
         self.admission = Admission::PreserveTree;
     }
+    /// Refuse this actual union slot without accepting an injected blame path.
+    /// Return this error from early: `return Err(name.refuse("protected name"))`.
+    /// The library attaches this name to the logical target batch directory.
+    /// No metadata/readlink is needed and the whole batch remains unpublished.
+    pub fn refuse(&self, cause: impl Into<CheckError>) -> CheckError {
+        SlotRefusal::at(&self.relative, &self.name, cause.into())
+    }
 }
 
 /// Sorted union of immediate names. The callback runs after `read_dir`, but
@@ -228,6 +235,12 @@ impl Operation {
     pub fn preserve_tree(&mut self) {
         self.action = Action::PreserveTree;
     }
+    /// Refuse this observed slot at its logical final target coordinate. Only
+    /// the cause is caller-supplied; names/paths remain those actually observed.
+    /// Return the result from late to refuse before this batch changes anything.
+    pub fn refuse(&self, cause: impl Into<CheckError>) -> CheckError {
+        SlotRefusal::at(&self.relative, &self.name, cause.into())
+    }
     /// Keep an existing target container but allow descendant work. For an
     /// absent target container this stops the subtree instead of authorizing
     /// impossible child creation. Existing leaves are simply retained.
@@ -354,6 +367,8 @@ pub struct DirectoryPlan {
     steered: bool,
     first_excluded: Option<PathBuf>,
     preserved: Vec<OsString>,
+    planned: u64,
+    retained: u64,
 }
 
 impl DirectoryPlan {
@@ -385,11 +400,11 @@ impl DirectoryPlan {
     /// Immediate slots whose action differs from the mirror baseline, including
     /// stopping otherwise-clean descent. Not unique-path or recursive counts.
     pub fn retained(&self) -> u64 {
-        self.operations.entries.iter().filter(|e| e.action != e.baseline).count() as u64
+        self.retained
     }
     /// Immediate planned namespace actions, not recursive or completed work.
     pub fn work(&self) -> u64 {
-        self.operations.entries.iter().filter(|e| e.has_work()).count() as u64
+        self.planned
     }
     pub(crate) fn children(&self) -> Vec<OsString> {
         self.operations
@@ -552,7 +567,7 @@ impl<C: Check, S: Scope> Visitor for CheckedScope<C, S> {
                                 metadata: fact.metadata(),
                                 link_target: fact.link_target(),
                             })
-                            .map_err(|source| Box::new(Error::Refused { path, source }) as CheckError)?;
+                            .map_err(|source| Box::new(CheckedRefusal(Error::Refused { path, source })) as CheckError)?;
                     }
                 }
             }
@@ -584,15 +599,26 @@ fn facts_with_metadata(path: &Path, metadata: Metadata, read_link: bool) -> Resu
     Ok(Facts { metadata, link })
 }
 
-fn operation(name: OsString, relative: PathBuf, source: Option<Facts>, target: Option<Facts>) -> Result<Operation, Error> {
+fn operation(
+    name: OsString,
+    relative: PathBuf,
+    source: Option<Facts>,
+    target: Option<Facts>,
+    source_root: &Path,
+    target_root: &Path,
+) -> Result<Operation, Error> {
     let sd = source.as_ref().is_some_and(|f| f.metadata.is_dir());
     let td = target.as_ref().is_some_and(|f| f.metadata.is_dir());
     let different = match (&source, &target) {
         (Some(_), Some(_)) if sd && td => false,
         (Some(s), Some(t)) if s.metadata.is_file() && t.metadata.is_file() => {
             s.metadata.len() != t.metadata.len()
-                || s.metadata.modified().map_err(|e| Error::io(relative.clone(), "read modification time", e))?
-                    != t.metadata.modified().map_err(|e| Error::io(relative.clone(), "read modification time", e))?
+                || s.metadata
+                    .modified()
+                    .map_err(|e| Error::io(source_root.join(&relative), "read modification time", e))?
+                    != t.metadata
+                        .modified()
+                        .map_err(|e| Error::io(target_root.join(&relative), "read modification time", e))?
         }
         (Some(s), Some(t)) if s.metadata.is_symlink() && t.metadata.is_symlink() => {
             s.link.as_ref().map(|p| p.as_os_str()) != t.link.as_ref().map(|p| p.as_os_str())
@@ -652,6 +678,8 @@ fn finish<V: Visitor>(mut operations: Operations, excluded: u64, visitor: &V) ->
         dir: operations.dir.clone(),
         ..DirDiff::default()
     };
+    let mut planned = 0;
+    let mut retained = 0;
     for entry in &operations.entries {
         let path = operations.target_root.join(&entry.relative);
         for (root, facts) in [(&operations.source_root, &entry.source), (&operations.target_root, &entry.target)] {
@@ -664,6 +692,8 @@ fn finish<V: Visitor>(mut operations: Operations, excluded: u64, visitor: &V) ->
             }
         }
         entry.validate().map_err(|source| refusal(&path, source))?;
+        planned += u64::from(entry.has_work());
+        retained += u64::from(entry.action != entry.baseline);
         if entry.different {
             let sd = entry.source.as_ref().is_some_and(|f| f.metadata.is_dir());
             let td = entry.target.as_ref().is_some_and(|f| f.metadata.is_dir());
@@ -694,13 +724,60 @@ fn finish<V: Visitor>(mut operations: Operations, excluded: u64, visitor: &V) ->
         steered: visitor.scoped(),
         first_excluded: None,
         preserved: Vec::new(),
+        planned,
+        retained,
     })
 }
 
+#[derive(Debug)]
+struct CheckedRefusal(Error);
+impl std::fmt::Display for CheckedRefusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+impl std::error::Error for CheckedRefusal {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
+#[derive(Debug)]
+struct SlotRefusal {
+    child: Option<OsString>,
+    cause: CheckError,
+}
+impl SlotRefusal {
+    fn at(relative: &Path, name: &OsStr, cause: CheckError) -> CheckError {
+        Box::new(Self {
+            child: (!relative.as_os_str().is_empty()).then(|| name.to_os_string()),
+            cause,
+        })
+    }
+}
+impl std::fmt::Display for SlotRefusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.cause.fmt(f)
+    }
+}
+impl std::error::Error for SlotRefusal {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&*self.cause)
+    }
+}
+
 fn refusal(path: &Path, source: CheckError) -> Error {
-    // Preserve the precise side-local coordinate carried by compatibility checks.
-    match source.downcast::<Error>() {
-        Ok(error) => *error,
+    // Only private wrappers may select a narrower observed coordinate. A public
+    // Error supplied as a visitor's cause must not inject a different blame path.
+    let source = match source.downcast::<CheckedRefusal>() {
+        Ok(error) => return error.0,
+        Err(source) => source,
+    };
+    match source.downcast::<SlotRefusal>() {
+        Ok(named) => Error::Refused {
+            path: named.child.map_or_else(|| path.to_path_buf(), |name| path.join(name)),
+            source: named.cause,
+        },
         Err(source) => Error::Refused {
             path: path.to_path_buf(),
             source,
@@ -827,7 +904,7 @@ pub(crate) fn inspect_directory_execution<V: Visitor>(
         } else {
             None
         };
-        operation(name.name, name.relative, s, t)
+        operation(name.name, name.relative, s, t, source_root, target_root)
     };
     #[cfg(feature = "parallel")]
     let observed: Result<Vec<_>, _> = if execution == crate::Execution::Parallel && admitted.len() >= 64 {
@@ -861,6 +938,29 @@ pub fn inspect_root<V: Visitor>(source: &Path, target: &Path, purpose: Purpose, 
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
         Err(e) => return Err(Error::io(target.to_path_buf(), "inspect root", e)),
     };
+    finish_root(source, target, s, t, purpose, visitor)
+}
+
+pub(crate) fn inspect_bound_root<V: Visitor>(source: &Path, target: &Path, s: &Metadata, t: &Metadata, visitor: &V) -> Result<DirectoryPlan, Error> {
+    // These actual real-directory facts were already needed at construction.
+    // Reuse them under the stable-root contract rather than restatting for hooks.
+    finish_root(
+        source,
+        target,
+        Facts {
+            metadata: s.clone(),
+            link: None,
+        },
+        Some(Facts {
+            metadata: t.clone(),
+            link: None,
+        }),
+        Purpose::Compare,
+        visitor,
+    )
+}
+
+fn finish_root<V: Visitor>(source: &Path, target: &Path, s: Facts, t: Option<Facts>, purpose: Purpose, visitor: &V) -> Result<DirectoryPlan, Error> {
     let mut names = Names {
         dir: PathBuf::new(),
         root: true,
@@ -875,7 +975,7 @@ pub fn inspect_root<V: Visitor>(source: &Path, target: &Path, purpose: Purpose, 
         visitor.early(&mut names).map_err(|source| refusal(target, source))?;
     }
     let excluded = u64::from(names.entries[0].admission == Admission::PreserveTree);
-    let mut entry = operation(names.entries.remove(0).name, PathBuf::new(), Some(s), t)?;
+    let mut entry = operation(names.entries.remove(0).name, PathBuf::new(), Some(s), t, source, target)?;
     if excluded != 0 {
         entry.preserve_tree();
     }
@@ -921,7 +1021,7 @@ pub fn inspect_single_root<V: Visitor>(root: &Path, side: Side, purpose: Purpose
     } else {
         (None, Some(observed))
     };
-    let mut entry = operation(names.entries.remove(0).name, PathBuf::new(), source, target)?;
+    let mut entry = operation(names.entries.remove(0).name, PathBuf::new(), source, target, root, root)?;
     if directory && side == Side::Target {
         entry.action = Action::Directory {
             container: Container::Keep,

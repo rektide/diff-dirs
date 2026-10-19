@@ -12,6 +12,8 @@ use crate::{CheckedScope, Scope};
 pub(crate) struct Roots {
     pub original: PathBuf,
     pub target: PathBuf,
+    original_metadata: fs::Metadata,
+    target_metadata: fs::Metadata,
 }
 
 impl Roots {
@@ -26,27 +28,35 @@ impl Roots {
     }
 
     pub fn new_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<Path>, check: &C) -> Result<Self, Error> {
-        let roots = Self {
-            original: original.as_ref().to_path_buf(),
-            target: target.as_ref().to_path_buf(),
-        };
-        for (path, side) in [(&roots.original, Side::Original), (&roots.target, Side::Target)] {
-            let metadata = fs::symlink_metadata(path).map_err(|e| Error::io(path.clone(), "inspect root", e))?;
-            Entry {
-                root: path,
-                path,
-                name: path.file_name().unwrap_or(path.as_os_str()),
-                side,
-                purpose: Purpose::Compare,
-                metadata: &metadata,
-                link_target: None,
+        let original = original.as_ref().to_path_buf();
+        let target = target.as_ref().to_path_buf();
+        let inspect = |path: &Path, side| {
+            let metadata = fs::symlink_metadata(path).map_err(|e| Error::io(path.to_path_buf(), "inspect root", e))?;
+            if C::ENABLED {
+                Entry {
+                    root: path,
+                    path,
+                    name: path.file_name().unwrap_or(path.as_os_str()),
+                    side,
+                    purpose: Purpose::Compare,
+                    metadata: &metadata,
+                    link_target: None,
+                }
+                .check(check)?;
             }
-            .check(check)?;
             if !metadata.is_dir() {
-                return Err(Error::NotDirectory { path: path.clone() });
+                return Err(Error::NotDirectory { path: path.to_path_buf() });
             }
-        }
-        Ok(roots)
+            Ok(metadata)
+        };
+        let original_metadata = inspect(&original, Side::Original)?;
+        let target_metadata = inspect(&target, Side::Target)?;
+        Ok(Self {
+            original,
+            target,
+            original_metadata,
+            target_metadata,
+        })
     }
 
     #[cfg(feature = "parallel")]
@@ -56,14 +66,16 @@ impl Roots {
 
     pub fn inspect_visitor<V: Visitor>(&self, dir: PathBuf, execution: Execution, visitor: &V) -> Result<ComparedPair, Error> {
         if V::ENABLED && dir.as_os_str().is_empty() {
-            let root = crate::inspect_root(&self.original, &self.target, Purpose::Compare, visitor)?;
+            let root = crate::visitor::inspect_bound_root(&self.original, &self.target, &self.original_metadata, &self.target_metadata, visitor)?;
             if !root.operations().entries()[0].descends() {
                 return Ok(ComparedPair {
                     diff: DirDiff::default(),
                     children: Vec::new(),
                     excluded: root.excluded(),
                     scoped: visitor.scoped(),
-                    plan: Some(root),
+                    planned: root.work(),
+                    retained: root.retained(),
+                    plan: None,
                 });
             }
         }
@@ -77,12 +89,18 @@ impl Roots {
             visitor,
             execution,
         )?;
+        let diff = plan.diff().clone();
+        let changed = !diff.is_empty();
         Ok(ComparedPair {
-            diff: plan.diff().clone(),
+            diff,
             children: plan.children(),
             excluded: plan.excluded(),
             scoped: visitor.scoped(),
-            plan: Some(plan),
+            planned: plan.work(),
+            retained: plan.retained(),
+            // Clean metadata is no longer needed after late and child lowering.
+            // Release it in the worker, not while holding the frontier mutex.
+            plan: changed.then_some(plan),
         })
     }
 }
@@ -93,6 +111,8 @@ pub(crate) struct ComparedPair {
     pub children: Vec<OsString>,
     pub excluded: u64,
     pub scoped: bool,
+    pub planned: u64,
+    pub retained: u64,
     pub plan: Option<DirectoryPlan>,
 }
 
