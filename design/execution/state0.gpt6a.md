@@ -7,7 +7,11 @@ status: source-reviewed
 generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-19 }
 sources:
   - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
-    title: Traced the actual context fields, lifetimes, data movement and distinct donor identities for the requested separate state report
+    title: Traced context fields, lifetimes and donor identities, then clarified enumeration-provided facts versus additional metadata I/O after the human's dirent question
+  - resource: /design/performance/inspection0.sol61x.md#e2
+    title: Earlier verification of cached d_type and the metadata fallback in DirEntry::file_type
+  - resource: "file:///home/rektide/.rustup/toolchains/nightly-2026-10-14-x86_64-unknown-linux-gnu/share/doc/rust/html/src/std/sys/fs/unix.rs.html#1053"
+    title: Rechecked configured std file_type cached-type dispatch, metadata fallback, and ino accessor
   - resource: /src/visitor.rs
     revision: 0ce979c26a323ac2172215c4b32a09b3e9a86b5d
     title: Names, Facts, Operations, DirectoryPlan, visitor specialization and observation finalization
@@ -71,6 +75,31 @@ visitor authority. Preservation drops them without inspecting the child.
 The early callback receives `&mut Names`, but public methods permit editing
 admission, not inventing a new source absence. A named refusal carries the actual
 slot coordinate plus the caller's cause. Reordered opaque slots are rejected.
+
+#### Enumeration can already provide facts
+
+The table above describes the **current public context**, not everything the OS
+returned. Linux directory records commonly include an inode number and a `d_type`
+classification (directory, regular file, symlink, or another kind). They do not
+provide ordinary file size, mtime or full permissions. Some filesystems return
+`DT_UNKNOWN`; other platforms' enumeration interfaces can provide different or
+richer facts.
+
+The useful early/late boundary is **before additional observation I/O**, rather
+than an inherent prohibition on type information in early. The human's requested
+refinement is to expose already-available listing facts per present side, with
+unknown/unavailable values explicit, then acquire missing facts only as needed.
+Current `Name` does not expose these hints yet. In particular, absence of a side
+and a present side with unknown type must remain distinguishable.
+
+The configured Rust implementation uses cached `d_type` for recognized values
+in `DirEntry::file_type()`, but otherwise calls `metadata()`. Its Unix `ino()`
+accessor reads the stored directory-entry inode. Therefore simply calling
+`file_type()` for every early slot would not preserve the no-child-stat guarantee
+on unknown-type filesystems, and could cause a second stat later. A no-extra-I/O
+listing-hint interface/backend must make that fallback explicit. Any full facts
+already obtained should be reused, not fetched again. This is a refinement to
+the context contract, not an implemented field or a new measurement claim.
 
 ### 1.2 Library: `Operations` is the late context
 

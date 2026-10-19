@@ -143,6 +143,12 @@ Excluded handles are dropped uninspected. Admitted entries use
 on the configured Linux implementation. The handles do not become persistent
 plans or a donor catalog.
 
+Directory enumeration can already return type/inode facts. Current `Names` exposes
+only names/presence, but that is an API limitation, not an OS requirement. The
+[state report's dirent clarification](state0.gpt6a.md#enumeration-can-already-provide-facts)
+explains the proposed early exposure of available hints and why an unknown-type
+fallback must not silently perform a stat before early filtering.
+
 ### 1.3 Library: observe and propose
 
 For each admitted union name, source facts are obtained before target facts.
