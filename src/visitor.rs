@@ -618,6 +618,21 @@ fn facts(path: &Path, read_link: bool) -> Result<Facts, Error> {
     facts_with_metadata(path, metadata, read_link)
 }
 
+fn listed_facts(entry: fs::DirEntry, read_link: bool) -> Result<Facts, Error> {
+    let path = entry.path();
+    // Preserve std's no-follow, directory-relative metadata path on Linux. Do
+    // not replace this with symlink_metadata(path): the listing already supplied
+    // the usable parent handle. The DirEntry is dropped after facts are copied,
+    // never retained by Operations/DirectoryPlan or the frontier.
+    let metadata = entry.metadata().map_err(|e| Error::io(path.clone(), "inspect entry", e))?;
+    facts_with_metadata(&path, metadata, read_link)
+}
+
+struct ListedPair {
+    source: Option<fs::DirEntry>,
+    target: Option<fs::DirEntry>,
+}
+
 fn facts_with_metadata(path: &Path, metadata: Metadata, read_link: bool) -> Result<Facts, Error> {
     let link = if metadata.is_symlink() && read_link {
         Some(fs::read_link(path).map_err(|e| Error::io(path.to_path_buf(), "read symlink", e))?)
@@ -825,6 +840,9 @@ fn refusal(path: &Path, source: CheckError) -> Error {
 /// A present side must be a real directory (the caller validates admitted routing
 /// ancestors). This function never writes and never follows child symlinks.
 /// No whole-tree catalog/preaudit or additional policy-only I/O is performed.
+/// Listed DirEntry handles remain private through early admission, then supply
+/// admitted no-follow metadata and are dropped before late/publication. Excluded
+/// handles are dropped without metadata/readlink; none become plan/catalog data.
 pub fn inspect_directory<V: Visitor>(
     source_root: &Path,
     target_root: &Path,
@@ -856,7 +874,7 @@ pub(crate) fn inspect_directory_execution<V: Visitor>(
         if let Some(path) = path {
             for entry in fs::read_dir(path).map_err(|e| Error::io(path.to_path_buf(), "read directory", e))? {
                 let entry = entry.map_err(|e| Error::io(path.to_path_buf(), "read directory entry", e))?;
-                raw.push((entry.file_name(), side));
+                raw.push((entry.file_name(), side, entry));
             }
         }
     }
@@ -867,23 +885,34 @@ pub(crate) fn inspect_directory_execution<V: Visitor>(
         entries: Vec::with_capacity(raw.len()),
     };
     let mut raw = raw.into_iter().peekable();
-    while let Some((name, side)) = raw.next() {
-        let both = raw.peek().is_some_and(|(next, _)| *next == name);
+    let mut listed = Vec::with_capacity(raw.len());
+    while let Some((name, side, entry)) = raw.next() {
+        let mut pair = match side {
+            Side::Original => ListedPair {
+                source: Some(entry),
+                target: None,
+            },
+            Side::Target => ListedPair {
+                source: None,
+                target: Some(entry),
+            },
+        };
+        let both = raw.peek().is_some_and(|(next, _, _)| *next == name);
         if both {
-            raw.next();
+            let (_, other, entry) = raw.next().expect("peeked listed entry");
+            match (side, other) {
+                (Side::Original, Side::Target) => pair.target = Some(entry),
+                (Side::Target, Side::Original) => pair.source = Some(entry),
+                _ => return Err(refusal(&target_root.join(dir).join(name), "duplicate name on one listing side".into())),
+            }
         }
         names.entries.push(Name {
             relative: dir.join(&name),
             name,
-            presence: if both {
-                Presence::Both
-            } else if side == Side::Original {
-                Presence::SourceOnly
-            } else {
-                Presence::TargetOnly
-            },
+            presence: presence(pair.source.is_some(), pair.target.is_some()),
             admission: Admission::Observe,
         });
+        listed.push(pair);
     }
     if V::ENABLED {
         visitor.early(&mut names).map_err(|source| refusal(&target_root.join(dir), source))?;
@@ -909,7 +938,8 @@ pub(crate) fn inspect_directory_execution<V: Visitor>(
     let admitted: Vec<_> = names
         .entries
         .into_iter()
-        .filter_map(|name| {
+        .zip(listed)
+        .filter_map(|(name, listed)| {
             if name.admission == Admission::PreserveTree {
                 excluded += 1;
                 if first_excluded.is_none() {
@@ -918,26 +948,19 @@ pub(crate) fn inspect_directory_execution<V: Visitor>(
                 preserved.push(name.name);
                 None
             } else {
-                Some(name)
+                Some((name, listed))
             }
         })
         .collect();
-    let observe = |name: Name| {
+    let observe = |(name, listed): (Name, ListedPair)| {
         #[cfg(all(test, feature = "parallel"))]
         crate::pair::tests::observe_worker();
-        let s = if name.presence != Presence::TargetOnly {
-            Some(facts(&source.expect("listed source").join(&name.name), true)?)
-        } else {
-            None
-        };
-        let t = if name.presence != Presence::SourceOnly {
-            Some(facts(
-                &target.expect("listed target").join(&name.name),
-                name.presence == Presence::Both || purpose == Purpose::Audit,
-            )?)
-        } else {
-            None
-        };
+        // Original before target, and indexed union order across parallel jobs.
+        let s = listed.source.map(|entry| listed_facts(entry, true)).transpose()?;
+        let t = listed
+            .target
+            .map(|entry| listed_facts(entry, name.presence == Presence::Both || purpose == Purpose::Audit))
+            .transpose()?;
         operation(name.name, name.relative, s, t, source_root, target_root)
     };
     #[cfg(feature = "parallel")]
@@ -1093,4 +1116,37 @@ pub fn inspect_single_root<V: Visitor>(root: &Path, side: Side, purpose: Purpose
         return Err(refusal(root, "selected target root is a retained structural container".into()));
     }
     Ok(plan)
+}
+
+#[cfg(all(test, feature = "parallel", target_os = "linux"))]
+mod listing_tests {
+    use super::*;
+
+    #[test]
+    fn listed_metadata_uses_the_held_parent_not_a_reconstructed_lookup() {
+        let f = crate::test_support::Fixture::new();
+        fs::write(f.original.join("leaf"), b"held directory metadata").unwrap();
+        let entry = fs::read_dir(&f.original).unwrap().next().unwrap().unwrap();
+        let old_path = entry.path();
+        // Owned fixture only, outside any visitor: test std's configured Linux
+        // directory-relative metadata path, not public traversal under writers.
+        fs::rename(&f.original, f.original.with_file_name("renamed-source")).unwrap();
+        assert!(!old_path.exists());
+        let observed = listed_facts(entry, true).unwrap();
+        assert!(observed.metadata().is_file());
+        assert_eq!(observed.metadata().len(), b"held directory metadata".len() as u64);
+        assert_eq!(observed.link_target(), None);
+    }
+
+    #[test]
+    fn listed_metadata_does_not_follow_links_and_readlink_stays_literal() {
+        let f = crate::test_support::Fixture::new();
+        let literal = Path::new("../target//./missing");
+        std::os::unix::fs::symlink(literal, f.original.join("link")).unwrap();
+        let entry = fs::read_dir(&f.original).unwrap().next().unwrap().unwrap();
+        let observed = listed_facts(entry, true).unwrap();
+        assert!(observed.metadata().is_symlink());
+        assert!(!observed.metadata().is_dir());
+        assert_eq!(observed.link_target().unwrap().as_os_str(), literal.as_os_str());
+    }
 }

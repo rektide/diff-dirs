@@ -156,6 +156,13 @@ pub(crate) mod tests {
         for i in 0..64 {
             f.both_file(format!("file-{i:03}"), b"");
         }
+        #[cfg(unix)]
+        let _excluded = (
+            std::os::unix::net::UnixListener::bind(f.original.join(".jj")).unwrap(),
+            std::os::unix::net::UnixListener::bind(f.target.join(".jj")).unwrap(),
+        );
+        #[cfg(not(unix))]
+        f.both_dir(".jj");
         let roots = Roots::new_checked(&f.original, &f.target, &crate::NoCheck).unwrap();
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(4)
@@ -164,14 +171,18 @@ pub(crate) mod tests {
             .unwrap();
         WORKERS.lock().unwrap().clear();
         *GATE.lock().unwrap() = Some(Arc::new(Gate::default()));
+        let scope = |path: &Path| {
+            if path.file_name() == Some(std::ffi::OsStr::new(".jj")) {
+                crate::Visit::PreserveTree
+            } else {
+                crate::Visit::Reconcile
+            }
+        };
         pool.install(|| {
-            assert!(
-                roots
-                    .inspect_scoped(PathBuf::new(), Execution::Parallel, &crate::NoCheck, &crate::NoScope)
-                    .unwrap()
-                    .diff
-                    .is_empty()
-            )
+            let pair = roots.inspect_scoped(PathBuf::new(), Execution::Parallel, &crate::NoCheck, &scope).unwrap();
+            assert!(pair.diff.is_empty());
+            assert!(pair.children.is_empty());
+            assert_eq!(pair.excluded, 1);
         });
         *GATE.lock().unwrap() = None;
         let workers = WORKERS.lock().unwrap();

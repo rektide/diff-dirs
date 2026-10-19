@@ -8,7 +8,7 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
   - resource: "opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06"
-    title: Implemented and refined finalized visitor steering, metadata-aware special preservation, honest comparison/coverage reporting, recursive presets, preview, guarded public plans and bounded semantic tests
+    title: Implemented and refined visitor steering, metadata-aware special preservation, honest reporting, private directory-relative DirEntry metadata, recursive presets, preview and guarded public plans with bounded semantic tests
   - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
     title: Parent commission conveying the human's revised visitor-steering implementation direction; JW integration remains paused for review
   - resource: "opencode://ses_eaecf188affeV49Iu6kJOeHgsX"
@@ -125,6 +125,13 @@ Audit reports special observations separately as `retained_specials`. No special
 file is opened/read; early filtering remains the zero-child-metadata choice.
 `AuditFailure.inspected` boxes its cold prefix counters; ordinary field access
 still dereferences transparently.
+
+The shared inspector keeps listed `DirEntry` handles private through early
+admission and obtains admitted no-follow metadata from those entries, retaining
+std's configured Linux directory-relative lookup. Excluded children are not
+inspected; handles are dropped after fact collection and never stored in plans.
+Literal readlink remains path-based. This restores the prior lookup path without
+extra observations, a new backend or any measured-performance claim.
 
 Useful compiled presets, not additional mode flags:
 
@@ -631,7 +638,25 @@ construction (including less-optimized builds). Declaring false promises
 unconditional acceptance and no reliance on invocation. This rationale is not a
 measured speedup claim.
 
-### Visitor revision verification
+### Parent-review refinement verification
+
+The late-special and private-DirEntry corrections passed focused semantic cases
+first, then the affected core/sync suites with real reflinks required: **121
+all-feature tests** and **93 std-only tests**, none skipped. The six new cases
+cover socket/FIFO preservation and intact peers/collisions, honest unknown
+comparison/retention accounting, held-parent metadata lookup, no-follow metadata
+and literal links. The existing parallel metadata case now also proves early
+exclusion does not admit a metadata job. A mixed normal/special batch checks that
+comparison/application retention is not counted twice.
+
+All **15 doctests**, workspace/all-target/all-feature clippy, std-only core/sync
+all-target clippy, warnings-denied Rustdoc, and formatting passed. `apply_plan`
+documentation/test now explicitly distinguish projection checking from exact
+metadata/byte equality and verify that installation uses fresh bound facts.
+Only tiny owned fixtures and compile-time checks ran: no benchmarks, live
+workspace fixtures, new backend/tooling, extra operation flags or JW edits.
+
+### Initial visitor checkpoint verification
 
 The 2026-10-19 visitor revision (session
 `opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06`) passed:

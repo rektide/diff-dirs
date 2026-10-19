@@ -8,7 +8,9 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
   - resource: opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06
-    title: Implemented and refined human-directed early/late visitors, including metadata-aware special preservation, honest comparison/coverage states, finalized traversal/application, preview, compatibility projections and tiny semantic verification
+    title: Implemented and refined early/late visitors, metadata-aware special preservation, honest comparison/coverage states, private DirEntry metadata retention, finalized execution, preview and tiny semantic verification
+  - resource: /design/performance/inspection0.sol61x.md#e1
+    title: Previously verified std DirEntry parent-fd-relative metadata and shared directory-handle lifetime, restored by the visitor refinement without a new measurement
   - resource: opencode://ses_eb262a81effea1HgF0pPS3f1sy
     title: Parent commission conveying the revised human visitor interface and holding JW integration for library review
   - resource: opencode://ses_eaecf188affeV49Iu6kJOeHgsX
@@ -289,6 +291,15 @@ Late never receives an incomplete metadata batch. This deliberately changes old
 per-entry Check/metadata interleaving while retaining deterministic committed DFS
 errors and zero counts for a failed directory. Only early can avoid an unwanted
 metadata/readlink failure; late preservation is not a premetadata filter.
+
+Listings retain their private `DirEntry` objects through union/admission instead
+of reconstructing child metadata lookups from full paths. Admitted entries use
+`DirEntry::metadata()` (no-follow); excluded entries are dropped uninspected.
+Handles are released after needed metadata/literal links are collected, before
+late/publication, and never enter frontier plans. This preserves std's existing
+[Linux directory-relative metadata path](design/performance/inspection0.sol61x.md#e1),
+not a new backend or a measured speedup. Readlink remains literal and path-based;
+stable caller-owned trees are still required.
 
 `DirectoryPlan.diff()` and `Summary.counts` retain baseline observed comparison;
 `DirectoryPlan.work()` and `Summary.planned` count immediate proposed namespace

@@ -359,7 +359,36 @@ fn late_special_preservation_leaves_socket_pairs_and_peers_untouched() {
             assert_eq!(failure.primary.path, f.source.join("a-source"));
             assert_eq!(failure.completed, Progress::default());
         }
+        // A normal yielded diff must not count its special retention once in
+        // application and again when merging committed comparison coverage.
+        file(f.source.join("z-copy"), b"ordinary admitted sibling");
+        let mixed = run(&binding, parallel).unwrap();
+        assert_eq!(mixed.completed.files_copied, 1);
+        assert_eq!(mixed.planned, 1);
+        assert_eq!(mixed.policy.retained, 5);
+        assert_eq!(mixed.observed.unwrap().retained, 5);
+        assert!(fs::symlink_metadata(f.target.join("b-target")).unwrap().file_type().is_socket());
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn late_special_preservation_blocks_coupled_directory_replacement_intact() {
+    use std::os::unix::fs::MetadataExt;
+    let f = Fixture::new();
+    file(f.source.join("collision"), b"source leaf must not replace retained subtree");
+    file(f.target.join("collision/a-deletable"), b"intact sibling");
+    let socket = f.target.join("collision/b-socket");
+    let _socket = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+    let before = fs::metadata(f.target.join("collision")).unwrap().modified().unwrap();
+    let inode = fs::symlink_metadata(&socket).unwrap().ino();
+    let seen = Mutex::new(Vec::new());
+    let failure = f.bind().visitor(PreserveSpecials(&seen)).run().unwrap_err();
+    assert_eq!(failure.primary.path, socket);
+    assert_eq!(failure.completed, Progress::default());
+    assert_eq!(fs::read(f.target.join("collision/a-deletable")).unwrap(), b"intact sibling");
+    assert_eq!(fs::symlink_metadata(&socket).unwrap().ino(), inode);
+    assert_eq!(fs::metadata(f.target.join("collision")).unwrap().modified().unwrap(), before);
 }
 
 #[cfg(target_os = "linux")]
