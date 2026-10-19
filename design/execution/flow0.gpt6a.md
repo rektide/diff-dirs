@@ -5,12 +5,21 @@ description: A source-grounded walkthrough of the implemented visitor pipeline, 
 resource: /design/execution/flow0.gpt6a.md
 status: source-reviewed
 generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-19 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
+  - resource: "opencode://ses_ea9c65f5fffeyf5EYvFs581in4"
+    title: Implemented per-side early listing facts and the parent-approved opt-in Linux native backend, then verified shared observation paths and updated the execution account
   - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
     title: Commissioned execution/state write-ups; traced current library and JW code and kept their responsibilities separate
   - resource: /src/visitor.rs
-    revision: 0ce979c26a323ac2172215c4b32a09b3e9a86b5d
-    title: Union names, early admission, facts, late steering, validation and finalized directory plans
+    revision: 20c11498
+    title: Per-side immutable early facts, admission, completed late observations and existing finalized plans
+  - resource: /src/listing.rs
+    title: Single-pass std/native listing, nonprobing hints and deferred shared-parent metadata
+  - resource: /design/execution/state0.gpt6a.md#enumeration-can-already-provide-facts
+    title: Implemented backend capability differences, root provenance and bounded call-count/syscall verification
+  - resource: /sync/tests/early_facts.rs
+    title: Required-reflink verification across recursive, staged, removal, audit, preview and root dispatch paths
   - resource: /src/pair.rs
     title: Lowering finalized plans to comparison results and admitted paired children
   - resource: /src/walk.rs
@@ -40,14 +49,16 @@ sources:
 
 # Net execution flow
 
-**The ordinary library path is: list names → early visitor → observe admitted
-entries → propose work → late visitor → validate → apply and descend.**
+**The ordinary library path is: list names and cached facts → early visitor →
+complete admitted observations → propose work → late visitor → validate → apply
+and descend.**
 
 This report walks the implementation. The companion
 [context and donor-state report](state0.gpt6a.md) explains what each arrow carries,
 who owns it, and how long it lives.
 
-Source coordinates: diffdirs `0ce979c26a323ac2172215c4b32a09b3e9a86b5d`;
+Source coordinates: diffdirs visitor baseline `0ce979c2`, early-facts extension
+`20c11498` with bounded verification in `09ed238a`;
 JW `24b58a67d0047e27c4a8479686e00d0ebffb8515`. The native
 [library specification](../../README.md) and [sync specification](../../sync/README.md)
 own the contracts. This is a source-reading account, not a new benchmark or a
@@ -57,8 +68,9 @@ claim that every proposed JW behavior has shipped.
 
 There are three related flows, not just a list of changed files:
 
-1. **Information:** actual names and presence become metadata observations and
-   baseline comparisons. Visitors cannot change those facts.
+1. **Information:** actual names, presence and cached per-side hints become
+   completed metadata observations and baseline comparisons. Visitors cannot
+   change those facts.
 2. **Control:** visitors edit admission and proposed actions. Final actions decide
    both filesystem mutation and which descendants may be visited.
 3. **File data:** when an installation is necessary, the applier opens the source
@@ -67,7 +79,7 @@ There are three related flows, not just a list of changed files:
 
 ```mermaid
 flowchart TD
-    bind_roots[Bind source and target roots] --> list_union[List immediate union of names]
+    bind_roots[Bind source and target roots] --> list_union[List immediate names and cached per-side facts]
     list_union --> early_visit[Early visitor edits admission]
     early_visit -->|preserve| skipped_boundary[Record excluded boundary; no child observation]
     early_visit -->|observe| collect_facts[Collect no-follow metadata and needed link text]
@@ -116,7 +128,9 @@ Binding performs no copy, staging or reflink capability probe.
 - **Missing source:** error; it is not interpreted as an empty deletion source.
 
 Root structural observations are a deliberate exception to “early before
-metadata.” They are needed to bind the operation. An early-preserved child such
+additional child observation.” They are needed to bind the operation. Early
+root facts explicitly carry `FactOrigin::RootMetadata`, reusing mandatory facts
+rather than claiming a parent listing supplied them. An early-preserved child such
 as `.jj` receives no child metadata lookup; preserving the root suppresses its
 contents, not mandatory root validation.
 
@@ -124,34 +138,40 @@ contents, not mandatory root validation.
 
 `inspect_directory_execution` reads the immediate source and target directory
 listings. A recursive one-sided operation supplies only its existing side. The
-library sorts the union by native name bytes and knows presence before metadata:
+library sorts the union by native name bytes and knows presence before additional metadata:
 `SourceOnly`, `Both`, or `TargetOnly`.
 
 The early visitor receives `Names`:
 
 - logical containing directory and root/singleton indication;
-- immutable names and side presence;
+- immutable names, side presence and per-present-side `EarlyFacts`;
 - mutable admission, initially `Observe` for every slot.
 
 Calling `preserve_tree()` suppresses **both sides** and all descendants. It does
 not erase a source fact and manufacture target-only deletion authority. Returning
 a refusal stops this batch before child observation or publication.
 
-The implementation retains private `DirEntry` handles through early admission.
-Excluded handles are dropped uninspected. Admitted entries use
-`DirEntry::metadata()`—no-follow metadata, with the directory-relative path available
-on the configured Linux implementation. The handles do not become persistent
-plans or a donor catalog.
+`Name::source()` / `target()` return None for an absent side, or `EarlyFacts`
+with `kind()`, optional `inode()` and `origin()`. Present Unknown is not absence.
+Default Unix exposes cached inode and conservatively unknown kind. Opt-in Linux
+`native-dirent` exposes raw cached type/inode; DT_UNKNOWN remains unknown, with no
+hidden stat fallback. It requires nightly's std `dirfd` and optional rustix; the
+default backend/compiler requirements remain unchanged. Windows std cached
+enumeration metadata supplies kind and is reused late. Other platforms may have
+no hints; they do not probe merely to fill the context.
 
-Directory enumeration can already return type/inode facts. Current `Names` exposes
-only names/presence, but that is an API limitation, not an OS requirement. The
-[state report's dirent clarification](state0.gpt6a.md#enumeration-can-already-provide-facts)
-explains the proposed early exposure of available hints and why an unknown-type
-fallback must not silently perform a stat before early filtering.
+Private std/native handles survive admission, sharing a parent rather than
+opening every child. Excluded handles drop without observation. Admitted entries
+reuse enumeration-cached full facts where available, otherwise acquire full
+no-follow metadata once via `DirEntry::metadata()` or native Linux
+`Dir::symlink_metadata(basename)`. Both preserve directory-relative Linux lookup;
+no second listing pairs hints with std entries. Handles drop before late and do
+not become plans or a donor catalog. See the
+[state report's backend and verification account](state0.gpt6a.md#enumeration-can-already-provide-facts).
 
 ### 1.3 Library: observe and propose
 
-For each admitted union name, source facts are obtained before target facts.
+For each admitted union name, missing source facts are obtained before target facts.
 Facts include metadata and literal link text where the operation needs it.
 Target-only deletion does not read a link merely to populate a callback.
 Regular-file contents are not hashed to compare them.

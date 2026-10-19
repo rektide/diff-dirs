@@ -7,6 +7,8 @@ status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
+  - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
+    title: Verified immutable early facts and opt-in native Linux enumeration across required-reflink recursive, staged, audit, preview and root operations
   - resource: "opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06"
     title: Implemented and refined visitor steering, metadata-aware special preservation, honest reporting, private directory-relative DirEntry metadata, recursive presets, preview and guarded public plans with bounded semantic tests
   - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
@@ -106,8 +108,11 @@ assert!(report.policy.satisfied);
 
 The [core visitor contract](../README.md#visitor-steered-planning) and
 [`Action` Rustdoc](../src/visitor.rs) define the authority table. Early starts
-with every sorted union name admitted and immutable listing presence, **before
-any child stat/readlink**. A suppressed name cannot become fake source absence.
+with every sorted union name admitted, immutable listing presence, and per-side
+`EarlyFacts`, **before additional child stat/readlink/open**. `source()` / `target()`
+distinguish absence from present Unknown; available kind/inode hints and their
+listing/root-metadata provenance are read-only. A suppressed name cannot become
+fake source absence.
 Late starts with actual comparison facts and normal work, including unchanged
 leaves and matched-directory descent. Only existing action slots are mutable.
 `name.refuse(cause)` / `entry.refuse(cause)` report an actual logical slot; a
@@ -126,12 +131,19 @@ file is opened/read; early filtering remains the zero-child-metadata choice.
 `AuditFailure.inspected` boxes its cold prefix counters; ordinary field access
 still dereferences transparently.
 
-The shared inspector keeps listed `DirEntry` handles private through early
-admission and obtains admitted no-follow metadata from those entries, retaining
-std's configured Linux directory-relative lookup. Excluded children are not
-inspected; handles are dropped after fact collection and never stored in plans.
-Literal readlink remains path-based. This restores the prior lookup path without
-extra observations, a new backend or any measured-performance claim.
+The shared inspector keeps listing handles private through early admission and
+obtains admitted no-follow metadata relative to their shared parent on Linux.
+Excluded children are not inspected; handles drop after fact collection and never
+enter plans. Default std Unix exposes inode but unknown kind, avoiding
+`DirEntry::file_type()`'s hidden metadata fallback. Optional Linux `native-dirent`
+exposes actual cached d_type/inode and uses `std::fs::Dir` for relative late stats;
+it requires nightly (`dirfd`). Enable for sync with
+`cargo test -p diff-dirs-sync --features diff-dirs/native-dirent`, or opt in on the
+embedding core dependency. Default remains unchanged; non-Linux uses std.
+Enumeration-cached full metadata (Windows) and mandatory root facts are reused;
+other admitted sides obtain required metadata once, including Unknown types.
+Literal readlink remains path-based. No speedup or concurrent-replacement safety
+is inferred from hints. [Core backend details](../README.md#optional-cached-linux-dirents).
 
 Useful compiled presets, not additional mode flags:
 
@@ -638,7 +650,25 @@ construction (including less-optimized builds). Declaring false promises
 unconditional acceptance and no reliance on invocation. This rationale is not a
 measured speedup claim.
 
-### Parent-review refinement verification
+### Early-facts verification
+
+The opt-in native-dirent extension passed affected core/sync nextest with
+`DIFF_DIRS_SYNC_REQUIRE_REFLINK=1`: **128 all-feature** tests and **101 default**
+tests, none skipped. New tiny Btrfs fixtures require actual reflinks and cover
+early facts through direct/recursive copying, removal/clear, staged children,
+absent/replaced roots, audit, preview and borrowed-pool execution. Backend seams
+prove zero metadata calls for early-preserved Known/Unknown names and one
+completion for admitted Unknown; an actual cached-type filter's syscall trace
+has only the containing-directory open/list/close. Root facts are reused.
+
+Core/sync doctests passed 16 all-feature and 15 default examples; workspace
+all-target/all-feature and default core/sync clippy passed with warnings denied.
+Formatting, Rustdoc generation and installed stable 1.99 default core/sync checks
+passed. Native Linux remains opt-in/nightly; Windows is API-grounded but not
+runtime-tested. No benchmark, live workspace, JW production/Cargo change, or
+default compiler-baseline switch occurred. [Exact backend/proof account](../design/execution/state0.gpt6a.md#enumeration-can-already-provide-facts).
+
+### Earlier parent-review refinement verification
 
 The late-special and private-DirEntry corrections passed focused semantic cases
 first, then the affected core/sync suites with real reflinks required: **121

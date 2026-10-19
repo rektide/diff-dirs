@@ -5,7 +5,10 @@ description: Exact payload and ownership of the visitor contexts, directory plan
 resource: /design/execution/state0.gpt6a.md
 status: source-reviewed
 generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-19 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
+  - resource: "opencode://ses_ea9c65f5fffeyf5EYvFs581in4"
+    title: Implemented and verified per-side early facts, opt-in Linux RawDir plus std Dir, unknown completion, root reuse and recursive synchronization after the parent approved the backend boundary
   - resource: "opencode://ses_eb262a81effea1HgF0pPS3f1sy"
     title: Traced context fields, lifetimes and donor identities, then clarified enumeration-provided facts versus additional metadata I/O after the human's dirent question
   - resource: /design/performance/inspection0.sol61x.md#e2
@@ -13,8 +16,20 @@ sources:
   - resource: "file:///home/rektide/.rustup/toolchains/nightly-2026-10-14-x86_64-unknown-linux-gnu/share/doc/rust/html/src/std/sys/fs/unix.rs.html#1053"
     title: Rechecked configured std file_type cached-type dispatch, metadata fallback, and ino accessor
   - resource: /src/visitor.rs
-    revision: 0ce979c26a323ac2172215c4b32a09b3e9a86b5d
-    title: Names, Facts, Operations, DirectoryPlan, visitor specialization and observation finalization
+    revision: 20c11498
+    title: EarlyFacts, FileKind, FactOrigin and immutable per-side Name payloads alongside the existing late facts and plans
+  - resource: /src/listing.rs
+    title: Single-pass default/native enumeration, cached hints, shared parent lifetime and deferred metadata
+  - resource: "file:///home/rektide/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustix-1.1.5/src/fs/raw_dir.rs"
+    title: Verified RawDir continuation and cached name, type and inode accessors
+  - resource: "file:///home/rektide/.rustup/toolchains/nightly-2026-10-14-x86_64-unknown-linux-gnu/share/doc/rust/html/src/std/sys/fs/unix/dir.rs.html#157"
+    title: Verified std Dir no-follow basename-relative statx/fstatat implementation
+  - resource: "file:///home/rektide/.rustup/toolchains/nightly-2026-10-14-x86_64-unknown-linux-gnu/share/doc/rust/html/src/std/fs.rs.html#2844"
+    title: Verified public Windows enumeration-metadata no-extra-syscall contract
+  - resource: /tests/early_facts.rs
+    title: Actual listing hints, absent versus present-unknown, independent side kinds, inode values and structural-root provenance
+  - resource: /sync/tests/early_facts.rs
+    title: Tiny project-filesystem required-reflink tests of direct, recursive, staged, removal, preview, audit and initialization paths
   - resource: /src/model.rs
     title: Comparison counts, coverage and planned/retained accounting
   - resource: /src/pair.rs
@@ -50,9 +65,10 @@ This is the state companion to [the execution walkthrough](flow0.gpt6a.md).
 “Context payload” means the data supplied to a visitor or held by the execution
 engine. **It is not the contents of the files being transferred.**
 
-Inspected source coordinates are diffdirs `0ce979c26a323ac2172215c4b32a09b3e9a86b5d`
-and JW `24b58a67d0047e27c4a8479686e00d0ebffb8515`. The reports describe current
-implementation, not a new API proposal or an accepted new JW copying default.
+The visitor baseline was diffdirs `0ce979c26a323ac2172215c4b32a09b3e9a86b5d`;
+early-facts implementation is `20c11498`, with bounded verification in `09ed238a`.
+JW source remains `24b58a67d0047e27c4a8479686e00d0ebffb8515`. This describes
+implemented library behavior, not an accepted new JW copying default.
 
 ## 1. Library: context payloads
 
@@ -66,11 +82,12 @@ implementation, not a new API proposal or an accepted new JW copying default.
 | `Name.name` | Native basename | None |
 | `Name.relative` | Logical final root-relative name | None |
 | `Name.presence` | `SourceOnly`, `Both`, `TargetOnly` from listings | None |
+| `Name.source()`, `target()` | `Option<&EarlyFacts>` per side: kind hint, optional inode, origin | None |
 | `Name.admission` | Initially `Observe`; can become `PreserveTree` | Yes |
 
-No file metadata, contents, JJ identity or mount table is included. Private paired
-`DirEntry` handles are held beside the context by the inspector, not exposed as
-visitor authority. Preservation drops them without inspecting the child.
+No full `Metadata`, contents, JJ identity or mount table is exposed here. Private
+paired listing handles are held beside the context, not exposed as visitor
+authority. Preservation drops them without additional child observation.
 
 The early callback receives `&mut Names`, but public methods permit editing
 admission, not inventing a new source absence. A named refusal carries the actual
@@ -78,28 +95,74 @@ slot coordinate plus the caller's cause. Reordered opaque slots are rejected.
 
 #### Enumeration can already provide facts
 
-The table above describes the **current public context**, not everything the OS
-returned. Linux directory records commonly include an inode number and a `d_type`
+**Implemented:** the early/late boundary is before **additional observation I/O**,
+not names-only. Linux directory records commonly include an inode number and a `d_type`
 classification (directory, regular file, symlink, or another kind). They do not
 provide ordinary file size, mtime or full permissions. Some filesystems return
 `DT_UNKNOWN`; other platforms' enumeration interfaces can provide different or
 richer facts.
 
-The useful early/late boundary is **before additional observation I/O**, rather
-than an inherent prohibition on type information in early. The human's requested
-refinement is to expose already-available listing facts per present side, with
-unknown/unavailable values explicit, then acquire missing facts only as needed.
-Current `Name` does not expose these hints yet. In particular, absence of a side
-and a present side with unknown type must remain distinguishable.
+`Name::source()` / `target()` distinguish absent (`None`) from present with
+unknown kind (`Some` with `FileKind::Unknown`). `EarlyFacts` exposes immutable
+`kind()`, optional `inode()` and `origin()`; kind includes regular, directory,
+symlink, FIFO, socket, block/character device, Other and Unknown.
 
-The configured Rust implementation uses cached `d_type` for recognized values
-in `DirEntry::file_type()`, but otherwise calls `metadata()`. Its Unix `ino()`
-accessor reads the stored directory-entry inode. Therefore simply calling
-`file_type()` for every early slot would not preserve the no-child-stat guarantee
-on unknown-type filesystems, and could cause a second stat later. A no-extra-I/O
-listing-hint interface/backend must make that fallback explicit. Any full facts
-already obtained should be reused, not fetched again. This is a refinement to
-the context contract, not an implemented field or a new measurement claim.
+| Backend / context | Early facts | Later observation |
+| --- | --- | --- |
+| Default std Unix listing | Cached inode; kind Unknown | One admitted `DirEntry::metadata()` |
+| Linux `native-dirent` | Raw cached d_type and inode; DT_UNKNOWN stays Unknown | One admitted `Dir::symlink_metadata(basename)` |
+| Windows std listing | Kind derived from enumeration-cached metadata; no inode promised | Reuses that cached full metadata |
+| Other std listing | Kind Unknown; inode unavailable | Normal admitted std metadata |
+| Structural root singleton | Kind and Unix inode derived from mandatory root metadata; `RootMetadata` origin | Reuses those same full facts |
+
+Linux native is explicitly opt-in and requires nightly for std `dirfd`;
+`cargo test -p diff-dirs --features native-dirent` enables it. The dependency is
+optional, Linux-specific rustix 1.1.5, already used by sync. Default remains
+std-only and stable-compatible. No JW Cargo or production code was changed.
+
+`RawDir` owns parsing and enumeration; no hand-written getdents parser, duplicate
+listing or std-private-layout access exists. One shared `Dir` per listed side
+supplies relative no-follow late metadata; no per-entry open+fstat is introduced.
+Unknown hints do not invoke std's hidden `file_type()` metadata fallback. Full
+facts are fetched once only for admitted entries when not already cached. The
+Windows cache branch is source/API-grounded, not exercised platform evidence.
+
+#### Verification of the early seam
+
+Backend-unit instrumentation covers Known/Unknown early preservation (zero
+metadata calls), name-based `.jj` preservation even when both kinds are Unknown,
+and an admitted Unknown symlink completed exactly once without following it.
+Root-binding tests finalize already-owned metadata after moving the tiny owned
+root paths, proving no root restat solely for early/late payloads. Actual Linux
+tests check cached kinds, independent side types and enumeration inode values.
+
+A two-entry owned Btrfs fixture additionally passed a narrow syscall check on
+configured Rust `1.101.0-nightly (822182db4 2026-10-13)`. Between markers outside
+callbacks, preserving the actual cached directory and symlink produced exactly:
+
+```text
+openat(AT_FDCWD, ".../original", O_RDONLY|O_CLOEXEC|O_DIRECTORY) = 3
+getdents64(3, ... /* 4 entries including . and .. */, 8192) = 96
+getdents64(3, ... /* 0 entries */, 8192) = 0
+close(3) = 0
+```
+
+No child stat, readlink, open or descent occurred. Reproduction: build the core
+unit-test executable with `cargo test -p diff-dirs --lib --features native-dirent
+--no-run --message-format=json`, then run its reported executable through
+`strace -f -e trace=openat,newfstatat,statx,readlink,getdents64,close,write` with
+`--exact visitor::listing_tests::real_cached_type_filter_performs_only_the_containing_directory_listing
+--nocapture`. The ignored scratch trace is `.test-agent/native-dirent/native.trace`;
+the normalized excerpt above is the maintained evidence. This is not a timing
+campaign or proof that every filesystem supplies a recognized d_type.
+
+Affected core/sync nextest passed **128 all-feature** and **101 default** tests,
+none skipped, with `DIFF_DIRS_SYNC_REQUIRE_REFLINK=1`. Core/sync doctests passed
+16 all-feature and 15 default examples. Workspace/all-target/all-feature clippy
+and default core/sync clippy passed with warnings denied; formatting and Rustdoc
+generation also passed. Installed stable Rust 1.99 checked default core/sync;
+the default core dependency tree remains just `diff-dirs`. New fixtures stay well
+below 256 entries/1 MiB; no live workspace, import, benchmark or JW operation ran.
 
 ### 1.2 Library: `Operations` is the late context
 
@@ -179,7 +242,7 @@ full-root cleanliness.
 
 | Stage | Mutable data | Immutable data |
 | --- | --- | --- |
-| Early callback | Admission of existing union slots | Names, presence, containing coordinate |
+| Early callback | Admission of existing union slots | Names, presence, per-side early facts, containing coordinate |
 | Observation | Inspector constructs facts | Early suppression has already stopped those names |
 | Late callback | Current action on existing observed slots | Facts, names, presence, baseline comparison/proposal |
 | Finalized plan | No public mutation | Whole immediate plan |
@@ -204,7 +267,7 @@ avoids guard-only work; it does not suppress metadata needed to copy the file.
 | --- | --- | --- |
 | Bound `Applier`, caller-chosen lifetime | Canonical source/target paths, copy policy, visitor and compatibility adapter values, root-replacement permission | Binding is dropped |
 | Root binding / paired `Roots` | Actual root metadata for structural validation and root callback reuse | Walk ends |
-| Immediate inspector | Raw entries, union slots, private `DirEntry` handles | Excluded handles drop early; admitted handles drop after facts are collected, before late/publication |
+| Immediate inspector | Raw entries, union slots, private std/native shared-parent handles | Excluded handles drop early; admitted handles drop after facts are collected, before late/publication |
 | Immediate `DirectoryPlan` | Metadata/link facts, final actions and baseline diff | Consumed/dropped after application; clean plans are reduced to children/counters and released in the worker |
 | Active walk frames | Pending paired child names, relative directory and summary propagation flags | Subtree finishes or traversal stops |
 | Parallel frontier | Bounded queued/running/ready directory nodes; ready divergent plans until commitment | Ordered commit/discard; all started jobs join before return |

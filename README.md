@@ -574,6 +574,10 @@ and is never used to fill early hints. Native Linux exposes actual cached d_type
 including Unknown. Windows std uses cached enumeration metadata, reused late.
 Structural roots reuse mandatory metadata (`FactOrigin::RootMetadata`), not
 listing facts. These hints are neither full stat nor equality/replacement proof.
+The [execution-state account](design/execution/state0.gpt6a.md#enumeration-can-already-provide-facts)
+records backend capabilities and bounded call-count/syscall verification; the
+[`EarlyFacts` Rustdoc example](src/visitor.rs) shows type filtering with explicit
+Unknown handling and `.jj` preservation independent of type.
 
 jj-waltz is a prospective consumer, not changed by this library implementation.
 Its integration must preserve selected payload roots through earlier cleanup

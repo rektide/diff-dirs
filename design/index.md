@@ -5,8 +5,10 @@ description: Reading paths through consumer fit, I/O research, implementation de
 resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-19 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
+  - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
+    title: Connected implemented per-side early facts and the opt-in Linux dirent backend to the execution reports and bounded verification
   - resource: opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06
     title: Connected implemented early/late operation steering to maintained API/Rustdoc, semantic tests, and the earlier narrower gate and frontier precedents without promoting JW policy proposals
   - resource: opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu
@@ -52,6 +54,9 @@ The [root specification](../README.md) owns the current public contract.
   mutability, lifetimes, file-data/descriptor movement and reporting boundaries;
   separate JW command, visitor, ignore-context and native JJ-state sections.
   Distinguishes the running sparse-prefill protocol from the adoption experiment.
+  Its [enumeration-facts section](execution/state0.gpt6a.md#enumeration-can-already-provide-facts)
+  explains implemented early kind/inode hints, absent versus Unknown, default/std
+  versus opt-in/nightly Linux capability, and the small call-count/syscall proof.
 
 ## Consumer fit and I/O
 
