@@ -8,7 +8,7 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
 sources:
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
-    title: Reviewed the cursor demo and connected broad research epics, then added an existing-architecture baseline before change-design waves
+    title: Reviewed the cursor demo, organized architecture-first epics and recorded withheld early stakes for comparison with independent colocation and mechanism research
   - resource: opencode://ses_ea818c18fffeJ16WFCdXE0qk2Q
     title: Connected the bounded cursor CLI and kopacetic serialization design to current execution/state evidence
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
@@ -53,8 +53,15 @@ The [root specification](../README.md) owns the current public contract.
 
 - [Broad epic map and layered waves](roadmap/waves0.gpt6a.md): execution, actions,
   observations, transfer, native Git/JJ adapters and trustworthy evidence; starts
-  with existing-architecture anatomy, rationale and fitness before designing
-  changes. The architecture baseline now precedes the other domain research.
+  with a direct architecture statement (structure, contracts and scenarios)
+  before mechanism research. Native work specifies archive-backed Git colocation
+  as the preferred jw add default subject to feasibility, with opt-out and
+  separate workspace-source exploration.
+- [Independent research brief](roadmap/brief0.gpt6a.md): scoped questions and
+  factual entrypoints; explicitly withholds the parent's materialized statement.
+- [Early architectural stakes](architecture/statement0.gpt6a.md): parent intent
+  and bets, preserved for **later comparison**, excluded from independent-wave
+  reading. The architecture statement is direct; feasibility is not assumed.
 - [Runnable cursor example](../examples/cursor/README.md) and
   [implementation report](cursor/implementation0.gpt61sxh.md): delivered isolated
   kopacetic-rkyv continuation, real subprocess resume and generated virtual files;

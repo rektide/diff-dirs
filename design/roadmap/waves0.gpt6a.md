@@ -1,13 +1,13 @@
 ---
 type: ResearchPlan
 title: Tree reconciliation — layered research and capability map
-description: Cross-cutting epic map for execution, actions, observation, transfer semantics, Git/JJ adapters and trustworthy evidence, ordered by foundational design dependencies.
+description: Architecture-statement-first epic map for execution, actions, observation, transfer, archive-backed colocated workspaces and trustworthy evidence.
 resource: /design/roadmap/waves0.gpt6a.md
 status: planned
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
 sources:
   - resource: "opencode://ses_ea82cf969ffeAXqmUxHChTJar2"
-    title: Human commissions broad epic tracking, then requires an existing-architecture Wave 0 before designing changes; includes Git metadata, borrowed dirents and component-built walking cursors
+    title: Human makes Wave 0 an architecture statement with withheld early bets, asks independent research to test default-on colocation feasibility, and identifies archive and workspace-source scenarios
   - resource: /design/cursor/cursor0.gpt6am.md
     title: AM's approved first bounded-assessment and kopacetic-rkyv example design
   - resource: /design/cursor/implementation0.gpt61sxh.md
@@ -29,6 +29,10 @@ sources:
     title: Existing Git topology detection, common/admin directory distinctions and checkout ownership
   - resource: "file:///home/rektide/src/jj-waltz/src/workspace.rs"
     title: Registered-but-missing workspace path disagreement between removal and pruning
+  - resource: "file:///home/rektide/src/jj-waltz/src/lifecycle.rs"
+    title: Current CreationMode combines CoW materialization and colocation as exclusive alternatives
+  - resource: "file:///home/rektide/src/jj-waltz/src/jj.rs"
+    title: Existing capability probing and native workspace-add colocation integration
   - resource: "file:///home/rektide/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustix-1.1.5/src/fs/raw_dir.rs"
     title: Borrowed CStr entry names, reusable buffer, alignment and lending next interface
 extensions:
@@ -41,10 +45,18 @@ The effort is **tree reconciliation and its workspace consumers**, not cursor
 serialization alone. The cursor is one mechanism through which observation,
 decisions, traversal, generated content and execution can be composed.
 
-**Start with the architecture we already have.** Wave 0 recovers its actual
-structure, rationale, strengths and tensions. Subsequent waves design changes
-against that baseline; a new vocabulary or example is not a reason to presume
-that the existing architecture needs replacement.
+**Wave 0 states the architecture. The document is the architecture.** Write the
+components, ownership, interfaces and composition directly, using the architecture
+already established. Subsequent waves develop its mechanisms. Source and prior
+designs inform the statement; implementation discrepancies become explicit work
+items rather than silently redefining the architecture.
+
+The parent has written [early architectural stakes](../architecture/statement0.gpt6a.md).
+That materialized statement is a bet held apart from independent research.
+Dispatch researchers with the [question brief](brief0.gpt6a.md) and their scoped
+tickets, **not the statement or this full roadmap**. After committed independent
+returns, `diffdir-tree-compare` compares the findings against the original stakes
+and proposes an amended architecture. The early statement remains preserved.
 
 The existing diff-dirs tracker was empty (`bd info`: zero issues; prefix
 `diffdir`). This map starts one shared effort there. Each ticket names its code
@@ -60,18 +72,25 @@ of those implementations. There was no local `.beads` tracker in jj-waltz.
   to keep iterating, retry or skip. Concurrent mutation/locking is out of band.
 - Assume a good donor. Research reuse of its already-computed work rather than
   repeatedly proving the donor premise.
+- In the JW scenario, name the normal source **the JJ archive**. Generic library
+  APIs may say source. A registered JJ workspace as source is a separate requested
+  exploration; it is not an assumption that all source topologies are equivalent.
+- Preferred product outcome: `jw add` creates Git-colocated workspaces by default,
+  with `--no-colocate` to opt out. Research must establish feasibility and may
+  identify legitimate reasons this cannot work or is not worth its costs.
 - Let the first Sol xhigh snapshot demo finish unchanged (now completed). Its
   result is evidence for a subsequent component-builder/walking demo; the new
   planning did not interrupt or expand it midway.
-- Design/research stubs authorize investigation and bounded proposals. They do
-  not silently select new JW copy defaults or launch large performance campaigns.
+- Design/research stubs authorize investigation and bounded proposals. Preferred
+  outcomes remain distinguishable from proved capabilities and implemented
+  defaults. Experiments remain small and question-driven.
 - Unsafe implementation is a permitted research option. Compare concrete layouts,
   lifetimes and savings; borrowed names do not inherently require unsafe code.
 
 ## Epic map
 
 All IDs below are in the `diffdir-` namespace. The umbrella is `diffdir-tree`.
-The 34 work items and 61 parent/prerequisite edges were created; dependency-cycle
+The 37 work items and 73 parent/prerequisite edges were created; dependency-cycle
 checking passed. The initial snapshot-demo ticket is now closed after completion
 and parent source review. Its [runnable example](../../examples/cursor/README.md)
 and [implementation evidence](../cursor/implementation0.gpt61sxh.md) remain the
@@ -79,34 +98,36 @@ baseline for the next demo. No new research wave has been dispatched.
 
 | Epic | Scope and tension | Child work IDs (suffix after epic ID) |
 | --- | --- | --- |
-| `diffdir-tree-architecture` | Existing architecture, its rationale, fitness and a shared baseline before redesign | `map`, `rationale`, `fit`, `baseline` |
+| `diffdir-tree-architecture` | State the architecture: components, contracts and end-to-end composition | `structure`, `contracts`, `scenarios`, `statement` |
 | `diffdir-tree-execution` | Stateful stepping, entity completion, construction and continuation across processes | `snapshot-demo`, `model`, `builder`, `walk-demo` |
 | `diffdir-tree-actions` | Observed facts versus chosen work; extensible parameters; generated entries, mappings and dispatch | `protocol`, `generated`, `dispatch` |
 | `diffdir-tree-observe` | Minimum useful facts; names/path ownership; borrowed native records and persisted representation | `facts`, `names`, `codec` |
 | `diffdir-tree-transfer` | What copying means; preserve/update/remove authority; subtree specialization, kernels and donor reuse across targets | `policy`, `modes`, `kernels`, `multi-target` |
-| `diffdir-tree-native` | `.git` and `.jj` topology, identity, snapshot effects, graph intent and JW integration | `metadata`, `identity`, `graph`, `integration` |
+| `diffdir-tree-native` | Archive-to-workspace Git colocation, native metadata, workspace-source exploration and JW integration | `metadata`, `colocation`, `workspace-source`, `identity`, `graph`, `integration` |
 | `diffdir-tree-evidence` | Trustworthy tests and experiments while development continues | `fixtures`, `artifacts`, `budgets` |
 
 `diffdir-tree-contract` is the cross-epic decision account, joining the foundational
-change-design findings after the existing-architecture baseline and before a
+mechanism-design findings after the architecture statement and before a
 shared production execution API is selected. It records open
 choices as open; the ticket is not an instruction to manufacture consensus.
+`diffdir-tree-compare` later compares independent conclusions with the withheld
+early architecture statement. These are separate synthesis and comparison jobs.
 
-### Existing architecture
+### Architecture statement
 
-- **map:** trace the implemented library, sync applier, JW consumer and isolated
-  cursor example. Follow data, decisions, mutation and state lifetimes through
-  actual entrypoints, including the parallel frontier and one-sided recursion.
-- **rationale:** recover why those boundaries exist. Separate accepted decisions,
-  implementation conveniences, superseded proposals and experiments. Explain
-  which constraints the early/late visitor and current actions already solve.
-- **fit:** independently assess the existing architecture against the current
-  human direction. Identify useful reusable seams, genuine limitations and
-  interactions behind the observed faults. Compare small extensions with larger
-  changes without treating either as the default answer.
-- **baseline:** synthesize these accounts into one shared architecture reference
-  with disagreements and unanswered questions retained. Amend or expand the
-  downstream epic stubs when the recovered architecture changes their premise.
+- **structure:** state components and relationships: observation, assessment,
+  traversal, actions/application, continuation and consumer adapters. Define
+  ownership and where values flow, are retained, or are returned.
+- **contracts:** state the interfaces and composition rules, including pure
+  observation/visitor work versus ordered stateful iteration, selected actions,
+  completion and serializable state. Say which decisions belong to callers.
+- **scenarios:** express the architecture through ordinary tree copying,
+  archive-backed workspace creation, and pause/resume walking with generated
+  output. The scenarios make the component contracts concrete.
+- **statement:** integrate those sections into the maintained architecture body,
+  linked from the root specification. The artifact defines the architecture;
+  implementation status and follow-up work are recorded separately. Carry
+  consequential unresolved choices explicitly into the appropriate tickets.
 
 ### Execution
 
@@ -167,10 +188,24 @@ choices as open; the ticket is not an instruction to manufacture consensus.
 
 ### Native adapters and product behavior
 
-- **metadata:** preserve/craft/map `.jj` and `.git` appropriately for each topology.
-  `.git` can be a directory or a gitfile referring elsewhere; linked worktree admin
-  state, shared common directory and submodule gitfiles are distinct cases.
-  Handle existing target metadata and newly initialized targets explicitly.
+- **metadata:** describe the actual JJ archive and receiving workspace layouts,
+  including `.jj`, the Git backing/common directory and the receiving workspace's
+  `.git` gitfile/worktree administration. State what the iterator preserves,
+  suppresses or leaves to native creation. Focus on this flow; add other Git
+  topologies only when the concrete source/target scenarios require them.
+- **colocation:** determine whether and how default-on Git colocation for `jw add`
+  can work, flaggable off with `--no-colocate`. Native JJ's `workspace add --colocate` creates
+  the corresponding Git worktree; JW already exposes the flag. Resolve CLI/config
+  precedence, actual executable capability and interaction with CoW copying.
+  The current `CreationMode` treats colocation and CoW as mutually exclusive.
+  Determine whether the constraint is local policy, native mechanics, or a real
+  cost tradeoff. State legitimate obstacles and the scope of shared add/switch
+  creation policy; do not force the preferred default through contrary findings.
+- **workspace-source:** explore using an existing registered JJ workspace as the
+  source instead of the normal JJ archive. Compare source binding, selected tree,
+  ignored/installed contents and colocated/JJ-only metadata; retain the receiving
+  workspace's own identity. Existing `--from` support is a starting point, not
+  evidence that every composition has been verified.
 - **identity:** repair the reproduced registered-but-missing checkout disagreement.
   `remove` loses its path before ownership validation; `prune` reaches an adapter
   that can recover the missing path. Share facts without weakening ownership.
@@ -196,44 +231,37 @@ choices as open; the ticket is not an instruction to manufacture consensus.
 
 ## Layered waves
 
-### Wave 0 — understand and assess the existing architecture
+### Wave 0 — state the architecture
 
-Three independent readings share the same starting corpus:
+Write the architecture itself, in direct terms: "this component owns…", "these
+values cross this interface…", "the caller selects…". Its three drafting concerns
+are **structure**, **contracts**, and **scenarios**, followed by integration in
+`architecture-statement`. This replaces the previously proposed anatomy/rationale/
+fitness assessment wave; the renamed tickets retain their history.
 
-1. **Implementation anatomy** (`architecture-map`): listing → early admission →
-   observation → late steering → finalized plans → traversal/application. Include
-   clean versus divergent publication, one-sided work, joined speculative frontier,
-   native consumer orchestration and the separate stateful example. Show what
-   owns each value and when it is discarded, borrowed, copied or returned.
-2. **Design rationale** (`architecture-rationale`): what the earlier architecture
-   intended, which problems its seams answer, and how it evolved. Reconcile
-   maintained specifications, design decisions and actual code; record conflicts
-   rather than quietly treating the newest document as authoritative history.
-3. **Architectural fit** (`architecture-fit`): what works well, what the current
-   requests expose, and where the system boundaries conflict. Evaluate the need
-   for changes before designing a replacement. The cursor demo is one consumer
-   specimen, not the whole system or a selected future core.
+Use the [execution walkthrough](../execution/flow0.gpt6a.md),
+[state/lifetime account](../execution/state0.gpt6a.md), root/sync specifications,
+and established JW architecture as writing inputs. The cursor example demonstrates
+one composition. State ordinary copy and the archive/workspace flow; retain
+colocation feasibility as an explicit open question until the research answers it.
 
-Start with the [execution walkthrough](../execution/flow0.gpt6a.md),
-[state/lifetime account](../execution/state0.gpt6a.md), root and sync specifications,
-the [design index](../index.md), and the existing JW architecture and scope reports.
-Check consequential claims against current source. Reuse established test and
-measurement evidence; new experiments should answer a named unresolved question.
+Independent model-suffixed drafts live under `design/architecture/`; integration
+produces the maintained `doc/architecture/README.md`, linked and reconciled with
+the root specification. The document is the architectural authority in its scope.
+Use a separate implementation-status account for gaps; existing code quirks do
+not acquire authority just by appearing in a trace. Open choices stay explicit
+rather than being filled by speculative defaults.
 
-Each author writes an independent model-suffixed account under `design/architecture/`
-without reading another author's same-wave output. The `architecture-baseline`
-synthesis then produces: an as-built map, recovered rationale, strengths worth
-preserving, verified limitations, and specific questions handed to later epics.
-It can change those epics' scopes and dependencies. Completion of the baseline
-unblocks the four foundational change-design studies below.
-
-Operational repair tickets remain independent: a reproduced cleanup defect or
-fixture escape does not have to wait for this architecture review.
+The parent early-bet statement is withheld from those authors and their initial
+integration. Completion of the independent statement unblocks the four mechanism-design studies below.
+Operational repairs and the bounded native colocation work remain independently
+actionable; the generic architecture is not a prerequisite for fixing a known bug
+or determining whether the desired `jw add` default is feasible.
 
 ### Wave 1 — design changes to the semantic core
 
 Commission independent treatments of `execution-model`, `actions-protocol`,
-`observe-facts`, and `transfer-policy`. Each starts from the Wave 0 baseline,
+`observe-facts`, and `transfer-policy`. Each starts from the Wave 0 architecture,
 current code and human premises and does not read another author's same-wave draft. Outputs
 identify concrete examples, design forks, proposed interfaces, and what remains
 undecided. Epic owners may expand their own stubs with justified children and
@@ -246,7 +274,7 @@ defaults. The first demo's completed evidence feeds this review.
 
 In parallel, `native-identity`, `evidence-fixtures` and `evidence-artifacts` can be
 investigated or repaired independently: they do not need a cursor redesign.
-`native-metadata` and `observe-names` can gather topology/layout evidence now;
+`native-metadata`, `native-workspace-source` and `observe-names` can gather layout evidence now;
 their implementation choices wait for the relevant ownership/lifetime contracts.
 
 ### Wave 2 — a component-built walking specimen and representation choices
@@ -284,6 +312,16 @@ the sequential state model and evidence justify it.
 No research agents for these new waves have been launched by creating the map.
 The AM design/Sol xhigh first implementation completed its existing commission.
 Model selection for future independent waves remains a human choice.
+
+### Comparison with the early stakes
+
+Once the foundational contracts, walking specimen, action dispatch, subtree modes,
+name representation and native source/colocation investigations have returned,
+`diffdir-tree-compare` reads their committed outputs alongside the withheld parent
+statement. Classify each bet as supported, conditional, contradicted or unresolved.
+Explain how the resulting architecture and implementation sequence should change.
+This comparison may reject a preferred mechanism or colocation default. Preserve
+the original statement; publish amendments with their evidence and decision owner.
 
 ## Dirent research starting point
 
