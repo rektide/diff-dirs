@@ -1,0 +1,345 @@
+---
+type: Design
+title: Bounded assessment CLI with a serialized continuation cursor
+description: Implementation handoff for a small sequential example using existing directory inspection and actual kopacetic-rkyv snapshots.
+resource: /design/cursor/cursor0.gpt6am.md
+status: proposed
+generated: { by: "model:openai/gpt-6-astra#medium", at: 2026-10-20 }
+sources:
+  - resource: "opencode://ses_ea818c18fffeJ16WFCdXE0qk2Q"
+    title: Commissioned cursor serialization assessment and executable CLI design; incorporated parent clarification that ordered state belongs outside Visitor
+  - resource: /src/visitor.rs
+    title: Public immediate inspection, immutable facts, constrained actions and pure visitor contract
+  - resource: /src/walk.rs
+    title: Private DFS frames, divergence-only yields and terminal failure
+  - resource: /src/lib.rs
+    title: Public inspector exports and caller-owned stability contract
+  - resource: /src/check.rs
+    title: Verified Compare, Copy, Remove and Audit purpose variants
+  - resource: /sync/src/lib.rs
+    title: Bound mutation interfaces and root handling, inspected through line 280
+  - resource: /Cargo.toml
+    title: Lightweight core and existing workspace membership
+  - resource: /design/execution/flow0.gpt6a.md
+    title: Current execution account and separate generic/JW responsibilities
+  - resource: /design/execution/state0.gpt6a.md
+    title: Context and traversal-state lifetimes
+  - resource: /design/index.md
+    title: Existing design reading map
+  - resource: "file:///home/rektide/src/kopacetic/Cargo.toml"
+    title: Pinned Facet and local facet-format-path dependency
+  - resource: "file:///home/rektide/src/kopacetic/crates/kopacetic-core/Cargo.toml"
+    title: Disable default Kubernetes dependency for the example
+  - resource: "file:///home/rektide/src/kopacetic/crates/kopacetic-core/src/domain/mod.rs"
+    title: EntityIdentity and optional Entity wrapper
+  - resource: "file:///home/rektide/src/kopacetic/crates/kopacetic-rkyv/Cargo.toml"
+    title: Runtime dependencies and pinned archive format features
+  - resource: "file:///home/rektide/src/kopacetic/crates/kopacetic-rkyv/README.md"
+    title: Codec, projection, schema and storage contracts
+  - resource: "file:///home/rektide/src/kopacetic/crates/kopacetic-rkyv/src/lib.rs"
+    title: Actual Snapshot validation and owned reconstruction APIs
+  - resource: "file:///home/rektide/src/kopacetic/crates/kopacetic-rkyv/src/codec.rs"
+    title: Actual typed-row DTO, envelope and checked archive access through line 254
+  - resource: "file:///home/rektide/src/kopacetic/crates/kopacetic-rkyv/tests/snapshot.rs"
+    title: Existing roundtrip precedents for enum forms, collections and bytes, inspected through line 220
+verification:
+  method: Source inspection only; no prototype, builds, runtime tests or performance measurements performed
+---
+
+# Bounded assessment with a real continuation
+
+## Recommendation and scope
+
+Implement an isolated Rust CLI crate at `examples/cursor`, using
+`diff_dirs::inspect_directory` for observations and `kopacetic_rkyv::Snapshot`
+for its explicit continuation DTO. Keep all serialization dependencies there.
+The example assesses real filesystem trees, manufactures virtual summary-file
+descriptors, and resumes its DFS frames across processes. It does not apply the
+library's mirror operations or pretend to serialize `PlanWalk` itself.
+
+This is a practical first slice for the requested Sol xhigh implementer. The
+parent's separate action/shortcut design owns the broader extensible execution
+direction. No core change is needed for this slice.
+
+Use a standalone nested workspace (`[workspace]` in its manifest), explicitly
+excluded from the root workspace if Cargo requires it. Run with
+`cargo run --manifest-path examples/cursor/Cargo.toml -- ...`. Keep its lockfile
+and a short runnable README. This isolates local dependency resolution as well
+as runtime dependencies from ordinary core builds.
+
+## Existing capability versus new driver
+
+* `PlanWalk` has private roots, `IntoIter<OsString>` child frames and summary
+  flags. One `next()` can inspect many clean directories before yielding one
+  divergent batch. Errors terminate it. `take(N)` cannot bound assessments and
+  restarting then skipping previous yields is not continuation.
+* Public `inspect_directory(source_root, target_root, relative, source?,
+  target?, purpose, visitor)` already returns **every immediate batch**, even
+  clean batches. It supports one-sided physical containing directories, sorts
+  names, obtains no-follow facts, and validates actions. Caller validates real
+  routing directories. `inspect_root` is also public.
+* `DirectoryPlan::children()` is private and paired-only, but public operation
+  accessors expose types and descent. The demo can derive its own child tips
+  without reimplementing listing, comparisons or action validation.
+* Current `Operation` and `DirectoryPlan` cannot represent injected entries or
+  generated bytes. `Action` is a closed mirror-oriented vocabulary. Preserve
+  existing observations; do not fabricate facts to make a new action legal.
+* `Visitor` is pure, frozen, `&self + Sync`, and explicitly permits repeated,
+  speculative and concurrent callbacks. Accumulating mappings inside callbacks
+  violates its contract. The sequential driver updates state **after** successful
+  inspection. Start with `NoVisitor` (or a frozen early exclusion visitor for
+  explicit demo skip rules); no callback side effects.
+
+The reusable seam is already the immediate inspector. The example owns only
+the small sequential scheduling/serialization layer. A future core extraction
+could provide serializable-by-consumer plain traversal state and single-batch
+stepping, after real consumers justify shared policy. Do not refactor the walker
+or sync engine just to support this example.
+
+## Exact unit and continuation algorithm
+
+**One assessment unit is one attempted immediate-directory inspection.** It
+includes listing and assessing all immediate entries; it is neither one entry,
+one emitted completion, a syscall bound, nor a time/byte bound. Wide directories
+remain wide. Root binding checks and pure frame completion do not consume units.
+`--units N` requires N > 0. A failed attempt consumes one unit and stops the
+invocation; never spin retry within its remaining budget.
+
+Maintain an explicit DFS stack. Each frame stores its logical relative coordinate,
+optional source/target directory coordinates, phase, pending child tips in native
+sorted order, next-child index, and accumulated summary for that subtree.
+
+1. Initialize a pending root frame after requiring two existing real directory
+   roots and recording absolute roots. Resume uses stored roots, never new CLI
+   roots. Reject overlap for a simple unambiguous demonstration.
+2. For a pending frame and remaining budget, validate its present physical sides
+   are still real directories using no-follow metadata, then call the inspector.
+   Count validation failure as that attempted unit too. Use `Purpose::Compare`
+   for paired tips, `Copy` for source-only and `Remove` for target-only. These are
+   the actual variants in `src/check.rs`; purpose does not itself perform effects.
+3. Reduce the returned batch to owned small observations/counts and child tips;
+   drop `Metadata` and `DirectoryPlan`. Record source-only, target-only, changed
+   and equal supported slots separately from generated actions.
+4. Descend into every directory side admitted by the demo's traversal policy.
+   Both directory sides form one tip. At a leaf/directory collision, descend only
+   into the directory side with the other side `None`; retain the collision
+   observation in the parent. This is assessment, not permission to perform half
+   of a coupled replacement. Do not call `PlanWalk` or sync recursively.
+5. Push the next pending child and advance the parent's index once. A pushed
+   pending frame is a valid pause point. On success it becomes assessed; on error
+   it stays pending and becomes the blocked tip.
+6. When an assessed frame has no unfinished children, emit its postorder
+   completion, fold its accumulated counts into its parent, then pop it. Drain
+   these zero-assessment transitions even when budget has just reached zero.
+   Thus the last real unit can emit many ancestor completions and mark done.
+7. Stop before the next assessment if the budget is exhausted. Serialize the
+   exact frames and accumulators. Restoring them must not relist an assessed
+   ancestor or repeat completed child assessments.
+
+Pending names are an already-selected traversal frontier, not a promise to
+discover subsequent additions. On resume, inspect pending directories against
+actual current filesystem state. Missing or changed-to-leaf scheduled directories
+block; the caller may retry or skip. Concurrent mutation/locking and donor
+verification are out of band. No complete root replay, filesystem snapshot,
+rollback or recovery guarantee is offered.
+
+## DTO and manufactured output
+
+Use owned `#[derive(Facet)]` structs and `#[repr(C)]` Facet enums. Suggested shape
+(conceptual fields, not an exact source listing):
+
+```text
+Cursor { platform, source_root, target_root, config,
+         stack: Vec<Frame>, attempted_total: u64,
+         completed_total: u64, skipped_total: u64, blocked: Option<Block> }
+Frame { tip: Tip, phase: Pending | Assessed,
+        children: Vec<Tip>, next_child: u64, totals: Counts,
+        incomplete: bool }
+Tip { logical: NativePath, source: Option<NativePath>,
+      target: Option<NativePath> }
+Config { generator: Descriptor }
+Descriptor { kind: String, parameters: BTreeMap<String, String> }
+Block { logical: NativePath, message: String }
+Completion { logical: NativePath, totals: Counts, incomplete: bool,
+             generated: VirtualFile }
+VirtualFile { logical_name: String, contents: Vec<u8> }
+```
+
+Keep coordinates root-relative in tips; roots themselves are absolute. Default
+tip coordinates coincide; separate fields leave room for a future mapped source
+or destination context without treating a logical name as a physical root.
+Validate the demo's supported coincident-coordinate invariant on load. A future
+mapping policy will own map entries and inherited context in the cursor; do not
+build an unused global mapping framework now.
+
+Implement one real descriptor, e.g. `directory-summary/v1` with a `label` string
+parameter. For each completed directory, generate virtual `summary.txt` bytes
+containing its logical coordinate, label and accumulated observed counts. Return
+them as a generated entity in stdout; do not install them into source/target.
+This exercises actual content manufacture and persistent parameter state,
+independent of add/change/remove. A descriptor is a dispatch key, not serialized
+Rust code or a function pointer. Reject unknown kinds/parameters explicitly.
+The output can later feed a separate materializer; that is not required here.
+
+Do not retain the whole output history in the cursor. Stack accumulators are the
+state necessary to finish ancestors. Sequence completions with a monotonically
+increasing counter, useful for inspection but not an exactly-once receipt.
+
+## Paths, serialization and dependencies
+
+For this Linux-hosted demo, explicitly support Unix native paths as `Vec<u8>`
+using `OsStrExt::as_bytes` / `OsStringExt::from_vec`. Store `platform = "unix"`;
+reject on unsupported platforms rather than lossily converting. Reject NUL and
+non-normal relative components; empty relative path means the root. Absolute
+roots must decode as absolute. Do not persist `as_encoded_bytes` and reconstruct
+with unchecked APIs: that encoding is not a cross-platform persistence format.
+Windows support can later use a separate tagged UTF-16 code-unit variant; archive
+portability alone does not make filesystem coordinates portable.
+
+Use `facet = "=0.50.0-rc.5"`, local `kopacetic-rkyv` and `kopacetic-core` path
+dependencies, with `default-features = false` on core. From `examples/cursor`,
+the sibling paths start `../../../kopacetic/crates/...`; core diff-dirs is `../..`.
+Kopacetic additionally depends on sibling `facet-format-path`. Document these
+checkout prerequisites; do not edit that workspace's dirty Akri work. Clap derive
+is appropriate for the CLI. Serde/serde_json may format stdout records, but they
+do not implement the snapshot codec; Serde tags/defaults are not Facet schema
+rules. Prefer ordinary Facet enums/options/maps already exercised upstream.
+Avoid reflecting filesystem `Metadata`, `PathBuf`, iterators, trait objects,
+callbacks, `io::Error`, file descriptors, or arbitrary opaque parameter values.
+
+Codec contract:
+
+```rust,ignore
+let schema = Schema::new("diff-dirs.cursor-example", 1)?;
+let identity = EntityIdentity::standalone("DirectoryCursor", "example");
+let bytes = Snapshot::from_value(&identity, &schema, &cursor)?.into_bytes();
+let snapshot = Snapshot::from_bytes(bytes, &schema)?;
+// Compare snapshot.identity() with the fixed expected identity here.
+let cursor = snapshot.reconstruct::<Cursor>()?;
+// Then validate cursor platform, paths, indices, phases and descriptor version.
+```
+
+No `Entity<Cursor>` wrapper is needed: identity is already in the snapshot DTO.
+This example's identity identifies its format use, not a durable multi-run store
+address. If later using `RkyvStore`, introduce actual run identities.
+
+`Snapshot` checks magic, backend version/profile, exact body length, checksum,
+checked rkyv access, schema equality and logical-row validity. Caller must check
+identity and semantic cursor invariants. Schema name/revision is an application
+assertion, not an automatic Rust type fingerprint. Bump revision on incompatible
+DTO changes; reject old versions clearly, without a migration engine.
+
+Bound input reads (e.g. 8 MiB with `Read::take(limit + 1)`) and output snapshot
+bytes explicitly: the in-memory codec has no limit. This bounds archive bytes,
+not all projection allocations or recursion work. Never use unchecked access.
+
+### Honest cost comparison
+
+Kopacetic archives a generic `Document` containing schema, identity and typed
+logical-path rows, not `Archived<Cursor>`. Projection owns each row's path and
+copies string/byte values; repeated path prefixes can be expensive for deep or
+wide frames. `Vec<u8>` support is tested, but do not assume a compact byte-scalar
+representation without inspecting/measuring the projected rows. Reads copy path
+segments, repeat checked access/parser work and reconstruct an owned cursor.
+The envelope adds 56 bytes plus body schema/identity/row overhead. There are Facet,
+format/parser, SHA-256 and storage-related transitive dependencies.
+
+Direct rkyv with `Archive/Serialize/Deserialize` DTO derives would likely have a
+smaller structural representation and less projection work, and expose native
+archived traversal. It still needs an explicit application envelope/schema and
+validation contract. No measured speed or size ratio is claimed here. Kopacetic
+is a good fit for this requested integration demonstration and Facet-shaped
+extensibility; it is not required for the core continuation concept. Do not add
+a second codec or benchmark campaign to the first slice. Report actual fixture
+cursor byte sizes as an observation if useful.
+
+## CLI transport and errors
+
+Proposed commands:
+
+```sh
+cursor start --source fixture/source --target fixture/target --units 2 \
+  --label demo --cursor-out state-1.rkyv
+cursor resume --cursor-in state-1.rkyv --units 2 --cursor-out state-2.rkyv
+cursor resume --cursor-in state-2.rkyv --units 2 --skip-blocked \
+  --cursor-out state-3.rkyv
+```
+
+Use binary cursor **files** first, stdout JSON Lines for completions followed by
+one invocation summary (`attempted`, `completed`, `skipped`, `done`, `blocked`,
+`cursor_file`). Encode native coordinates losslessly as byte arrays or hex in
+JSON; an escaped display string may accompany them but is not the resume input.
+Always produce a cursor on normal completion, including a terminal empty stack;
+resuming a terminal cursor returns done without filesystem work.
+
+Read input fully before replacing output so the same filename may be used.
+Serialize fully before writing it; a sibling temporary plus rename is convenient
+complete-file publication, not a filesystem-effects transaction or crash recovery
+system. No effects journal. If output publication fails, return the actual error;
+do not claim that stdout events and the cursor were atomically committed.
+File transport avoids large shell tokens; base64/stdin modes can wait.
+
+On assessment failure, preserve the pending tip, record a short error string,
+publish the blocked cursor and exit nonzero. Ordinary `resume` retries it against
+actual state, clearing the previous diagnostic before the attempt. `--skip-blocked`
+requires a blocked cursor and skips **that scheduled directory subtree**, not an
+arbitrary failing immediate file slot. Mark ancestors incomplete, increment
+skips, pop that pending frame and continue with the N-attempt budget. Emit a skip
+record. Skipping the root ends with incomplete coverage. This coarse granularity
+matches the batch inspector; precise child skip is a future frozen admission
+rule, not invented metadata for a failed slot.
+
+For reproducible demonstration, an invocation-local `--fail-at <relative-dir>`
+can inject failure immediately before that directory's inspection. It consumes
+one attempt, creates the same blocked cursor, and is deliberately not persisted;
+omit it on retry. Keep injection outside Visitor. A bad cursor/schema or root
+binding failure at start is a command error, not a resumable fabricated traversal.
+
+## Implementation handoff and bounded verification
+
+Suggested modules: `main.rs` (Clap/output), `cursor.rs` (DTO/step state machine),
+`codec.rs` (Snapshot/path conversion/validation). A library target within the
+example makes the stepper testable. Keep application state separate from wire
+output types if that reduces derive conflicts.
+
+Required small tests, with fewer than a few dozen entries each:
+
+1. Several process invocations with N=1 versus one uninterrupted run produce
+   identical ordered completions and final totals; clean directories consume
+   units too. Assert actual assessment coordinates, not only output counts.
+2. Pause with an assessed root and pending descendants; resume must not assess
+   the root again. Unit instrumentation around the inspector suffices; a fixture
+   mutation that adds a new root sibling after pause can additionally show that
+   ancestors are not relisted. Do not use wall-clock assertions.
+3. Source-only and target-only nested directories, equal leaf, changed leaf,
+   symlink and one type collision; verify child tips and postorder totals.
+4. Roundtrip a nonempty multi-frame cursor via actual `Snapshot` bytes, including
+   every phase/option shape, descriptor parameters and generated output state.
+   Unix non-UTF8 filename survives a process boundary unchanged.
+5. Inject a failure; retry resumes the same pending coordinate; skip excludes its
+   whole subtree and preserves incomplete ancestry while later siblings finish.
+6. Reject truncated/corrupt archive, wrong schema, wrong identity, invalid child
+   index and parent-traversal paths; terminal cursor remains terminal.
+
+Run example-focused nextest, clippy with warnings denied and formatting. Check
+the default core dependency tree still lacks Facet/kopacetic/rkyv. No full-copy
+campaign, live JJ command, reflink experiment or unrelated workspace tests are
+needed. Implementer should document exact commands and actual results separately
+from this unexecuted design.
+
+## Connections and deferred direction
+
+The [execution account](../execution/flow0.gpt6a.md#15-library-commit-traversal-and-hand-off-work)
+explains why divergence-only iteration cannot supply the chosen bound. The
+[state account](../execution/state0.gpt6a.md#21-library-state-ownership-ledger)
+identifies the current ephemeral frames which motivate explicit continuation.
+This proposal extends those accounts; it does not describe an existing API.
+
+Source-only whole-directory copying, a cheaper descendant assessor, changed
+recurse tips and arbitrary action dispatch remain useful future directions.
+This demo deliberately visits one-sided descendants using the same inspector,
+making its unit accounting and state visible. A future whole-tree fast path must
+say whether it is one coarse unit or internally resumable; wrapping recursive sync
+in one step does not make its work N-bounded. General directory copying belongs
+to generic execution; `.jj` preservation/crafting belongs to a JJ adapter. No
+special `.jj` policy enters this example.

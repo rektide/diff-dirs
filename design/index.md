@@ -7,6 +7,8 @@ status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
 sources:
+  - resource: opencode://ses_ea818c18fffeJ16WFCdXE0qk2Q
+    title: Connected the bounded cursor CLI and kopacetic serialization design to current execution/state evidence
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
     title: Connected implemented per-side early facts and the opt-in Linux dirent backend to the execution reports and bounded verification
   - resource: opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06
@@ -46,6 +48,11 @@ sources:
 The [root specification](../README.md) owns the current public contract.
 
 ## Current execution and state
+
+- [Bounded cursor CLI proposal](cursor/cursor0.gpt6am.md): actionable example-crate
+  handoff using real immediate assessments, explicit DFS continuation and actual
+  kopacetic-rkyv snapshots; distinguishes assessment budget from postorder output
+  and keeps stateful generation outside pure Visitor callbacks.
 
 - [Net execution flow](execution/flow0.gpt6a.md): numbered library trace from
   name union through early/late steering, finalized plans, recursive application
