@@ -8,7 +8,7 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
 sources:
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
-    title: Reviewed the cursor example and layered research, then integrated the independent architecture statement as a mechanism-research baseline without changing delivered API contracts
+    title: Reviewed both cursor specimens and the layered research flight, then integrated architecture and final-comparison navigation without changing delivered core/sync API contracts
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
     title: Implemented immutable per-side early facts and the explicitly opt-in Linux native-dirent backend after the parent's architectural review
   - resource: opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06
@@ -56,6 +56,8 @@ The [architecture statement](doc/architecture/README.md) defines the component
 and composition model used by the current research flight. Its
 [independent synthesis](design/architecture/synthesis0.gpt61sxh.md) records the
 open mechanisms; this README and the sync specification still govern delivered APIs.
+The completed [research comparison](design/architecture/comparison0.gpt61sxh.md)
+records what the early bets established, narrowed and left conditional.
 
 The standalone [cursor example](examples/cursor/README.md) uses immediate
 inspection to assess N directories, serialize its DFS state through kopacetic-rkyv,
@@ -63,6 +65,11 @@ and continue in another process. It also emits generated virtual summary files.
 Its dependencies stay outside this core workspace. The
 [epic map and research waves](design/roadmap/waves0.gpt6a.md) track further work
 across execution, actions, observation, transfer, native adapters and evidence.
+
+The follow-up [component-built walking example](examples/walk/README.md) performs
+real byte-copy and generated-finish work, with separate assessment/effect budgets
+and fresh-process continuation. Its library is codec-free by default; optional
+Snapshot transport remains example-local.
 
 ## Positioning
 

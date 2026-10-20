@@ -10,7 +10,7 @@ sources:
   - resource: opencode://ses_ea82ab643ffel2vtvMoX2vqoZa
     title: Linked native-dirent tuning and optional Btrfs checksum research, with compressed-extent and live-generation limitations and separate open follow-up tickets
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
-    title: Reviewed the cursor demo, organized architecture-first epics and withheld early stakes, then launched and integrated the human-selected independent research flight
+    title: Executed and integrated the independent research flight, delivered walking specimen, bounded native/representation evidence and final comparison while preserving early stakes and open implementation work
   - resource: opencode://ses_ea818c18fffeJ16WFCdXE0qk2Q
     title: Connected the bounded cursor CLI and kopacetic serialization design to current execution/state evidence
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
@@ -53,10 +53,20 @@ The [root specification](../README.md) owns the current public contract.
 
 ## Current execution and state
 
+- [Completed flight comparison](architecture/comparison0.gpt61sxh.md) and
+  [amended statement candidate](architecture/statement1.gpt61sxh.md): actual early
+  bets compared with independent findings, delivered specimens and bounded
+  measurements. The early statement remains unchanged; production choices remain
+  explicit.
 - [Maintained architecture statement](../doc/architecture/README.md) and
   [independent synthesis](architecture/synthesis0.gpt61sxh.md): completed Wave 0
   components/contracts/scenarios, with explicit open mechanism questions. This
   research baseline does not claim its proposed extensions are implemented.
+- [Mechanism synthesis](execution/contracts0.gpt61sxh.md),
+  [builder handoff](execution/builder0.gpt6am.md) and
+  [delivered walking specimen](../examples/walk/README.md): child-sized real
+  effects and stateful finish through supplied components, optional Snapshot
+  transport and four separate-process gates. [Verification](execution/walk0.gpt61sxh.md).
 - [Research flight ledger](roadmap/flight0.gpt6a.md): actual dispatches, returned
   independent accounts, parent integration and ticket standing. Research returns
   remain distinct from production changes and human selection of new defaults.
@@ -78,6 +88,30 @@ The [root specification](../README.md) owns the current public contract.
   [registered-workspace sources](native/workspace-source0.gpt6am.md): bounded
   native probes and source-derived JW behavior, separating repository owner,
   chosen content source, receiving identity and Git common/private administration.
+- [Native CoW/colocation feasibility](native/colocation0.gpt61sxh.md): ten tiny
+  native cases establish useful prefill plus colocation on the recorded runtime;
+  separates native feasibility from JW cleanup/default/reseed integration.
+- [Native graph boundaries](native/graph0.gpt61sxh.md) and
+  [truthful-cache membership addendum](native/graph1.gpt61sxh.md): separate
+  copying from requested revision change; existing-target conformance and retained
+  local state are different properties, even when a borrowed cache is accurate.
+- [Native adoption sequence](native/integration0.gpt6am.md): concrete creation,
+  owned-colocated reseed and default-policy implementation scopes, with human
+  choices and focused checks. No generic cursor rewrite is a prerequisite.
+- Wave 1 returns: [selected work protocol](actions/protocol0.gpt6am.md),
+  [fact-demand contract](observation/facts0.gpt6am.md), and
+  [transfer-policy matrix](transfer/policy0.gpt61sxh.md). These are independently
+  authored mechanism proposals and decision accounts, not new production defaults.
+- Follow-up evidence: [generated inputs](actions/generated0.gpt6am.md),
+  [finite action dispatch](actions/dispatch0.gpt61sxh.md),
+  [inherited modes](transfer/modes0.gpt6am.md),
+  [native names and ownership](observation/names0.gpt61sxh.md),
+  [cursor codecs](observation/codec0.gpt6am.md), and
+  [remaining kernel costs](transfer/kernels0.gpt6am.md). Each labels actual
+  runtime/model evidence separately from proposed implementation savings.
+- [Source-to-many composition](transfer/multi-target0.gpt61sxh.md): bounded shared
+  source facts, independent target progression and detach/reobserve; separates
+  saved acquisitions/body reads from unchanged destination installations.
 - [Runnable cursor example](../examples/cursor/README.md) and
   [implementation report](cursor/implementation0.gpt61sxh.md): delivered isolated
   kopacetic-rkyv continuation, real subprocess resume and generated virtual files;

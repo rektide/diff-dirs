@@ -3,16 +3,20 @@ type: ResearchBrief
 title: Independent architecture and mechanism questions
 description: Dispatch-safe questions and constraints for research conducted independently of the parent's materialized architecture bet.
 resource: /design/roadmap/brief0.gpt6a.md
-status: ready-for-commission
+status: completed-flight-brief
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
 sources:
   - resource: "opencode://ses_ea82cf969ffeAXqmUxHChTJar2"
-    title: Human requests independent research without reading the materialized parent intent, followed by comparison against the early stakes
+    title: Human commissions independent research with early intent withheld; parent executes the flight and releases those stakes only for the completed final comparison
 extensions:
   ticket: diffdir-tree
 ---
 
 # Independent work brief
+
+This brief governed the completed flight. Its reading boundary is preserved below
+as provenance. The final comparison received the early statement after independent
+returns; future commissions should state their own reading scope.
 
 Read your ticket and the factual sources relevant to its question. Produce your
 own answer from the code, native capabilities and explicit human constraints.

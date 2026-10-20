@@ -5,7 +5,28 @@ description: Component ownership and contracts for immediate inspection, selecte
 resource: /doc/architecture/README.md
 status: proposed-research-baseline
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-20 }
+updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
 sources:
+  - resource: "opencode://ses_ea82cf969ffeAXqmUxHChTJar2"
+    title: Integrated reviewed walking/native evidence and final-comparison navigation while preserving open production choices and the original early bets
+  - resource: /design/architecture/comparison0.gpt61sxh.md
+    revision: 269b81f2
+    title: Authorized final comparison with the early architectural stakes
+  - resource: /design/architecture/statement1.gpt61sxh.md
+    revision: 269b81f2
+    title: Separate proposed amended architecture, not a silent replacement of earlier evidence
+  - resource: /design/execution/walk0.gpt61sxh.md
+    revision: b49cfc59
+    title: Delivered component-built effectful specimen and focused process/feature verification
+  - resource: /design/native/colocation0.gpt61sxh.md
+    revision: 9b4fc6ec
+    title: Ten bounded native creation and CoW/colocation cases
+  - resource: /design/native/graph0.gpt61sxh.md
+    revision: 204653e6
+    title: One existing-colocated sparse-reset transition preserving native identity and local data
+  - resource: /design/native/graph1.gpt61sxh.md
+    revision: 730e53b0
+    title: Truthful full-source cache adoption changes tracked membership and can remove a retained local
   - resource: "opencode://ses_ea7e3beebffeSBW1V9Q77Gjweu"
     title: Synthesized the independently returned architecture accounts into a maintained statement, bounded native claims with returned evidence, and scoped mechanism research
   - resource: /design/roadmap/brief0.gpt6a.md
@@ -51,6 +72,10 @@ it does not claim every mechanism is implemented or human-accepted. The
 [root specification](/README.md) and [sync specification](/sync/README.md) continue
 to govern delivered APIs. The [synthesis account](/design/architecture/synthesis0.gpt61sxh.md)
 records the independent evidence, integration choices and remaining tensions.
+The completed flight's [comparison](/design/architecture/comparison0.gpt61sxh.md)
+and [amended statement candidate](/design/architecture/statement1.gpt61sxh.md)
+preserve the original bets and distinguish supported composition from unselected
+production mechanisms and defaults.
 
 Assume a good source. Concurrency, locking and stable path topology are caller
 concerns. Failure promises **no effects history, recovery guarantee or rollback**.
@@ -290,8 +315,22 @@ only authorized ordinary data around receiving-owned metadata.
   and sparse-empty colocated creation from both colocated and internal-Git archive
   forms on JJ `0.45.1-33d3a595…` / Git `2.55.0`. Sparse-empty omits JJ payload but
   **retains parent entries in the Git index**, producing missing-worktree status.
-  Metadata creation alone therefore does not establish combined prefill/adoption
-  convergence or its cost. That separate research remains active.
+  Metadata creation alone does not establish combined prefill/adoption convergence.
+  Subsequent [creation experiments](/design/native/colocation0.gpt61sxh.md) passed
+  ten tiny cases with real CoW/state reuse on the recorded runtime. An
+  [existing-target case](/design/native/graph0.gpt61sxh.md) also converged through
+  the equal-subset/sparse-reset route while preserving identity and an ignored
+  local. These are bounded native results, not delivered JW integration or
+  performance evidence.
+
+Full source-state adoption carries **tracked membership**, not only stat hints.
+The [membership comparison](/design/native/graph1.gpt61sxh.md) showed a truthful
+source cache absorbing a matching ignored local at a path in `tracked(S)` but not
+`tracked(D)`; native restore then removed it. The no-adoption control preserved
+it, while both ended at exact tracked `D` with clean Git status. Choosing an
+existing-target adapter must reconcile its native membership changes with declared
+local preservation. Source goodness alone does not grant that authority. Current
+reseed's equal-subset/reset route avoids this source-membership import.
 
 Native registration/setup precedes filling a new receiver; any selected cache
 adoption and JJ/Git convergence are native ordered obligations, not visitor side
@@ -314,6 +353,15 @@ nothing, rejects noncoincident mappings and has no effectful continuation. Addin
 generated installation requires the explicit satisfaction/target boundary above;
 adding finer effect pauses requires additional recursive/finish state.
 
+The [walking specimen](/examples/walk/README.md) now demonstrates that next narrow
+composition: supplied inspector/executor components through a Bon builder, owned
+requests and acknowledgments, separate assessment/effect limits, actual byte-copy
+and generated finishes, saved manifest state, and four fresh-process gates.
+It uses explicit demo-only bytes/retention/reserved-output semantics and leaves
+core/sync APIs unchanged. Its [implementation account](/design/execution/walk0.gpt61sxh.md)
+records eleven all-feature and nine codec-free tests; it is not a general
+permission, replacement, provider or native-workspace continuation adapter.
+
 ## Delivered seams and next interface discriminators
 
 The public `inspect_directory` is the delivered immediate seam. `PlanWalk` and the
@@ -322,7 +370,9 @@ joint preview and separately revalidated public-plan application. Their current
 code boundaries are mapped in the [execution flow](/design/execution/flow0.gpt6a.md)
 and [state account](/design/execution/state0.gpt6a.md). No restored cursor makes an
 old physical plan fresh authorization. The extended work-publication, generated
-reconciliation and effectful cursor protocols above are **not delivered APIs**.
+reconciliation and effectful cursor protocols above are **not delivered core/sync APIs**.
+The bounded example supplies evidence for those seams; it does not promote them
+to new core or sync APIs.
 
 | Research owner | Smallest next discriminator |
 | --- | --- |

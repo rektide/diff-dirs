@@ -3,11 +3,11 @@ type: ResearchFlight
 title: Tree reconciliation research flight
 description: Dispatch, integration and evidence ledger for the human-selected AM and Sol xhigh research waves.
 resource: /design/roadmap/flight0.gpt6a.md
-status: running
+status: completed-with-open-implementation-work
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
 sources:
   - resource: "opencode://ses_ea82cf969ffeAXqmUxHChTJar2"
-    title: Human commissions execution of the research flight and selects AM plus Sol xhigh; parent dispatches independent Wave 0 and operational evidence studies
+    title: Executed and reviewed the AM/Sol research flight, integrated the actual walking specimen and native/representation evidence, preserved early stakes, and recorded final comparison plus remaining implementation work
   - resource: /design/roadmap/brief0.gpt6a.md
     title: Dispatch-safe questions and independence boundary
   - resource: /design/roadmap/waves0.gpt6a.md
@@ -36,11 +36,79 @@ sources:
   - resource: /design/native/workspace-source0.gpt6am.md
     revision: d6f19aeb
     title: Alternate registered-source study reviewed with scoped JW source/test checks
+  - resource: /design/actions/protocol0.gpt6am.md
+    revision: 134e0c35
+    title: Reviewed independent typed-work, generated satisfaction and publication protocol
+  - resource: /design/observation/facts0.gpt6am.md
+    revision: 5423a71f
+    title: Reviewed operation-specific fact demands and source-derived costs
+  - resource: /design/transfer/policy0.gpt61sxh.md
+    revision: a63595a9
+    title: Reviewed generic/JW policy matrices and remaining human choices
+  - resource: /design/native/colocation0.gpt61sxh.md
+    revision: 9b4fc6ec
+    title: Ten successful native/reflink cases and concrete consumer integration boundaries
+  - resource: /design/execution/model0.gpt61sxh.md
+    revision: 3113dfd2
+    title: Child-sized continuation proposal and five passing scratch tests, including its disclosed independence caveat
+  - resource: /design/execution/contracts0.gpt61sxh.md
+    revision: 5d6c003a
+    title: Reviewed mechanism synthesis and concrete new walking-specimen scope
+  - resource: /design/observation/names0.gpt61sxh.md
+    revision: 887fb681
+    title: Reviewed bounded native name/allocation/lifetime experiments
+  - resource: /design/observation/codec0.gpt6am.md
+    revision: 8b709ce0
+    title: Reviewed exact cursor roundtrips, archive sizes and allocation observations
+  - resource: /design/transfer/kernels0.gpt6am.md
+    revision: 0b10555a
+    title: Reviewed replacement traces and local precheck-retention model
+  - resource: /design/execution/builder0.gpt6am.md
+    revision: 91d2f7e3
+    title: Reviewed AM component-builder handoff commissioned for implementation
+  - resource: /design/actions/generated0.gpt6am.md
+    revision: 1b398a3f
+    title: Eight reviewed generated-input and collision probes
+  - resource: /design/actions/dispatch0.gpt61sxh.md
+    revision: 7a325e0c
+    title: Eleven reviewed typed/descriptor dispatch probes
+  - resource: /design/transfer/modes0.gpt6am.md
+    revision: 053ecfe0
+    title: Five reviewed counted inherited-mode models
+  - resource: /design/native/graph0.gpt61sxh.md
+    revision: 204653e6
+    title: Existing-colocated native transition evidence
+  - resource: /design/native/graph1.gpt61sxh.md
+    revision: 730e53b0
+    title: Targeted truthful-cache membership comparison commissioned after graph0
+  - resource: /design/execution/walk0.gpt61sxh.md
+    revision: b49cfc59
+    title: Reviewed actual builder/driver/executor/codec and reported process/feature checks
+  - resource: /design/native/integration0.gpt6am.md
+    revision: 86efef77
+    title: Reviewed concrete native adoption sequence and implementation stubs
+  - resource: /design/transfer/multi-target0.gpt61sxh.md
+    revision: 947f02b7
+    title: Eight reviewed bounded source-sharing tests and deliberate lag policy
+  - resource: /design/architecture/comparison0.gpt61sxh.md
+    revision: 269b81f2
+    title: Final authorized comparison with preserved early bets
+  - resource: /design/architecture/statement1.gpt61sxh.md
+    revision: 269b81f2
+    title: Separate direct amended-statement candidate
 extensions:
   ticket: diffdir-tree
 ---
 
 # Flight ledger
+
+**The commissioned research flight and walking specimen are complete.** The
+[final comparison](../architecture/comparison0.gpt61sxh.md) accounts for all nine
+early bets: five supported within their stated scope, four conditional. It narrows
+the machinery rather than requiring a whole-library rewrite. The
+[amended statement candidate](../architecture/statement1.gpt61sxh.md) is separate
+from the unchanged original; production policy and implementation remain explicit
+follow-up work.
 
 ## Commission and boundaries
 
@@ -53,6 +121,11 @@ Independent dispatches explicitly exclude the materialized parent architectural
 stakes, the full roadmap, the parent transcript and same-wave outputs. They receive
 the question brief, their scoped tickets, earlier established material and current
 code. The parent stakes are released only for the later comparison task.
+
+Recorded exception: the execution-model author encountered other-ticket return
+summaries in a broad tracker ownership diff after writing and testing the design.
+No other Wave 1 reports or parent stakes were read or used. The caveat accompanies
+the return and synthesis; the flight does not claim perfect blinding for that study.
 
 Failure remains forward iteration with optional continuation, no effects history
 or recovery promise. No large fixture campaigns or live workspace mutations are
@@ -84,7 +157,7 @@ colocation. Prototype work stays bounded and separate from production defaults.
 | `architecture-statement` | Fresh Sol xhigh | `ses_ea7e3beebffeSBW1V9Q77Gjweu` | Returned; parent reviewed; ticket and architecture epic closed |
 
 All ticket suffixes are under `diffdir-tree-`. The three accounts state architecture
-directly; the synthesis will integrate them into the maintained architecture body,
+directly; the synthesis integrated them into the maintained architecture body,
 keeping implemented status and open decisions explicit.
 
 The returned [structure](../architecture/structure0.gpt6am.md) and
@@ -109,15 +182,84 @@ the question brief. Parent stakes and other same-wave outputs remain excluded.
 
 | Work | Author | Native session | State |
 | --- | --- | --- | --- |
-| `execution-model` | Sol xhigh | `ses_ea7dc862fffeEktnr59cgwuJHJ` | Dispatched |
-| `actions-protocol` | AM | `ses_ea7dc3668ffe1ZKnGhkZ1ZTWrJ` | Dispatched |
-| `observe-facts` | AM | `ses_ea7dbee62ffeQLsnpAkxntkr5L` | Dispatched |
-| `transfer-policy` | Sol xhigh | `ses_ea7db9f63ffeeKrXJOTes1YxLb` | Dispatched |
+| `execution-model` | Sol xhigh | `ses_ea7dc862fffeEktnr59cgwuJHJ` | Returned; reviewed; ticket closed |
+| `actions-protocol` | AM | `ses_ea7dc3668ffe1ZKnGhkZ1ZTWrJ` | Returned; reviewed; ticket closed |
+| `observe-facts` | AM | `ses_ea7dbee62ffeQLsnpAkxntkr5L` | Returned; reviewed; ticket closed |
+| `transfer-policy` | Sol xhigh | `ses_ea7db9f63ffeeKrXJOTes1YxLb` | Returned; reviewed; ticket closed as decision-equipping research |
 
 The strongest requested discriminators are effectful phase/fold ownership,
 generated selected work in physically equal inputs, actual operation-specific
 fact demands, and explicit transfer-policy choices. Small scratch prototypes are
 permitted when they answer these questions; no production defaults are selected.
+
+Returned findings are in [typed work](../actions/protocol0.gpt6am.md),
+[fact demand](../observation/facts0.gpt6am.md) and
+[transfer policy](../transfer/policy0.gpt61sxh.md). Typed producer/installer work
+is a smaller candidate than a universal registry. Fact demand separates real
+source-copy attribute needs from removable kind-only target queries. The policy
+matrix preserves actual empty-selection and vanished-source-region meanings;
+it equips explicit product choices rather than selecting new defaults.
+
+Fact-demand follow-ups are independently dispatched now that their prerequisite
+is reviewed: name representation to Sol xhigh `ses_ea7d44a59ffe0dMHN5QqJ3oVuh`,
+and residual kernel costs to AM `ses_ea7d3fbf6ffeH4eyKrL2VgJe47`. They use small
+owned probes, not production changes or large performance campaigns.
+
+The [execution model](../execution/model0.gpt61sxh.md), `3113dfd2`, supplies five
+passing scratch tests for actual phase/retry/skip behavior and independently saved
+manifest state. Fresh Sol xhigh synthesis `ses_ea7cd3e3bffetjCLVxNBp1Bguf` returned
+[mechanism contracts](../execution/contracts0.gpt61sxh.md), `5d6c003a`; parent reviewed
+and closed the contract ticket. The new specimen is deliberately narrower than
+general sync: child-sized closed-resource units, typed goals and external ack,
+explicit byte satisfaction and reserved output, without changing production policy.
+
+## Representation and kernel results
+
+- [Names](../observation/names0.gpt61sxh.md), `887fb681`: safe borrowed native views
+  suffice; the reduced arena-plus-lazy-path probe falls from 614 to 36 allocation
+  events while keeping the same 72 statx and six getdents64 calls. Arena alone
+  increases requested bytes; sparse surviving children should be promoted rather
+  than pinning whole batches. These are qualified probe results, not a production
+  speedup or justification for a new unsafe parser.
+- [Codec](../observation/codec0.gpt6am.md), `8b709ce0`: eleven paired specimens
+  roundtrip exactly. Representative effect state is 4,394 Snapshot bytes versus
+  730 typed-envelope bytes. Snapshot remains a useful optional specimen codec;
+  layout/codec specialization remains a measured consumer choice.
+- [Kernels](../transfer/kernels0.gpt6am.md), `0b10555a`: four tiny traces isolate
+  replacement reinspection and permission-lease queries. The optimized executor
+  is not implemented; predicted savings and a 5,680-byte retention model are
+  explicitly separated from actual baseline observations.
+
+All three studies were parent-reviewed and their research tickets closed.
+
+## Following mechanisms and new specimen
+
+| Work | Author | Native session | State |
+| --- | --- | --- | --- |
+| `execution-builder` | AM | `ses_ea7bed76affemZoRhULOaLPhBZ` | Returned `91d2f7e3`; reviewed; closed |
+| `execution-walk-demo` | Fresh Sol xhigh | `ses_ea7b7c0a4ffe1KVm1nvPn7svzl` | Delivered through `b49cfc59`; reviewed; closed |
+| `actions-generated` | AM | `ses_ea7be8196ffeqAPpgAKHuKBI1o` | Returned `1b398a3f`; 8 tests; reviewed; closed |
+| `transfer-modes` | AM | `ses_ea7be36f9ffeIdi3IMghFGDqBD` | Returned `053ecfe0`; 5 model tests; reviewed; closed |
+| `native-graph` | Sol xhigh | `ses_ea7bd841dffewRL4f7qZYaunBL` | Returned `204653e6` + `730e53b0`; reviewed; closed |
+| `actions-dispatch` | Sol xhigh | `ses_ea7a7b8e1ffe2yo00mJWogmrxv` | Returned `7a325e0c`; 11 tests; reviewed; closed |
+
+The builder [handoff](../execution/builder0.gpt6am.md) specifies genuine supplied
+inspector/executor components, saved manifest configuration/ordinal, data-only
+restore validation and four fresh-process gates. The implementation preserves the
+first cursor specimen and core/sync APIs. Parent stakes remain excluded throughout.
+
+The delivered [walk guide](../../examples/walk/README.md) and
+[verification report](../execution/walk0.gpt61sxh.md) record eleven all-feature
+and nine codec-free tests (overlapping configurations), real four-process gates,
+actual component substitution, ordinal preservation and after-visible-effect
+retry/skip. Parent read driver, I/O, program, state and codec; reported checks were
+trusted without redundant reruns. The retained-extra visitor is an explained
+necessary adaptation from the initial `NoVisitor` handoff, not a core API change.
+
+The native graph addendum was a targeted parent question after the initial graph
+study. Its two-receiver result separates truthful source bytes/cache from permission
+to import tracked membership and remove retained locals. Current reseed's
+no-adoption route remains the conservative proposed native landing.
 
 ## Independent operational evidence
 
@@ -147,7 +289,7 @@ follow-up, not proof of joint CoW/colocation feasibility.
 
 | Follow-up | Author | Native session | State |
 | --- | --- | --- | --- |
-| `native-colocation` | Sol xhigh | `ses_ea7e35793ffenYg0DnsiUG8p3e` | Dispatched; bounded native materialization experiments |
+| `native-colocation` | Sol xhigh | `ses_ea7e35793ffenYg0DnsiUG8p3e` | Returned; reviewed; ticket closed as feasibility research |
 | `native-workspace-source` | AM | `ses_ea7e30b42ffegrSPJE47yHB5SX` | Returned; parent reviewed; ticket closed |
 
 Both receive the completed metadata study and remain independent of one another
@@ -163,20 +305,50 @@ owned-colocated metadata (`src/reseed/engine.rs:790–795`). This lifecycle boun
 was appended to native integration and supplied to the active colocation study;
 it is not an instruction to remove guards or a finding from another same-wave draft.
 
-## Subsequent dispatch order
+**Colocation result:** [study](../native/colocation0.gpt61sxh.md), `9b4fc6ec`.
+Ten native cases passed on the recorded JJ/Git/Linux-btrfs runtime, including
+same/different trees, root and clean-merge controls. Useful reflink prefill and
+receiving identity survived. The current exclusion is JW selection policy; a
+coherent landing still needs ownership propagation through cleanup/fallback,
+explicit add/switch scope, capability handling and the reseed compatibility
+decision. This does not change production flags/defaults or establish every
+platform/version/configuration.
 
-1. After the architecture statement, commission independent execution-model,
-   action-protocol, observation-facts and transfer-policy studies. Integrate their
-   actual agreements and tensions in the mechanism-contract account.
-2. Use that evidence for component construction and the next walking specimen,
-   generated inputs/dispatch, and name/codec representation studies.
-3. Develop work-avoidance modes and kernel opportunities, together with bounded
-   native archive/workspace layout, colocation feasibility and workspace-source
-   investigations. Native evidence can be gathered independently where it does
-   not depend on unselected generic mechanisms.
-4. Compose source-to-many and command/config adoption proposals after their
-   single-target prerequisites. Finally compare committed research against the
-   preserved early architecture stakes.
+## Final composition and comparison
+
+| Work | Author | Native session | Result |
+| --- | --- | --- | --- |
+| `transfer-multi-target` | Sol xhigh | `ses_ea79000c7ffeLCfxCyCYX34qWT` | `947f02b7`; 8 tests; reviewed; closed |
+| `native-integration` | AM | `ses_ea78f943cffe78Y11qK7MnkZ25` | `86efef77`; source-grounded landing; reviewed; closed |
+| `compare` | Fresh Sol xhigh | `ses_ea7746bddffeScmy4aRhZ3vAa3` | `269b81f2`; explicitly released early bets; reviewed; closed |
+
+The [multi-target account](../transfer/multi-target0.gpt61sxh.md) keeps target
+success independent from shared source acquisition. The
+[native landing account](../native/integration0.gpt6am.md) needs no cursor overhaul
+before explicit joint creation, owned-colocated reseed and an accepted default.
+The comparison then read the actual preserved early statement for the first time
+in an authorized research session and distinguished support, conditions and new
+membership constraints without rewriting that statement.
+
+## Remaining work and ownership
+
+- Native implementation stubs now exist: `native-create-compose`,
+  `native-reseed-owned`, `native-default-policy`. The last records unresolved
+  scope, landing order and unavailable-capability choices; its reseed dependency
+  reflects the recommended order, adjustable deliberately after human selection.
+- The original `native-identity` bug and evidence fixture/artifact/budget
+  implementation remain open. Research completion is not a green full legacy suite.
+- Architecture, execution, actions and transfer research epics closed against
+  their scoped research/specimen acceptance. Native and evidence umbrellas remain.
+- The observation epic remains open for **separately commissioned**
+  `observe-btrfs-csums` and `observe-dirent-tuning` from
+  `opencode://ses_ea82ab643ffel2vtvMoX2vqoZa`. They were discovered during final
+  tracker reconciliation and preserved; this flight does not claim to have done
+  those follow-ups. Its original facts/names/codec children are complete.
+
+Tracker writes were serialized after transient embedded-Dolt contention. No lock
+files, databases or unrelated state were removed. All author drafts, original
+stakes, unrelated JW handoff and Kopacetic work remain preserved.
 
 Changes at consequential architectural forks are recorded before further
 implementation. Completing a research ticket records its question answered or

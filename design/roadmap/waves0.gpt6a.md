@@ -90,12 +90,12 @@ of those implementations. There was no local `.beads` tracker in jj-waltz.
 ## Epic map
 
 All IDs below are in the `diffdir-` namespace. The umbrella is `diffdir-tree`.
-The 37 work items and 73 parent/prerequisite edges were created; dependency-cycle
-checking passed. The initial snapshot-demo ticket is now closed after completion
+The tracker has grown as evidence returned; its current export is
+`.beads/issues.jsonl`. The initial snapshot-demo ticket is closed after completion
 and parent source review. Its [runnable example](../../examples/cursor/README.md)
 and [implementation evidence](../cursor/implementation0.gpt61sxh.md) remain the
 baseline for the next demo. Actual dispatches, returns and integration are recorded
-in the [running flight ledger](flight0.gpt6a.md).
+in the [completed flight ledger](flight0.gpt6a.md).
 
 | Epic | Scope and tension | Child work IDs (suffix after epic ID) |
 | --- | --- | --- |
@@ -106,6 +106,12 @@ in the [running flight ledger](flight0.gpt6a.md).
 | `diffdir-tree-transfer` | What copying means; preserve/update/remove authority; subtree specialization, kernels and donor reuse across targets | `policy`, `modes`, `kernels`, `multi-target` |
 | `diffdir-tree-native` | Archive-to-workspace Git colocation, native metadata, workspace-source exploration and JW integration | `metadata`, `colocation`, `workspace-source`, `identity`, `graph`, `integration` |
 | `diffdir-tree-evidence` | Trustworthy tests and experiments while development continues | `fixtures`, `artifacts`, `budgets` |
+
+The native epic now also holds evidence-derived implementation stubs
+`create-compose`, `reseed-owned` and `default-policy`; their
+[landing account](../native/integration0.gpt6am.md) states remaining choices.
+Separately commissioned observation follow-ups `btrfs-csums` and `dirent-tuning`
+remain open under that epic; they were not part of this flight's executed scope.
 
 `diffdir-tree-contract` is the cross-epic decision account, joining the foundational
 mechanism-design findings after the architecture statement and before a
