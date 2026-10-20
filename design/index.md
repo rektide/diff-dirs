@@ -8,7 +8,7 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
 sources:
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
-    title: Reviewed the cursor demo, organized architecture-first epics and recorded withheld early stakes for comparison with independent colocation and mechanism research
+    title: Reviewed the cursor demo, organized architecture-first epics and withheld early stakes, then launched and integrated the human-selected independent research flight
   - resource: opencode://ses_ea818c18fffeJ16WFCdXE0qk2Q
     title: Connected the bounded cursor CLI and kopacetic serialization design to current execution/state evidence
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
@@ -51,6 +51,9 @@ The [root specification](../README.md) owns the current public contract.
 
 ## Current execution and state
 
+- [Research flight ledger](roadmap/flight0.gpt6a.md): actual dispatches, returned
+  independent accounts, parent integration and ticket standing. Research returns
+  remain distinct from production changes and human selection of new defaults.
 - [Broad epic map and layered waves](roadmap/waves0.gpt6a.md): execution, actions,
   observations, transfer, native Git/JJ adapters and trustworthy evidence; starts
   with a direct architecture statement (structure, contracts and scenarios)
@@ -62,6 +65,9 @@ The [root specification](../README.md) owns the current public contract.
 - [Early architectural stakes](architecture/statement0.gpt6a.md): parent intent
   and bets, preserved for **later comparison**, excluded from independent-wave
   reading. The architecture statement is direct; feasibility is not assumed.
+- [Operational evidence architecture](evidence/operations0.gpt6am.md): independent
+  fixture, artifact and measurement research; distinguishes delivered fixes from
+  remaining executable-delegation, source-attribution and fixture-residency gaps.
 - [Runnable cursor example](../examples/cursor/README.md) and
   [implementation report](cursor/implementation0.gpt61sxh.md): delivered isolated
   kopacetic-rkyv continuation, real subprocess resume and generated virtual files;

@@ -12,6 +12,15 @@ sources:
     title: Dispatch-safe questions and independence boundary
   - resource: /design/roadmap/waves0.gpt6a.md
     title: Parent orchestration map and native work dependencies
+  - resource: /design/architecture/structure0.gpt6am.md
+    revision: e4eeb968
+    title: Returned independent structure statement reviewed by the parent
+  - resource: /design/architecture/scenarios0.gpt6am.md
+    revision: b046bbfb
+    title: Returned independent scenario statement reviewed by the parent
+  - resource: /design/evidence/operations0.gpt6am.md
+    revision: 26b040f1
+    title: Returned operational evidence research, with parent source spot-checks of proxy delegation and build attribution
 extensions:
   ticket: diffdir-tree
 ---
@@ -45,7 +54,8 @@ colocation. Prototype work stays bounded and separate from production defaults.
 - JW contains the previously observed unrelated untracked
   `design/up-performance/handoff0.glm53m.md`; preserve it.
 - Native installed JJ reports `0.45.1-33d3a595429b7e3b54a8ea769560247913bc8a1b`.
-  Source is available at `~/archive/jj-vcs/jj`; source/runtime coordinates must be
+  Source is available at `~/archive/jj-vcs/jj`, whose Git HEAD is
+  `803ef00a0a6ee4ddc275d3138d5f9e7326399906`; source/runtime coordinates must be
   distinguished in native experiments.
 - Kopacetic's unrelated Akri changes are outside the flight's write scope.
 
@@ -53,14 +63,20 @@ colocation. Prototype work stays bounded and separate from production defaults.
 
 | Work | Author | Native session | State |
 | --- | --- | --- | --- |
-| `architecture-structure` | AM | `ses_ea7ed0985ffemsC7vi9JAx90hX` | Dispatched |
+| `architecture-structure` | AM | `ses_ea7ed0985ffemsC7vi9JAx90hX` | Returned; parent reviewed; ticket closed |
 | `architecture-contracts` | Sol xhigh | `ses_ea7ecbfcaffex1sh8pvXu7Yp55` | Dispatched |
-| `architecture-scenarios` | AM | `ses_ea7ec795bffeGcfaGdPktHH0GQ` | Dispatched |
+| `architecture-scenarios` | AM | `ses_ea7ec795bffeGcfaGdPktHH0GQ` | Returned; parent reviewed; ticket closed |
 | `architecture-statement` | Fresh Sol xhigh | Pending prerequisites | Waiting |
 
 All ticket suffixes are under `diffdir-tree-`. The three accounts state architecture
 directly; the synthesis will integrate them into the maintained architecture body,
 keeping implemented status and open decisions explicit.
+
+The returned [structure](../architecture/structure0.gpt6am.md) and
+[scenarios](../architecture/scenarios0.gpt6am.md) accounts distinguish assessment
+continuation from effectful recursive continuation, and logical generation from
+filesystem installation. Both leave general registry/mapping choices open.
+Their closure records completed research, not adoption of every proposal.
 
 ## Independent operational evidence
 
@@ -68,6 +84,19 @@ AM session `ses_ea7ec000bffeGz2916lafDGvQV` is dispatched on the three evidence
 tickets: `fixtures`, `artifacts`, and `budgets`. It examines isolation, run identity
 and proportional verification. These concerns are independent of selecting a new
 core architecture. It is research/design, not a broad test-infrastructure rewrite.
+
+**Returned:** [operational evidence account](../evidence/operations0.gpt6am.md),
+commit `26b040f1`. Parent checked the remaining `tests/cli.rs` proxy delegation and
+performance `build.rs` library-attribution claims against source. The three
+tickets are labeled `research-complete` and remain open for implementation and
+acceptance checks. No native tests or benchmark campaigns were rerun.
+
+## Independent native layout evidence
+
+AM session `ses_ea7e8f705ffe474lRe5TDujfPe` is dispatched on `native-metadata`.
+It establishes actual archive/receiving-workspace topology through source reading
+and, where useful, tiny isolated native fixtures. Those findings feed the later
+colocation and workspace-as-source studies. No live archive is mutated.
 
 ## Subsequent dispatch order
 
