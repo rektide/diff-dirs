@@ -8,7 +8,7 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
 sources:
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
-    title: Reviewed the delivered cursor demo, connected the broad six-epic research map and retained the continuation/action assessment from JW
+    title: Reviewed the cursor demo and connected broad research epics, then added an existing-architecture baseline before change-design waves
   - resource: opencode://ses_ea818c18fffeJ16WFCdXE0qk2Q
     title: Connected the bounded cursor CLI and kopacetic serialization design to current execution/state evidence
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
@@ -52,8 +52,9 @@ The [root specification](../README.md) owns the current public contract.
 ## Current execution and state
 
 - [Broad epic map and layered waves](roadmap/waves0.gpt6a.md): execution, actions,
-  observations, transfer, native Git/JJ adapters and trustworthy evidence; 29
-  work items with foundational research before downstream implementation.
+  observations, transfer, native Git/JJ adapters and trustworthy evidence; starts
+  with existing-architecture anatomy, rationale and fitness before designing
+  changes. The architecture baseline now precedes the other domain research.
 - [Runnable cursor example](../examples/cursor/README.md) and
   [implementation report](cursor/implementation0.gpt61sxh.md): delivered isolated
   kopacetic-rkyv continuation, real subprocess resume and generated virtual files;

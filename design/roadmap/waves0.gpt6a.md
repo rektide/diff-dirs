@@ -7,7 +7,7 @@ status: planned
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
 sources:
   - resource: "opencode://ses_ea82cf969ffeAXqmUxHChTJar2"
-    title: Human commissions broad epic tracking and layered waves, adds Git metadata and borrowed dirent research, requests component-built walking cursors, and preserves the running demo
+    title: Human commissions broad epic tracking, then requires an existing-architecture Wave 0 before designing changes; includes Git metadata, borrowed dirents and component-built walking cursors
   - resource: /design/cursor/cursor0.gpt6am.md
     title: AM's approved first bounded-assessment and kopacetic-rkyv example design
   - resource: /design/cursor/implementation0.gpt61sxh.md
@@ -41,6 +41,11 @@ The effort is **tree reconciliation and its workspace consumers**, not cursor
 serialization alone. The cursor is one mechanism through which observation,
 decisions, traversal, generated content and execution can be composed.
 
+**Start with the architecture we already have.** Wave 0 recovers its actual
+structure, rationale, strengths and tensions. Subsequent waves design changes
+against that baseline; a new vocabulary or example is not a reason to presume
+that the existing architecture needs replacement.
+
 The existing diff-dirs tracker was empty (`bd info`: zero issues; prefix
 `diffdir`). This map starts one shared effort there. Each ticket names its code
 owner: generic mechanisms in diff-dirs, persistence fit in kopacetic, and workspace
@@ -66,7 +71,7 @@ of those implementations. There was no local `.beads` tracker in jj-waltz.
 ## Epic map
 
 All IDs below are in the `diffdir-` namespace. The umbrella is `diffdir-tree`.
-The 29 work items and 49 parent/prerequisite edges were created; dependency-cycle
+The 34 work items and 61 parent/prerequisite edges were created; dependency-cycle
 checking passed. The initial snapshot-demo ticket is now closed after completion
 and parent source review. Its [runnable example](../../examples/cursor/README.md)
 and [implementation evidence](../cursor/implementation0.gpt61sxh.md) remain the
@@ -74,6 +79,7 @@ baseline for the next demo. No new research wave has been dispatched.
 
 | Epic | Scope and tension | Child work IDs (suffix after epic ID) |
 | --- | --- | --- |
+| `diffdir-tree-architecture` | Existing architecture, its rationale, fitness and a shared baseline before redesign | `map`, `rationale`, `fit`, `baseline` |
 | `diffdir-tree-execution` | Stateful stepping, entity completion, construction and continuation across processes | `snapshot-demo`, `model`, `builder`, `walk-demo` |
 | `diffdir-tree-actions` | Observed facts versus chosen work; extensible parameters; generated entries, mappings and dispatch | `protocol`, `generated`, `dispatch` |
 | `diffdir-tree-observe` | Minimum useful facts; names/path ownership; borrowed native records and persisted representation | `facts`, `names`, `codec` |
@@ -82,8 +88,25 @@ baseline for the next demo. No new research wave has been dispatched.
 | `diffdir-tree-evidence` | Trustworthy tests and experiments while development continues | `fixtures`, `artifacts`, `budgets` |
 
 `diffdir-tree-contract` is the cross-epic decision account, joining the foundational
-findings before a shared production execution API is selected. It records open
+change-design findings after the existing-architecture baseline and before a
+shared production execution API is selected. It records open
 choices as open; the ticket is not an instruction to manufacture consensus.
+
+### Existing architecture
+
+- **map:** trace the implemented library, sync applier, JW consumer and isolated
+  cursor example. Follow data, decisions, mutation and state lifetimes through
+  actual entrypoints, including the parallel frontier and one-sided recursion.
+- **rationale:** recover why those boundaries exist. Separate accepted decisions,
+  implementation conveniences, superseded proposals and experiments. Explain
+  which constraints the early/late visitor and current actions already solve.
+- **fit:** independently assess the existing architecture against the current
+  human direction. Identify useful reusable seams, genuine limitations and
+  interactions behind the observed faults. Compare small extensions with larger
+  changes without treating either as the default answer.
+- **baseline:** synthesize these accounts into one shared architecture reference
+  with disagreements and unanswered questions retained. Amend or expand the
+  downstream epic stubs when the recovered architecture changes their premise.
 
 ### Execution
 
@@ -173,11 +196,45 @@ choices as open; the ticket is not an instruction to manufacture consensus.
 
 ## Layered waves
 
-### Wave 0 — the semantic core and independent operational repairs
+### Wave 0 — understand and assess the existing architecture
+
+Three independent readings share the same starting corpus:
+
+1. **Implementation anatomy** (`architecture-map`): listing → early admission →
+   observation → late steering → finalized plans → traversal/application. Include
+   clean versus divergent publication, one-sided work, joined speculative frontier,
+   native consumer orchestration and the separate stateful example. Show what
+   owns each value and when it is discarded, borrowed, copied or returned.
+2. **Design rationale** (`architecture-rationale`): what the earlier architecture
+   intended, which problems its seams answer, and how it evolved. Reconcile
+   maintained specifications, design decisions and actual code; record conflicts
+   rather than quietly treating the newest document as authoritative history.
+3. **Architectural fit** (`architecture-fit`): what works well, what the current
+   requests expose, and where the system boundaries conflict. Evaluate the need
+   for changes before designing a replacement. The cursor demo is one consumer
+   specimen, not the whole system or a selected future core.
+
+Start with the [execution walkthrough](../execution/flow0.gpt6a.md),
+[state/lifetime account](../execution/state0.gpt6a.md), root and sync specifications,
+the [design index](../index.md), and the existing JW architecture and scope reports.
+Check consequential claims against current source. Reuse established test and
+measurement evidence; new experiments should answer a named unresolved question.
+
+Each author writes an independent model-suffixed account under `design/architecture/`
+without reading another author's same-wave output. The `architecture-baseline`
+synthesis then produces: an as-built map, recovered rationale, strengths worth
+preserving, verified limitations, and specific questions handed to later epics.
+It can change those epics' scopes and dependencies. Completion of the baseline
+unblocks the four foundational change-design studies below.
+
+Operational repair tickets remain independent: a reproduced cleanup defect or
+fixture escape does not have to wait for this architecture review.
+
+### Wave 1 — design changes to the semantic core
 
 Commission independent treatments of `execution-model`, `actions-protocol`,
-`observe-facts`, and `transfer-policy`. Each starts from the same current code
-and human premises and does not read another author's same-wave draft. Outputs
+`observe-facts`, and `transfer-policy`. Each starts from the Wave 0 baseline,
+current code and human premises and does not read another author's same-wave draft. Outputs
 identify concrete examples, design forks, proposed interfaces, and what remains
 undecided. Epic owners may expand their own stubs with justified children and
 acceptance criteria, keeping links back to this map.
@@ -192,7 +249,7 @@ investigated or repaired independently: they do not need a cursor redesign.
 `native-metadata` and `observe-names` can gather topology/layout evidence now;
 their implementation choices wait for the relevant ownership/lifetime contracts.
 
-### Wave 1 — a component-built walking specimen and representation choices
+### Wave 2 — a component-built walking specimen and representation choices
 
 After the current demo and execution-model account, design the builder and then
 the walking demo. This is the first practical follow-up: explicit small steps,
@@ -205,7 +262,7 @@ Use a tiny physical-copy case, a generated-file case and a mapped-path case to
 test that one contract describes them. The names and codec studies compare
 representation choices against those actual component/lifetime needs.
 
-### Wave 2 — work avoidance and metadata adapters
+### Wave 3 — work avoidance and metadata adapters
 
 Design inherited modes, revisit kernel costs, and complete `.git`/`.jj` adapter
 and graph-intent accounts. A source-only subtree is the first useful shortcut:
@@ -216,7 +273,7 @@ Avoid pushing native metadata into the generic enum. An adapter should express
 preservation or generated content through the shared mechanism, then perform
 only the native initialization/graph steps actually needed.
 
-### Wave 3 — composition and production adoption
+### Wave 4 — composition and production adoption
 
 Investigate source-to-many reuse and JW command/config integration using the
 selected single-target contracts. Expand implementation epics here rather than
