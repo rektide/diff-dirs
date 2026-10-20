@@ -8,7 +8,9 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-20 }
 updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
 sources:
   - resource: "opencode://ses_ea82cf969ffeAXqmUxHChTJar2"
-    title: Integrated reviewed walking/native evidence and final-comparison navigation while preserving open production choices and the original early bets
+    title: Integrated reviewed evidence and comparison, then connected the parent's detailed post-flight architecture draft and selected resource-control direction
+  - resource: /design/architecture/draft0.gpt6a.md
+    title: Parent's extensive technical design, including runtime resource ownership and separate dirent tuning/pool tickets
   - resource: /design/architecture/comparison0.gpt61sxh.md
     revision: 269b81f2
     title: Authorized final comparison with the early architectural stakes
@@ -76,6 +78,11 @@ The completed flight's [comparison](/design/architecture/comparison0.gpt61sxh.md
 and [amended statement candidate](/design/architecture/statement1.gpt61sxh.md)
 preserve the original bets and distinguish supported composition from unselected
 production mechanisms and defaults.
+The subsequent [parent technical draft](/design/architecture/draft0.gpt6a.md)
+develops the overall design in detail: component dependencies, typed work,
+progression and construction contracts, resources, native flows and landing slices.
+It includes the newly selected runtime dirent-control direction; this maintained
+baseline does not thereby claim those interfaces or defaults are implemented.
 
 Assume a good source. Concurrency, locking and stable path topology are caller
 concerns. Failure promises **no effects history, recovery guarantee or rollback**.

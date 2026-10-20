@@ -10,7 +10,7 @@ sources:
   - resource: opencode://ses_ea82ab643ffel2vtvMoX2vqoZa
     title: Linked native-dirent tuning and optional Btrfs checksum research, with compressed-extent and live-generation limitations and separate open follow-up tickets
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
-    title: Executed and integrated the independent research flight, delivered walking specimen, bounded native/representation evidence and final comparison while preserving early stakes and open implementation work
+    title: Integrated the research flight and final comparison, then authored the extensive technical architecture draft and recorded selected runtime dirent controls in separate tuning/pool tickets
   - resource: opencode://ses_ea818c18fffeJ16WFCdXE0qk2Q
     title: Connected the bounded cursor CLI and kopacetic serialization design to current execution/state evidence
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
@@ -53,6 +53,11 @@ The [root specification](../README.md) owns the current public contract.
 
 ## Current execution and state
 
+- [Parent technical architecture draft](architecture/draft0.gpt6a.md): extensive
+  post-flight design specifying dependency direction, typed goals, exact progression
+  and saved-state ownership, generated inputs, native flows, and caller-owned
+  resources. Records the selected runtime-adjustable 64 KiB/16-idle-buffer starting
+  policy as design and tickets, not shipped enumeration behavior.
 - [Completed flight comparison](architecture/comparison0.gpt61sxh.md) and
   [amended statement candidate](architecture/statement1.gpt61sxh.md): actual early
   bets compared with independent findings, delivered specimens and bounded
@@ -78,9 +83,9 @@ The [root specification](../README.md) owns the current public contract.
   separate workspace-source exploration.
 - [Independent research brief](roadmap/brief0.gpt6a.md): scoped questions and
   factual entrypoints; explicitly withholds the parent's materialized statement.
-- [Early architectural stakes](architecture/statement0.gpt6a.md): parent intent
-  and bets, preserved for **later comparison**, excluded from independent-wave
-  reading. The architecture statement is direct; feasibility is not assumed.
+- [Early architectural stakes](architecture/statement0.gpt6a.md): preserved
+  pre-research intent, withheld until the now-completed comparison. The new parent
+  draft above follows the evidence without rewriting these original bets.
 - [Operational evidence architecture](evidence/operations0.gpt6am.md): independent
   fixture, artifact and measurement research; distinguishes delivered fixes from
   remaining executable-delegation, source-attribution and fixture-residency gaps.
@@ -115,8 +120,8 @@ The [root specification](../README.md) owns the current public contract.
 - [Runnable cursor example](../examples/cursor/README.md) and
   [implementation report](cursor/implementation0.gpt61sxh.md): delivered isolated
   kopacetic-rkyv continuation, real subprocess resume and generated virtual files;
-  twelve focused tests. Component builders and a follow-up walking demo are
-  separately planned in the epic map.
+  twelve focused tests. The component-built walking specimen above is its delivered
+  follow-up.
 - [Bounded cursor CLI proposal](cursor/cursor0.gpt6am.md): actionable example-crate
   handoff using real immediate assessments, explicit DFS continuation and actual
   kopacetic-rkyv snapshots; distinguishes assessment budget from postorder output

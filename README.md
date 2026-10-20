@@ -8,7 +8,7 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
 sources:
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
-    title: Reviewed both cursor specimens and the layered research flight, then integrated architecture and final-comparison navigation without changing delivered core/sync API contracts
+    title: Reviewed the specimens and research flight, integrated comparison navigation, and linked the parent's extensive post-flight architecture draft
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
     title: Implemented immutable per-side early facts and the explicitly opt-in Linux native-dirent backend after the parent's architectural review
   - resource: opencode://ses_ead6a1d90ffe7BJn5ftJKW1h06
@@ -58,6 +58,9 @@ and composition model used by the current research flight. Its
 open mechanisms; this README and the sync specification still govern delivered APIs.
 The completed [research comparison](design/architecture/comparison0.gpt61sxh.md)
 records what the early bets established, narrowed and left conditional.
+The [parent technical architecture draft](design/architecture/draft0.gpt6a.md)
+specifies the next design in detail, including component-built execution and
+runtime-adjustable observation resources.
 
 The standalone [cursor example](examples/cursor/README.md) uses immediate
 inspection to assess N directories, serialize its DFS state through kopacetic-rkyv,
