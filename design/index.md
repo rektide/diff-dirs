@@ -5,8 +5,10 @@ description: Reading paths through consumer fit, I/O research, implementation de
 resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
+updated: { by: "model:openai/gpt-6.1-sol#high", at: 2026-10-20 }
 sources:
+  - resource: opencode://ses_ea82ab643ffel2vtvMoX2vqoZa
+    title: Linked native-dirent tuning and optional Btrfs checksum research, with compressed-extent and live-generation limitations and separate open follow-up tickets
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
     title: Reviewed the cursor demo, organized architecture-first epics and withheld early stakes, then launched and integrated the human-selected independent research flight
   - resource: opencode://ses_ea818c18fffeJ16WFCdXE0qk2Q
@@ -233,6 +235,11 @@ The [root specification](../README.md) owns the current public contract.
 
 ## Performance opportunities — research, not implementation selection
 
+- [Additional native-dirent and Btrfs opportunities](performance/opportunity-also.md):
+  current buffer/path/metadata-demand tuning, existing parallel observation, and
+  optional checksum/identity research. Records the major compressed-extent gap,
+  unsupported running kernel, writeback costs and invalid live-generation shortcut;
+  preserves size + mtime as the accepted baseline and links two open follow-ups.
 - [Inventory comparison](performance/comparison0.gpt6a.md): parent synthesis of
   shared findings and different prioritization judgments; maps the proposed
   donor, leaf-pipeline, and prepared-mirror experiments across both inventories.
