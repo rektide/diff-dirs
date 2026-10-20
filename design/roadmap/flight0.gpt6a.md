@@ -27,6 +27,15 @@ sources:
   - resource: /design/native/metadata0.gpt6am.md
     revision: 014db6e3
     title: Native archive/receiver topology and exact-runtime sparse-empty Git-index evidence
+  - resource: /doc/architecture/README.md
+    revision: 1193a1ee
+    title: Reviewed maintained independent architecture statement used to commission Wave 1
+  - resource: /design/architecture/synthesis0.gpt61sxh.md
+    revision: 1193a1ee
+    title: Fresh independent synthesis and scoped mechanism discriminators
+  - resource: /design/native/workspace-source0.gpt6am.md
+    revision: d6f19aeb
+    title: Alternate registered-source study reviewed with scoped JW source/test checks
 extensions:
   ticket: diffdir-tree
 ---
@@ -72,7 +81,7 @@ colocation. Prototype work stays bounded and separate from production defaults.
 | `architecture-structure` | AM | `ses_ea7ed0985ffemsC7vi9JAx90hX` | Returned; parent reviewed; ticket closed |
 | `architecture-contracts` | Sol xhigh | `ses_ea7ecbfcaffex1sh8pvXu7Yp55` | Returned; parent reviewed; ticket closed |
 | `architecture-scenarios` | AM | `ses_ea7ec795bffeGcfaGdPktHH0GQ` | Returned; parent reviewed; ticket closed |
-| `architecture-statement` | Fresh Sol xhigh | `ses_ea7e3beebffeSBW1V9Q77Gjweu` | Dispatched with all three reviewed accounts |
+| `architecture-statement` | Fresh Sol xhigh | `ses_ea7e3beebffeSBW1V9Q77Gjweu` | Returned; parent reviewed; ticket and architecture epic closed |
 
 All ticket suffixes are under `diffdir-tree-`. The three accounts state architecture
 directly; the synthesis will integrate them into the maintained architecture body,
@@ -87,6 +96,28 @@ The [contracts account](../architecture/contracts0.gpt61sxh.md) makes child/fini
 obligations and generated-target satisfaction explicit. The parent passed these
 as independent questions to synthesis, not as selected Rust APIs. The generated
 input ticket now includes parameter-change/no-op behavior as a discriminator.
+
+**Integrated baseline:** [maintained architecture](../../doc/architecture/README.md)
+and [synthesis](../architecture/synthesis0.gpt61sxh.md), commit `1193a1ee`.
+This is the independent research baseline; unresolved interfaces and product
+choices remain explicit and no production API changes are implied.
+
+## Wave 1 — core mechanism questions
+
+Each author receives the independent architecture/synthesis, its scoped ticket and
+the question brief. Parent stakes and other same-wave outputs remain excluded.
+
+| Work | Author | Native session | State |
+| --- | --- | --- | --- |
+| `execution-model` | Sol xhigh | `ses_ea7dc862fffeEktnr59cgwuJHJ` | Dispatched |
+| `actions-protocol` | AM | `ses_ea7dc3668ffe1ZKnGhkZ1ZTWrJ` | Dispatched |
+| `observe-facts` | AM | `ses_ea7dbee62ffeQLsnpAkxntkr5L` | Dispatched |
+| `transfer-policy` | Sol xhigh | `ses_ea7db9f63ffeeKrXJOTes1YxLb` | Dispatched |
+
+The strongest requested discriminators are effectful phase/fold ownership,
+generated selected work in physically equal inputs, actual operation-specific
+fact demands, and explicit transfer-policy choices. Small scratch prototypes are
+permitted when they answer these questions; no production defaults are selected.
 
 ## Independent operational evidence
 
@@ -103,7 +134,7 @@ acceptance checks. No native tests or benchmark campaigns were rerun.
 
 ## Independent native layout evidence
 
-AM session `ses_ea7e8f705ffe474lRe5TDujfPe` is dispatched on `native-metadata`.
+AM session `ses_ea7e8f705ffe474lRe5TDujfPe` was dispatched on `native-metadata`.
 It establishes actual archive/receiving-workspace topology through source reading
 and, where useful, tiny isolated native fixtures. Those findings feed the later
 colocation and workspace-as-source studies. No live archive is mutated.
@@ -117,10 +148,20 @@ follow-up, not proof of joint CoW/colocation feasibility.
 | Follow-up | Author | Native session | State |
 | --- | --- | --- | --- |
 | `native-colocation` | Sol xhigh | `ses_ea7e35793ffenYg0DnsiUG8p3e` | Dispatched; bounded native materialization experiments |
-| `native-workspace-source` | AM | `ses_ea7e30b42ffegrSPJE47yHB5SX` | Dispatched; independent alternate-source exploration |
+| `native-workspace-source` | AM | `ses_ea7e30b42ffegrSPJE47yHB5SX` | Returned; parent reviewed; ticket closed |
 
 Both receive the completed metadata study and remain independent of one another
 and the withheld parent stakes. Their experimental fixtures are small and owned.
+
+The [registered-source account](../native/workspace-source0.gpt6am.md), `d6f19aeb`,
+separates chosen source contents from physical-primary policy and fresh target
+identity. Native JJ-only/colocated source-target paths were probed; JW behavior is
+source/test-derived, and CoW composition was not claimed tested there.
+
+Parent source reading also found `jw reseed` currently refuses root `.git` and
+owned-colocated metadata (`src/reseed/engine.rs:790–795`). This lifecycle boundary
+was appended to native integration and supplied to the active colocation study;
+it is not an instruction to remove guards or a finding from another same-wave draft.
 
 ## Subsequent dispatch order
 

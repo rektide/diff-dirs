@@ -94,7 +94,8 @@ The 37 work items and 73 parent/prerequisite edges were created; dependency-cycl
 checking passed. The initial snapshot-demo ticket is now closed after completion
 and parent source review. Its [runnable example](../../examples/cursor/README.md)
 and [implementation evidence](../cursor/implementation0.gpt61sxh.md) remain the
-baseline for the next demo. No new research wave has been dispatched.
+baseline for the next demo. Actual dispatches, returns and integration are recorded
+in the [running flight ledger](flight0.gpt6a.md).
 
 | Epic | Scope and tension | Child work IDs (suffix after epic ID) |
 | --- | --- | --- |
@@ -309,9 +310,9 @@ pre-writing a speculative task tree for every possible architecture. Measure onl
 bounded cases that answer a decision. Parallel execution is a later question if
 the sequential state model and evidence justify it.
 
-No research agents for these new waves have been launched by creating the map.
-The AM design/Sol xhigh first implementation completed its existing commission.
-Model selection for future independent waves remains a human choice.
+The human subsequently commissioned this flight and selected AM + Sol xhigh.
+The [flight ledger](flight0.gpt6a.md) records independent sessions, returned
+evidence and synthesis checkpoints. The original cursor specimen remains preserved.
 
 ### Comparison with the early stakes
 

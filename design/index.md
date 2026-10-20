@@ -51,6 +51,10 @@ The [root specification](../README.md) owns the current public contract.
 
 ## Current execution and state
 
+- [Maintained architecture statement](../doc/architecture/README.md) and
+  [independent synthesis](architecture/synthesis0.gpt61sxh.md): completed Wave 0
+  components/contracts/scenarios, with explicit open mechanism questions. This
+  research baseline does not claim its proposed extensions are implemented.
 - [Research flight ledger](roadmap/flight0.gpt6a.md): actual dispatches, returned
   independent accounts, parent integration and ticket standing. Research returns
   remain distinct from production changes and human selection of new defaults.
@@ -68,6 +72,10 @@ The [root specification](../README.md) owns the current public contract.
 - [Operational evidence architecture](evidence/operations0.gpt6am.md): independent
   fixture, artifact and measurement research; distinguishes delivered fixes from
   remaining executable-delegation, source-attribution and fixture-residency gaps.
+- [Native archive/receiver metadata](native/metadata0.gpt6am.md) and
+  [registered-workspace sources](native/workspace-source0.gpt6am.md): bounded
+  native probes and source-derived JW behavior, separating repository owner,
+  chosen content source, receiving identity and Git common/private administration.
 - [Runnable cursor example](../examples/cursor/README.md) and
   [implementation report](cursor/implementation0.gpt61sxh.md): delivered isolated
   kopacetic-rkyv continuation, real subprocess resume and generated virtual files;
