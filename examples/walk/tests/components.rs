@@ -11,7 +11,7 @@ struct Fixture { _temp: tempfile::TempDir, bindings: Bindings }
 
 impl Fixture {
     fn new() -> Self {
-        let temp = tempfile::tempdir().unwrap();
+        let temp = tempfile::tempdir_in("/tmp/opencode").unwrap();
         for name in ["source", "target", "reports"] { fs::create_dir(temp.path().join(name)).unwrap(); }
         let bindings = Bindings::new(temp.path().join("source"), temp.path().join("target"), temp.path().join("reports")).unwrap();
         Self { _temp: temp, bindings }

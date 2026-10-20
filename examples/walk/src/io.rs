@@ -102,16 +102,24 @@ fn settle(path: &Path, bytes: &[u8], writes: &mut Writes) -> Result<EffectOutcom
     let (mut file, staging) = temporary.into_parts();
     let result = file.write_all(bytes).and_then(|()| file.flush()).map_err(|e| Error::io(path, "write staging bytes", e));
     drop(file);
-    let result = result.and_then(|()| {
-        regular_or_absent(path)?;
-        fs::rename(&staging, path).map_err(|e| Error::io(path, "install staged bytes", e))?;
-        writes.file_installations = 1;
-        Ok(EffectOutcome::Installed)
-    });
-    let cleanup = staging.close().map_err(|e| Error::io(path, "remove owned staging", e));
-    match (result, cleanup) {
-        (Ok(value), Ok(())) => Ok(value),
-        (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
-        (Err(primary), Err(cleanup)) => Err(Error::Cleanup { primary: Box::new(primary), cleanup: Box::new(cleanup) }),
+    let result = result.and_then(|()| regular_or_absent(path).map(|_| ()));
+    publish_staging(staging, path, result)?;
+    writes.file_installations = 1;
+    Ok(EffectOutcome::Installed)
+}
+
+/// The file descriptor is already closed. Successful same-parent persistence
+/// consumes the staging name; only a failed preparation/rename needs removal.
+pub(crate) fn publish_staging(staging: tempfile::TempPath, path: &Path, prepared: Result<(), Error>) -> Result<(), Error> {
+    let (staging, primary) = match prepared {
+        Ok(()) => match staging.persist(path) {
+            Ok(()) => return Ok(()),
+            Err(error) => (error.path, Error::io(path, "publish staged bytes", error.error)),
+        },
+        Err(error) => (staging, error),
+    };
+    match staging.close() {
+        Ok(()) => Err(primary),
+        Err(error) => Err(Error::Cleanup { primary: Box::new(primary), cleanup: Box::new(Error::io(path, "remove owned staging", error)) }),
     }
 }

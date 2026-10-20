@@ -59,11 +59,5 @@ pub fn write_cursor(path: &Path, saved: &SavedWalk) -> Result<(), Error> {
     let (mut file, staging) = temporary.into_parts();
     let result = file.write_all(&bytes).and_then(|()| file.sync_all()).map_err(|e| Error::io(path, "write cursor staging", e));
     drop(file);
-    let result = result.and_then(|()| fs::rename(&staging, path).map_err(|e| Error::io(path, "publish cursor", e)));
-    let cleanup = staging.close().map_err(|e| Error::io(path, "remove cursor staging", e));
-    match (result, cleanup) {
-        (Ok(()), Ok(())) => Ok(()),
-        (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error),
-        (Err(primary), Err(cleanup)) => Err(Error::Cleanup { primary: Box::new(primary), cleanup: Box::new(cleanup) }),
-    }
+    crate::publish_staging(staging, path, result)
 }
