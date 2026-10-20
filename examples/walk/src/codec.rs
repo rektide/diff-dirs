@@ -11,8 +11,12 @@ use crate::{Error, NativePath, SavedWalk, require};
 /// Archive bytes only, not a projection/reconstruction allocation bound.
 pub const MAX_ARCHIVE_BYTES: usize = 8 * 1024 * 1024;
 
-fn schema() -> Result<Schema, Error> { Ok(Schema::new("diff-dirs.walk-example", 1)?) }
-fn identity() -> EntityIdentity { EntityIdentity::standalone("WalkingCursor", "example") }
+fn schema() -> Result<Schema, Error> {
+    Ok(Schema::new("diff-dirs.walk-example", 1)?)
+}
+fn identity() -> EntityIdentity {
+    EntityIdentity::standalone("WalkingCursor", "example")
+}
 
 pub fn encode(saved: &SavedWalk) -> Result<Vec<u8>, Error> {
     saved.validate()?;
@@ -33,7 +37,9 @@ pub fn decode(bytes: Vec<u8>) -> Result<SavedWalk, Error> {
 pub fn read_cursor(path: &Path) -> Result<SavedWalk, Error> {
     let file = File::open(path).map_err(|e| Error::io(path, "open cursor", e))?;
     let mut bytes = Vec::new();
-    file.take((MAX_ARCHIVE_BYTES + 1) as u64).read_to_end(&mut bytes).map_err(|e| Error::io(path, "read cursor", e))?;
+    file.take((MAX_ARCHIVE_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|e| Error::io(path, "read cursor", e))?;
     decode(bytes)
 }
 
@@ -42,9 +48,14 @@ pub fn read_cursor(path: &Path) -> Result<SavedWalk, Error> {
 pub fn validate_cursor_path(path: &Path, saved: &SavedWalk) -> Result<(), Error> {
     NativePath::new(path).validate(true)?;
     let parent = path.parent().ok_or_else(|| Error::invalid("cursor needs a filename"))?;
-    let resolved = fs::canonicalize(parent).map_err(|e| Error::io(parent, "resolve cursor parent", e))?.join(path.file_name().ok_or_else(|| Error::invalid("cursor needs a filename"))?);
+    let resolved = fs::canonicalize(parent)
+        .map_err(|e| Error::io(parent, "resolve cursor parent", e))?
+        .join(path.file_name().ok_or_else(|| Error::invalid("cursor needs a filename"))?);
     for root in saved.bindings.roots() {
-        require(!path.starts_with(&root) && !resolved.starts_with(&root), "cursor must be outside source, target and reports")?;
+        require(
+            !path.starts_with(&root) && !resolved.starts_with(&root),
+            "cursor must be outside source, target and reports",
+        )?;
     }
     Ok(())
 }
@@ -57,7 +68,10 @@ pub fn write_cursor(path: &Path, saved: &SavedWalk) -> Result<(), Error> {
     let bytes = encode(saved)?;
     let temporary = tempfile::NamedTempFile::new_in(path.parent().expect("validated parent")).map_err(|e| Error::io(path, "prepare cursor staging", e))?;
     let (mut file, staging) = temporary.into_parts();
-    let result = file.write_all(&bytes).and_then(|()| file.sync_all()).map_err(|e| Error::io(path, "write cursor staging", e));
+    let result = file
+        .write_all(&bytes)
+        .and_then(|()| file.sync_all())
+        .map_err(|e| Error::io(path, "write cursor staging", e));
     drop(file);
     crate::publish_staging(staging, path, result)
 }

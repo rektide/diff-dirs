@@ -2,12 +2,27 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use diff_dirs::{DirectoryPlan, NoVisitor, Purpose, inspect_directory};
+use diff_dirs::{CheckError, DirectoryPlan, Operations, Presence, Purpose, Visitor, inspect_directory};
 
 use crate::{Attempt, Bindings, EffectOutcome, Error, Executor, Inspector, Node, Work, Writes, disjoint, report_name, require};
 
 #[derive(Default)]
 pub struct FullInspector;
+
+// NoVisitor rejects unsupported target-only kinds before lowering can retain
+// them. This pure full-fact adapter preserves those boundaries without another
+// scan; all source-present proposals remain unchanged and are checked by program.
+struct RetainExtras;
+impl Visitor for RetainExtras {
+    fn late(&self, batch: &mut Operations) -> Result<(), CheckError> {
+        for entry in batch.entries_mut() {
+            if entry.presence() == Presence::TargetOnly {
+                entry.preserve_tree();
+            }
+        }
+        Ok(())
+    }
+}
 
 impl Inspector for FullInspector {
     fn inspect(&mut self, bindings: &Bindings, node: &Node) -> Result<DirectoryPlan, Error> {
@@ -17,7 +32,15 @@ impl Inspector for FullInspector {
         let target_dir = target.join(&relative);
         directory_route(&source_dir)?;
         directory_route(&target_dir)?;
-        Ok(inspect_directory(&source, &target, &relative, Some(&source_dir), Some(&target_dir), Purpose::Audit, &NoVisitor)?)
+        Ok(inspect_directory(
+            &source,
+            &target,
+            &relative,
+            Some(&source_dir),
+            Some(&target_dir),
+            Purpose::Audit,
+            &RetainExtras,
+        )?)
     }
 }
 
@@ -34,8 +57,13 @@ impl Executor for ByteExecutor {
 
 pub(crate) fn bind_roots(bindings: &Bindings) -> Result<(), Error> {
     let roots = bindings.roots();
-    for root in &roots { directory_route(root)?; }
-    let resolved: Vec<_> = roots.iter().map(|root| fs::canonicalize(root).map_err(|e| Error::io(root, "resolve root", e))).collect::<Result<_, _>>()?;
+    for root in &roots {
+        directory_route(root)?;
+    }
+    let resolved: Vec<_> = roots
+        .iter()
+        .map(|root| fs::canonicalize(root).map_err(|e| Error::io(root, "resolve root", e)))
+        .collect::<Result<_, _>>()?;
     disjoint(&[resolved[0].clone(), resolved[1].clone(), resolved[2].clone()])
 }
 
@@ -54,7 +82,10 @@ fn directory_route(path: &Path) -> Result<(), Error> {
 fn regular_or_absent(path: &Path) -> Result<bool, Error> {
     directory_route(path.parent().ok_or_else(|| Error::invalid("missing file parent"))?)?;
     match fs::symlink_metadata(path) {
-        Ok(metadata) => { require(metadata.is_file(), "output must be regular or absent")?; Ok(true) }
+        Ok(metadata) => {
+            require(metadata.is_file(), "output must be regular or absent")?;
+            Ok(true)
+        }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
         Err(error) => Err(Error::io(path, "check output", error)),
     }
@@ -70,7 +101,10 @@ fn execute(bindings: &Bindings, work: &Work, writes: &mut Writes) -> Result<Effe
             let path = target.join(&relative);
             directory_route(path.parent().ok_or_else(|| Error::invalid("missing directory parent"))?)?;
             match fs::symlink_metadata(&path) {
-                Ok(metadata) => { require(metadata.is_dir(), "ensure encountered a shape collision")?; Ok(EffectOutcome::NoWrite) }
+                Ok(metadata) => {
+                    require(metadata.is_dir(), "ensure encountered a shape collision")?;
+                    Ok(EffectOutcome::NoWrite)
+                }
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                     fs::create_dir(&path).map_err(|e| Error::io(&path, "create target directory", e))?;
                     writes.directories_created = 1;
@@ -100,7 +134,10 @@ fn settle(path: &Path, bytes: &[u8], writes: &mut Writes) -> Result<EffectOutcom
     }
     let temporary = tempfile::NamedTempFile::new_in(path.parent().expect("checked parent")).map_err(|e| Error::io(path, "create private staging", e))?;
     let (mut file, staging) = temporary.into_parts();
-    let result = file.write_all(bytes).and_then(|()| file.flush()).map_err(|e| Error::io(path, "write staging bytes", e));
+    let result = file
+        .write_all(bytes)
+        .and_then(|()| file.flush())
+        .map_err(|e| Error::io(path, "write staging bytes", e));
     drop(file);
     let result = result.and_then(|()| regular_or_absent(path).map(|_| ()));
     publish_staging(staging, path, result)?;
@@ -120,6 +157,9 @@ pub(crate) fn publish_staging(staging: tempfile::TempPath, path: &Path, prepared
     };
     match staging.close() {
         Ok(()) => Err(primary),
-        Err(error) => Err(Error::Cleanup { primary: Box::new(primary), cleanup: Box::new(Error::io(path, "remove owned staging", error)) }),
+        Err(error) => Err(Error::Cleanup {
+            primary: Box::new(primary),
+            cleanup: Box::new(Error::io(path, "remove owned staging", error)),
+        }),
     }
 }

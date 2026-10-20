@@ -42,7 +42,11 @@ impl Error {
     }
 
     pub(crate) fn io(path: &std::path::Path, operation: &'static str, source: std::io::Error) -> Self {
-        Self::Io { operation, path: path.to_owned(), source }
+        Self::Io {
+            operation,
+            path: path.to_owned(),
+            source,
+        }
     }
 }
 
