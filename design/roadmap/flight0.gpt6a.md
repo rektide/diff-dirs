@@ -21,6 +21,12 @@ sources:
   - resource: /design/evidence/operations0.gpt6am.md
     revision: 26b040f1
     title: Returned operational evidence research, with parent source spot-checks of proxy delegation and build attribution
+  - resource: /design/architecture/contracts0.gpt61sxh.md
+    revision: 037b124a
+    title: Returned independent interface contracts, reviewed and passed to fresh synthesis
+  - resource: /design/native/metadata0.gpt6am.md
+    revision: 014db6e3
+    title: Native archive/receiver topology and exact-runtime sparse-empty Git-index evidence
 extensions:
   ticket: diffdir-tree
 ---
@@ -64,9 +70,9 @@ colocation. Prototype work stays bounded and separate from production defaults.
 | Work | Author | Native session | State |
 | --- | --- | --- | --- |
 | `architecture-structure` | AM | `ses_ea7ed0985ffemsC7vi9JAx90hX` | Returned; parent reviewed; ticket closed |
-| `architecture-contracts` | Sol xhigh | `ses_ea7ecbfcaffex1sh8pvXu7Yp55` | Dispatched |
+| `architecture-contracts` | Sol xhigh | `ses_ea7ecbfcaffex1sh8pvXu7Yp55` | Returned; parent reviewed; ticket closed |
 | `architecture-scenarios` | AM | `ses_ea7ec795bffeGcfaGdPktHH0GQ` | Returned; parent reviewed; ticket closed |
-| `architecture-statement` | Fresh Sol xhigh | Pending prerequisites | Waiting |
+| `architecture-statement` | Fresh Sol xhigh | `ses_ea7e3beebffeSBW1V9Q77Gjweu` | Dispatched with all three reviewed accounts |
 
 All ticket suffixes are under `diffdir-tree-`. The three accounts state architecture
 directly; the synthesis will integrate them into the maintained architecture body,
@@ -77,10 +83,14 @@ The returned [structure](../architecture/structure0.gpt6am.md) and
 continuation from effectful recursive continuation, and logical generation from
 filesystem installation. Both leave general registry/mapping choices open.
 Their closure records completed research, not adoption of every proposal.
+The [contracts account](../architecture/contracts0.gpt61sxh.md) makes child/finish
+obligations and generated-target satisfaction explicit. The parent passed these
+as independent questions to synthesis, not as selected Rust APIs. The generated
+input ticket now includes parameter-change/no-op behavior as a discriminator.
 
 ## Independent operational evidence
 
-AM session `ses_ea7ec000bffeGz2916lafDGvQV` is dispatched on the three evidence
+AM session `ses_ea7ec000bffeGz2916lafDGvQV` was dispatched on the three evidence
 tickets: `fixtures`, `artifacts`, and `budgets`. It examines isolation, run identity
 and proportional verification. These concerns are independent of selecting a new
 core architecture. It is research/design, not a broad test-infrastructure rewrite.
@@ -97,6 +107,20 @@ AM session `ses_ea7e8f705ffe474lRe5TDujfPe` is dispatched on `native-metadata`.
 It establishes actual archive/receiving-workspace topology through source reading
 and, where useful, tiny isolated native fixtures. Those findings feed the later
 colocation and workspace-as-source studies. No live archive is mutated.
+
+**Returned and reviewed:** [metadata study](../native/metadata0.gpt6am.md),
+`014db6e3`; ticket closed. Native creation supports both tested archive backing
+layouts. Sparse-empty colocated receivers retain parent entries in Git's index,
+so prefill/convergence must account for both native views. This is evidence for
+follow-up, not proof of joint CoW/colocation feasibility.
+
+| Follow-up | Author | Native session | State |
+| --- | --- | --- | --- |
+| `native-colocation` | Sol xhigh | `ses_ea7e35793ffenYg0DnsiUG8p3e` | Dispatched; bounded native materialization experiments |
+| `native-workspace-source` | AM | `ses_ea7e30b42ffegrSPJE47yHB5SX` | Dispatched; independent alternate-source exploration |
+
+Both receive the completed metadata study and remain independent of one another
+and the withheld parent stakes. Their experimental fixtures are small and owned.
 
 ## Subsequent dispatch order
 
