@@ -66,6 +66,9 @@ impl Request {
 }
 
 #[derive(Debug)]
+// The complete transient plan is immediately consumed, never stored in SavedWalk.
+// Keep the owned manual protocol direct rather than allocating another box per scan.
+#[allow(clippy::large_enum_variant)]
 pub enum Ack {
     Inspected {
         ticket: u64,
@@ -102,6 +105,8 @@ impl Ack {
     }
 }
 
+// Construction-only input: preserve the direct Fresh/Restored saved-parts API.
+#[allow(clippy::large_enum_variant)]
 pub enum StartParts {
     Fresh(Bindings),
     Restored(SavedWalk),
