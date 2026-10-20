@@ -5,8 +5,10 @@ description: Reading paths through consumer fit, I/O research, implementation de
 resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-19 }
+updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
 sources:
+  - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
+    title: Reviewed the cursor demo design and connected the continuation, inherited-mode and extensible-action assessment from JW
   - resource: opencode://ses_ea818c18fffeJ16WFCdXE0qk2Q
     title: Connected the bounded cursor CLI and kopacetic serialization design to current execution/state evidence
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
@@ -53,6 +55,10 @@ The [root specification](../README.md) owns the current public contract.
   handoff using real immediate assessments, explicit DFS continuation and actual
   kopacetic-rkyv snapshots; distinguishes assessment budget from postorder output
   and keeps stateful generation outside pure Visitor callbacks.
+- [Continuation and extensible-action assessment](file:///home/rektide/src/jj-waltz/design/sync-scope/cursor-actions0.gpt6a.md):
+  human-directed failure semantics, inherited one-sided traversal shortcuts,
+  generated entries and parameterized dispatch; identifies actual existing
+  observation/action machinery and the new sequential stateful-driver boundary.
 
 - [Net execution flow](execution/flow0.gpt6a.md): numbered library trace from
   name union through early/late steering, finalized plans, recursive application
