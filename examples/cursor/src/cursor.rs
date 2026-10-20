@@ -336,9 +336,10 @@ impl Cursor {
             increment(&mut self.skipped_total, 1)?;
             run.skipped = 1;
             run.events.push(Event::Skipped { logical: frame.tip.logical });
-            if let Some(parent) = self.stack.last_mut() {
-                parent.incomplete = true;
-            } else {
+            for ancestor in &mut self.stack {
+                ancestor.incomplete = true;
+            }
+            if self.stack.is_empty() {
                 self.final_state = Some(FinalState {
                     totals: Counts::default(),
                     incomplete: true,

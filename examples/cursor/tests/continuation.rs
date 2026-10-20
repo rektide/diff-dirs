@@ -170,6 +170,68 @@ fn blocked_attempts_stop_budget_and_retry_or_skip_the_scheduled_subtree() {
 }
 
 #[test]
+fn deep_skip_marks_all_active_ancestors_incomplete_before_they_finish() {
+    let f = Fixture::empty();
+    f.both_dir("a/blocked/deep");
+    f.both_dir("a/z/next");
+    let mut cursor = start(&f);
+    let options = RunOptions {
+        fail_at: Some(native("a/blocked")),
+        ..RunOptions::default()
+    };
+    assert_eq!(cursor.advance(units(10), &options).unwrap().attempted, 3);
+    let run = cursor
+        .advance(
+            units(1),
+            &RunOptions {
+                skip_blocked: true,
+                ..RunOptions::default()
+            },
+        )
+        .unwrap();
+    assert!(!run.done);
+    assert_eq!(cursor.stack.len(), 4); // root, a, assessed z, pending next
+    assert!(cursor.stack[0].incomplete && cursor.stack[1].incomplete);
+    assert!(!cursor.stack[2].incomplete);
+    let mut cursor = decode(encode(&cursor).unwrap()).unwrap();
+    let run = cursor.advance(units(1), &RunOptions::default()).unwrap();
+    assert!(run.done);
+    assert!(cursor.final_state.as_ref().unwrap().incomplete);
+    let incomplete: Vec<_> = run
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            Event::Completion(c) if c.incomplete => Some(c.logical.clone()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(incomplete, [native("a"), native("")]);
+}
+
+#[test]
+fn actual_inspector_failure_keeps_the_whole_directory_pending_without_partial_counts() {
+    let f = Fixture::empty();
+    f.both_dir("a");
+    f.both_file("a/equal", b"same");
+    let socket_path = f.source.join("a/socket");
+    let socket = std::os::unix::net::UnixListener::bind(&socket_path).unwrap();
+    let mut cursor = start(&f);
+    let run = cursor.advance(units(10), &RunOptions::default()).unwrap();
+    assert_eq!((run.attempted, run.completed), (2, 0));
+    assert_eq!(cursor.blocked.as_ref().unwrap().logical, native("a"));
+    let frame = cursor.stack.last().unwrap();
+    assert_eq!(frame.phase, Phase::Pending);
+    assert_eq!(frame.totals, Counts::default());
+    drop(socket);
+    std::fs::remove_file(socket_path).unwrap();
+    let mut cursor = decode(encode(&cursor).unwrap()).unwrap();
+    let run = cursor.advance(units(1), &RunOptions::default()).unwrap();
+    assert!(run.done);
+    assert_eq!((run.attempted, run.completed), (1, 2));
+    assert_eq!(cursor.final_state.as_ref().unwrap().totals.equal, 2);
+}
+
+#[test]
 fn missing_and_leaf_replaced_scheduled_directories_block_as_real_attempts() {
     let f = Fixture::empty();
     f.both_dir("a");
