@@ -1,0 +1,29 @@
+[package]
+name = "diff-dirs-walk-example"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "walk"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[features]
+default = []
+codec = ["dep:facet", "dep:kopacetic-core", "dep:kopacetic-rkyv"]
+cli = ["codec", "dep:clap", "dep:serde", "dep:serde_json"]
+
+[dependencies]
+bon = "3"
+diff-dirs = { path = "../..", default-features = false }
+tempfile = "3"
+thiserror = "2"
+facet = { version = "=0.50.0-rc.5", optional = true }
+kopacetic-core = { path = "../../../kopacetic/crates/kopacetic-core", default-features = false, optional = true }
+kopacetic-rkyv = { path = "../../../kopacetic/crates/kopacetic-rkyv", optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
