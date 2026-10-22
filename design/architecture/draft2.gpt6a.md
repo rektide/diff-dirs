@@ -7,7 +7,7 @@ status: accepted-direction-implementation-in-progress
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-22 }
 sources:
   - resource: "opencode://ses_e9e45e9f4ffeZUWoZCK5VDjJvv"
-    title: Human accepts the tree/transfer/app crate breakdown, requires path-derived names for every crate, and authorizes Sol xhigh implementation through extraction and relocation, stopping before coordinated comparison
+    title: Human accepts path-derived domain crates and Sol xhigh extraction through relocation, then authorizes JW consumer integration without assuming it is a small mechanical repair; coordinated comparison remains deferred
   - resource: /design/architecture/draft0.gpt6a.md
     title: Overall component ownership and optional future effectful progression controller
   - resource: /design/architecture/draft1.gpt6a.md
@@ -50,6 +50,7 @@ extensions:
   related_work: [diffdir-tree]
 verification:
   scope: Records accepted direction and implementation boundaries; implementation results will be appended after the owned stages are verified
+  result: Rekon structure/link/anchor checks passed after step 2; the OKF live-path check reports the three historical src paths removed by extraction, whose source coordinates remain explicitly bound to e588cdd0
 ---
 
 # Domain-owned crates
@@ -64,6 +65,13 @@ names must follow the complete repository-relative crate path, prefixed by
 This authorizes the extraction and relocation sequence below, through step 4.
 Implementation of coordinated comparison (step 5) remains the next unstarted slice.
 The [coordinated design](draft1.gpt6a.md) continues to define that future capability.
+
+The human subsequently authorized the companion JJ-waltz integration and clarified
+that its scope need not be small. Assess its payload/reseed and performance
+provenance boundaries against the extracted capabilities, rather than imposing a
+dependency-renames-only limit. Architectural integration can be broader; changes
+to native behavior or product defaults still require a concrete decision. This
+does not authorize the deferred coordinated comparison implementation.
 
 The facade follows the same naming rule: `tree/api` is `diff-dirs-tree-api`, with
 Rust import name `diff_dirs_tree_api`. Preserve recognizable API symbols through
@@ -238,6 +246,18 @@ direction. Report unavailable external dependencies or pre-existing failures wit
 their actual boundary. Do not claim untouched standalone codec integrations passed
 without checking them. Reuse completed stage checks; rerun only when subsequent
 changes invalidate them or a concrete concern needs verification.
+
+## Implementation checkpoints
+
+- `b4716e73`: accepted decomposition and path-derived package names recorded before
+  implementation.
+- `6b8d6ccb`: Sol xhigh separated immediate inspection and paired traversal into
+  `tree/inspect` and `tree/compare`, retaining the root facade temporarily.
+  The parent reviewed root binding and finalized-plan encapsulation. The agent
+  reported nextest passing with 116 default, 142 parallel, 119 native and 146
+  all-feature tests across the affected libraries/consumers; strict clippy,
+  doctests, library Rustdoc and formatting also passed. Performance packages were
+  checked, not benchmarked. Observation extraction and final relocation follow.
 
 ## Connections
 
