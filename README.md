@@ -5,8 +5,10 @@ description: Generic deterministic directory comparison, consumer-driven reconci
 resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
+updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-22 }
 sources:
+  - resource: opencode://ses_e9e45e9f4ffeZUWoZCK5VDjJvv
+    title: Connected the existing coordinated-multiple-destinations direction to the requested concrete architecture refinement
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
     title: Reviewed the specimens and research flight, integrated comparison navigation, and linked the parent's extensive post-flight architecture draft
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
@@ -715,6 +717,12 @@ deliberate policy for slow, stopped, or failed destinations, with source stabili
 defined for the shared observations. Test one, two, and several destinations to
 establish where the extra coordination pays off. Multiple destinations are a
 future extension; the current API compares one pair.
+
+The [coordinated comparison design](/design/architecture/draft1.gpt6a.md)
+now specifies a proposed single frontier with destination membership per child,
+shared source-fact acquisition, joined directory groups, lane-local errors and
+pruning, and per-destination summaries. It refines the earlier source-cohort design
+for this coordinated read-only use case and lists the implementation proof obligations.
 
 The [optimization comparison](/design/performance/comparison0.gpt6a.md) connects
 the independent inventories and their experiment briefs. Other ideas remain

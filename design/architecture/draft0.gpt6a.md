@@ -5,7 +5,10 @@ description: Parent design after the research flight, specifying data and contro
 resource: /design/architecture/draft0.gpt6a.md
 status: draft-for-design-selection
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
+updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-22 }
 sources:
+  - resource: "opencode://ses_e9e45e9f4ffeZUWoZCK5VDjJvv"
+    title: Added navigation to the requested coordinated-comparison refinement while preserving the original technical argument
   - resource: "opencode://ses_ea82cf969ffeAXqmUxHChTJar2"
     title: Human requests a precise extensive parent architecture draft after research; selects runtime-adjustable 64 KiB dirent buffers and a separate lazy 16-idle-buffer pool ticket, with no implementation in this writing pass
   - resource: /design/architecture/comparison0.gpt61sxh.md
@@ -82,6 +85,11 @@ verification:
 ---
 
 # Composable tree execution
+
+**Follow-on refinement:** [Coordinated source-to-many comparison](draft1.gpt6a.md)
+develops §12 into a first-class read-only composition with one shared frontier and
+destination-specific branch membership. It distinguishes that coordinated walk
+from the independent effectful destination continuations discussed below.
 
 ## Reading map
 

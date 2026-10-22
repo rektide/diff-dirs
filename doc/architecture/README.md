@@ -5,8 +5,12 @@ description: Component ownership and contracts for immediate inspection, selecte
 resource: /doc/architecture/README.md
 status: proposed-research-baseline
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-20 }
-updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-20 }
+updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-22 }
 sources:
+  - resource: "opencode://ses_e9e45e9f4ffeZUWoZCK5VDjJvv"
+    title: Connected the requested coordinated-comparison refinement and its single-frontier, destination-membership ownership to the maintained architecture
+  - resource: /design/architecture/draft1.gpt6a.md
+    title: Coordinated comparison refinement with shared source acquisition, per-destination assessment and deterministic grouped traversal
   - resource: "opencode://ses_ea82cf969ffeAXqmUxHChTJar2"
     title: Integrated reviewed evidence and comparison, then connected the parent's detailed post-flight architecture draft and selected resource-control direction
   - resource: /design/architecture/draft0.gpt6a.md
@@ -83,6 +87,13 @@ develops the overall design in detail: component dependencies, typed work,
 progression and construction contracts, resources, native flows and landing slices.
 It includes the newly selected runtime dirent-control direction; this maintained
 baseline does not thereby claim those interfaces or defaults are implemented.
+
+The [coordinated comparison refinement](/design/architecture/draft1.gpt6a.md)
+develops one source against several destinations as a first-class read-only
+composition. One frontier owns ordered child edges carrying destination membership;
+source observations are shared, while policy, differences, errors and summaries
+remain per destination. This is the proposed response to the requested coordinated
+walk; independent effectful destination continuations remain a separate composition.
 
 Assume a good source. Concurrency, locking and stable path topology are caller
 concerns. Failure promises **no effects history, recovery guarantee or rollback**.
@@ -172,6 +183,7 @@ force all jobs into the paired comparison walk:
 | Composition | Recursive owner and result |
 | --- | --- |
 | Read-only comparison | Core descends finalized admitted paired directories; one-sided directories remain opaque units. Only baseline-divergent batches are yielded. |
+| Proposed coordinated comparison | One core frontier merges per-destination admitted paired children into edges carrying destination membership. Joined directory groups share source facts and publish separate destination outcomes; one-sided regions remain opaque for each destination. |
 | Current sync | Paired walker owns matched-directory descent; sync recursively owns source-only copies, target-only removal and replacement interiors, using the same inspector/policy. |
 | Assessment continuation | Caller-built driver can select one-sided interiors and the directory side of collisions too. This assessment coverage does not split coupled mutation authority. |
 
