@@ -4,14 +4,18 @@ title: Rust performance controls — clean and selectable scenarios
 description: Checked-in native driver for frozen baseline/default/noop/name-check controls, mirrored samples and retained failures; migration beyond clean controls remains explicit.
 resource: /perf/runner/README.md
 status: implemented-native-scenarios
-generated: { by: "model:openai/gpt-6.1-sol#medium", at: 2026-10-18 }
+generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
 sources:
+  - resource: "opencode://ses_e9d30bb47ffecNZt7FyxnSrONN"
+    title: Add explicit archived legacy/domain package mappings, expanded production-input fingerprints and small compatibility tests; Cargo verification deferred during concurrent relocation
   - resource: "opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu"
     title: Implemented clean proof, modular Rust primitives and selectable verified N1/N2 scenarios; continuing Rust-only migration
   - resource: /design/performance/tooling-takeover0.sol61m.md
     title: Inventory, failure findings and bounded takeover basis
   - resource: /.test-agent/checked/frozen-fa91/README.md
     title: Preserved executable/build/source identities, including later rebuilt baseline benchmark
+  - resource: /design/architecture/draft2.gpt6a.md
+    title: Accepted step-4 tree/api and transfer/sync relocation with path-derived package names and preserved historical evidence
 ---
 
 # Rust clean-control runner
@@ -61,6 +65,65 @@ Nine Rust tests pass, including an actual native instrument integration test wit
 reset tests assert matching starts across repeats and independent target inodes.
 The accepted clean CLI remains compatible after splitting artifacts, scheduling,
 fixture/scenario, execution/report and explicit operation builds into modules.
+
+## Archived package layouts
+
+`build-operation` reads **the archive's manifests**, using locked, offline
+`cargo metadata --no-deps`, before selecting either supported layout. It refuses
+mixed or misnamed layouts instead of guessing from dates or the current checkout.
+The current instrument always imports `diff_dirs_tree_api` and
+`diff_dirs_transfer_sync`; its synthetic dependencies explicitly map those keys:
+
+| Archive layout | Instrument dependency key | Actual package | Build-relative dependency path |
+| --- | --- | --- | --- |
+| Historical root/sync | `diff-dirs-tree-api` | `diff-dirs` | `source` |
+| Historical root/sync | `diff-dirs-transfer-sync` | `diff-dirs-sync` | `source/sync` |
+| Domain-owned | `diff-dirs-tree-api` | `diff-dirs-tree-api` | `source/tree/api` |
+| Domain-owned | `diff-dirs-transfer-sync` | `diff-dirs-transfer-sync` | `source/transfer/sync` |
+
+The immutable commands and verification evidence above remain historical; these
+aliases do not rewrite archived sources, commits, manifests or results. See the
+[accepted relocation](/design/architecture/draft2.gpt6a.md#4-relocate-and-integrate-the-workspace)
+for the current crate graph and its stopping point.
+
+New build provenance has `build_provenance_schema: 2` and records `source_layout`
+with the selected dependency mapping. `source_inputs` retains the historical
+five per-key hash meanings for legacy builds, adding extracted `tree/` owners
+when present, compiled root/sync READMEs and optional build/config inputs. Domain
+builds fingerprint root manifest/lock, **all of `tree/` and `transfer/sync/`**,
+plus the root README and optional build/config inputs. Whole owner directories
+cover production implementation, manifests and compiled crate documentation,
+not just facade re-exports. File values are SHA-256; directory values retain the
+existing fixture fingerprint (names, modes, mtimes and file bytes, no inodes),
+not a content-only digest. Older provenance without a schema retains its original
+coverage; it must not be read as claiming the expanded coverage.
+
+`archived-metadata.stdout` preserves the original workspace-manifest inventory
+(not a resolved graph). After building, `dependency-graph.stdout` retains locked
+Cargo metadata for the **synthetic build's resolved graph**, with the same checks
+selection. It covers all target platforms, not only compiled target units. Both
+files are byte-fingerprinted in provenance; metadata contains absolute paths, so
+these digests are not normalized graph-equivalence identifiers. The generated
+manifest hash, preserved `Cargo.lock.seed` hash and actual resolved-lock hash
+separately identify build wiring, common seed and resolution. Source/helper/
+instrument/manifest/seed fingerprints are rechecked before publishing a control.
+
+The layout-compatibility tests added on 2026-10-22 have **not yet run**, to avoid
+Cargo activity during concurrent workspace relocation. They use tiny manifest/
+source fixtures only: real offline manifest parsing for both layouts, explicit
+aliases, rejection of mixed names, historical hash compatibility and mutation
+detection across production owners/manifests/compiled docs. Follow-on verification:
+
+```sh
+cargo nextest run -p diff-dirs-perf-runner --lib -E 'test(build_operation::tests::)'
+cargo clippy -p diff-dirs-perf-runner --all-targets -- -D warnings
+cargo fmt -p diff-dirs-perf-runner -- --check
+```
+
+These checks are not a performance campaign or an end-to-end archive build;
+historical archive builds still require compatible current instrumentation/API
+features and available dependencies. No automatic cleanup or reconciliation is
+introduced.
 
 ## Ready commands (from diff-dirs)
 
