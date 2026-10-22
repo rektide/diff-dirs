@@ -3,7 +3,7 @@
 use std::fs;
 use std::os::unix::ffi::OsStringExt;
 
-use diff_dirs_walk_example::*;
+use diff_dirs_examples_walk::*;
 use kopacetic_core::EntityIdentity;
 use kopacetic_rkyv::{Schema, Snapshot};
 

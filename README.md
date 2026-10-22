@@ -5,8 +5,10 @@ description: Generic deterministic directory comparison, consumer-driven reconci
 resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-22 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
 sources:
+  - resource: opencode://ses_e9d314c29ffeboK450qrHM3qhF
+    title: Relocated the workspace facade, synchronization and CLI; updated package coordinates, source navigation and current embedding commands without changing behavior
   - resource: opencode://ses_e9e45e9f4ffeZUWoZCK5VDjJvv
     title: Connected coordinated comparison and the accepted crate decomposition and path-derived naming to the project entry point
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
@@ -43,8 +45,10 @@ sources:
 
 The accepted [crate decomposition](design/architecture/draft2.gpt6a.md) separates
 physical observation, immediate inspection, comparison traversal and effects into
-domain-owned crates, with package names derived from their paths. The extraction
-is being landed before the coordinated multi-destination comparison capability.
+domain-owned crates, with package names derived from their paths. The root is a
+virtual workspace; the convenient public facade is
+[`diff-dirs-tree-api`](tree/api/README.md). Coordinated multi-destination
+comparison remains future work.
 
 A general tree-reconciliation library: compare an **original** tree (source of
 truth) against a **target** tree (a copy of some earlier generation of it) and
@@ -90,7 +94,7 @@ Snapshot transport remains example-local.
 - It does not reconcile by itself. It produces precise, ordered, deterministic
   differences; the caller's loop applies policy.
 - Actual copy/sync procedures belong in a **separate optional crate**, not the
-  diff core. [`diff-dirs-sync`](sync/README.md) now supplies root-bound record
+   diff core. [`diff-dirs-transfer-sync`](transfer/sync/README.md) supplies root-bound record
   application and mirror convenience operations, with explicit ordinary-copy,
   required-reflink, or fallback policy. It is a consumer, never a core dependency.
 
@@ -216,9 +220,9 @@ remain usable with their default comparison meanings.
 
 ```rust,no_run
 fn compare(original: &std::path::Path, target: &std::path::Path)
-    -> Result<diff_dirs::Summary, diff_dirs::Error>
+    -> Result<diff_dirs_tree_api::Summary, diff_dirs_tree_api::Error>
 {
-let mut walk = diff_dirs::walk(original, target)?;
+let mut walk = diff_dirs_tree_api::walk(original, target)?;
 while let Some(diff) = walk.next() {
     let diff = diff?;
     // apply policy per record, in your own loop
@@ -260,7 +264,7 @@ shared mutable scheduler. Every name initially participates; supported entries
 initially propose normal mirror work. Equal leaves remain no-ops.
 
 * `early(&mut Names)` sees the native-byte-sorted union of immediate basenames
-  and immutable per-side [`EarlyFacts`](src/visitor.rs), plus
+  and immutable per-side [`EarlyFacts`](tree/observe/src/facts.rs), plus
   `Presence::{SourceOnly,Both,TargetOnly}` from listings. Available cached kind
   and inode facts require no additional child observation I/O. It can
   `preserve_tree()` pair-wide or return a refusal, **before child metadata,
@@ -280,10 +284,10 @@ initially propose normal mirror work. Equal leaves remain no-ops.
   writes is invalid. Directory↔leaf replacements are **coupled actions**, never
   independently editable delete/create halves. Equal-leaf force installation is
   deliberately not supported. The exact authority table and staging contract
-  are in [`Action`'s Rustdoc](src/visitor.rs).
+  are in [`Action`'s Rustdoc](tree/inspect/src/visitor.rs).
 
 ```rust,no_run
-use diff_dirs::{CheckError, Names, Operations, Presence, Visitor};
+use diff_dirs_tree_api::{CheckError, Names, Operations, Presence, Visitor};
 struct SeedExceptAdministrative;
 impl Visitor for SeedExceptAdministrative {
     fn early(&self, names: &mut Names) -> Result<(), CheckError> {
@@ -303,8 +307,8 @@ impl Visitor for SeedExceptAdministrative {
         Ok(())
     }
 }
-# fn main() -> Result<(), diff_dirs::Error> {
-let mut walk = diff_dirs::walk_with_visitor("source", "target", SeedExceptAdministrative)?;
+# fn main() -> Result<(), diff_dirs_tree_api::Error> {
+let mut walk = diff_dirs_tree_api::walk_with_visitor("source", "target", SeedExceptAdministrative)?;
 for batch in walk.by_ref() {
     let batch = batch?; // immutable DirectoryPlan; core never applies it
     println!("{:?}: {} planned actions", batch.operations().dir(), batch.work());
@@ -320,7 +324,7 @@ batch determines child admission; a clean directory whose descent was stopped
 cannot expose descendant jobs. Callbacks run outside frontier locks. A rich walk
 still yields only observed divergent directory batches and leaves one-sided
 interiors opaque; clean batches nevertheless run late and contribute steering
-coverage. [`diff-dirs-sync`](sync/README.md#visitor-steered-synchronization)
+coverage. [`diff-dirs-transfer-sync`](transfer/sync/README.md#visitor-steered-synchronization)
 recursively inspects those interiors through the same contexts and consumes
 finalized actions, not a filtered report.
 
@@ -391,7 +395,7 @@ Compatibility surface: `Check` and `Scope` project into the visitor batches
 below; they are not separate decision or filesystem engines.
 
 ```rust,no_run
-use diff_dirs::{CheckError, Entry};
+use diff_dirs_tree_api::{CheckError, Entry};
 fn check(entry: Entry<'_>) -> Result<(), CheckError> {
     if entry.name == ".git" || entry.name == ".jj" {
         return Err("administrative entry in payload".into());
@@ -399,11 +403,11 @@ fn check(entry: Entry<'_>) -> Result<(), CheckError> {
     Ok(())
 }
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-let mut walk = diff_dirs::walk_checked("original", "target", check)?;
+let mut walk = diff_dirs_tree_api::walk_checked("original", "target", check)?;
 for item in walk.by_ref() { let diff = item?; /* caller applies */ }
 let compared = walk.into_summary();
 // Separate, explicitly requested full validation; NEVER implicit before sync:
-let inspected = diff_dirs::audit("original", diff_dirs::Side::Original, &check)?;
+let inspected = diff_dirs_tree_api::audit("original", diff_dirs_tree_api::Side::Original, &check)?;
 # Ok(()) }
 ```
 
@@ -439,7 +443,7 @@ join, divergence-seal, pruning, and J/K contracts are unchanged.
 `walk_with_options_checked` and `walk_in_pool_checked` are the execution variants.
 A checked comparison still leaves one-sided interiors opaque: successful iterator
 exhaustion certifies **comparison** coverage, not full recursive policy coverage.
-Use [checked sync](sync/README.md#checked-execution-and-audit) or explicit audit
+Use [checked sync](transfer/sync/README.md#checked-execution-and-audit) or explicit audit
 for that. `audit(root, side, &check)` is a read-only sorted DFS of every entry,
 including a leaf root without following it. It returns side-local counts including
 the root; `AuditFailure` carries the successfully checked prefix. It neither
@@ -471,7 +475,7 @@ are false for scoped walks, even when no excluded name was encountered.
 `audit_scoped(root, side, &check, &scope)` also skips before observation, including
 one-sided interiors. Its `Audit.excluded` counts side-local excluded boundaries.
 Public records remain names/classification only, not policy certificates. The
-[sync specification](sync/README.md#scope-and-absence-authority) covers recursive
+[sync specification](transfer/sync/README.md#scope-and-absence-authority) covers recursive
 scope enforcement, retained ancestors, and source-absence authority.
 
 ### 1. Apply-in-loop — jj-waltz payload sync
@@ -550,8 +554,8 @@ its cheap keys.
 Exit codes: `0` no differences, `1` differences found, `2` usage/IO error
 (never silently truncate; unreadable directories abort naming the path).
 
-Build/run with `cargo run -p diff-dirs-cli -- ORIGINAL TARGET --format json`,
-or `cargo build --release -p diff-dirs-cli` and use `target/release/diff-dirs`.
+Build/run with `cargo run -p diff-dirs-app-cli -- ORIGINAL TARGET --format json`,
+or `cargo build --release -p diff-dirs-app-cli` and use `target/release/diff-dirs`.
 Default format is text. `--` terminates options for dash-prefixed paths.
 
 Each output record has `type: "diff"`, `dir`, `files`, and `dirs`. A final
@@ -577,13 +581,24 @@ Root-relative `dir` is the empty string for the root pair.
 
 ## Embedding
 
-The root `diff-dirs` package is std-only **by default**, edition 2024;
+The `diff-dirs-tree-api` facade is std-only **by default**, edition 2024;
 embedding does not require a runtime, CLI dependencies, or sync
 component. Optional `parallel` adds Rayon; `walk()` remains sequential even
 when the feature is compiled in.
-The separate `cli/` workspace member owns standalone rendering dependencies.
-The separate `sync/` member owns optional filesystem mutation and its dependencies.
+The separate `app/cli/` workspace member owns standalone rendering dependencies.
+The separate `transfer/sync/` member owns optional filesystem mutation and its dependencies.
 Path dependency vs vendoring vs publishing remains an integration decision.
+
+```toml
+[dependencies]
+diff-dirs-tree-api = { path = "/path/to/diff-dirs/tree/api" }
+```
+
+Use `diff_dirs_tree_api` in Rust. Packages follow their repository paths:
+`diff-dirs-tree-{observe,inspect,compare,api}`, `diff-dirs-transfer-sync`, and
+`diff-dirs-app-cli`. The standalone examples are `diff-dirs-examples-cursor`
+and `diff-dirs-examples-walk`, still outside this workspace; their executables
+remain `cursor` and `walk`. No root package named `diff-dirs` remains.
 
 ### Optional cached Linux dirents
 
@@ -591,9 +606,9 @@ Path dependency vs vendoring vs publishing remains an integration decision.
 `std::fs::Dir` API (`dirfd`): **Linux builds with this feature require nightly**.
 It exposes cached type/inode hints to early visitors without hidden stat fallback,
 and retains one shared parent descriptor for admitted relative metadata. Enable
-with `cargo test -p diff-dirs --features native-dirent`, or add
-`features = ["native-dirent"]` to the embedding `diff-dirs` dependency. To exercise
-sync with it: `cargo test -p diff-dirs-sync --features diff-dirs/native-dirent`.
+with `cargo test -p diff-dirs-tree-api --features native-dirent`, or add
+`features = ["native-dirent"]` to the embedding `diff-dirs-tree-api` dependency. To exercise
+sync with it: `cargo test -p diff-dirs-transfer-sync --features native-dirent`.
 There is no toolchain pin or default compiler-baseline change. On non-Linux the
 feature leaves the std backend in use.
 
@@ -607,7 +622,7 @@ Structural roots reuse mandatory metadata (`FactOrigin::RootMetadata`), not
 listing facts. These hints are neither full stat nor equality/replacement proof.
 The [execution-state account](design/execution/state0.gpt6a.md#enumeration-can-already-provide-facts)
 records backend capabilities and bounded call-count/syscall verification; the
-[`EarlyFacts` Rustdoc example](src/visitor.rs) shows type filtering with explicit
+[`EarlyFacts` visitor example](tree/inspect/src/visitor.rs) shows type filtering with explicit
 Unknown handling and `.jj` preservation independent of type.
 
 jj-waltz is a prospective consumer, not changed by this library implementation.
@@ -622,12 +637,12 @@ repository-specific policy, and final verification remain consumer concerns.
 ### Optional filesystem synchronization
 
 ```rust,ignore
-let report = diff_dirs_sync::mirror(original, target,
-                                    diff_dirs_sync::CopyPolicy::ReflinkRequired)?;
+let report = diff_dirs_transfer_sync::mirror(original, target,
+                                    diff_dirs_transfer_sync::CopyPolicy::ReflinkRequired)?;
 // Or bind Applier once and apply each DirDiff in the caller's existing loop.
 ```
 
-[`sync/README.md`](sync/README.md) owns the API and safety contract, including
+[`transfer/sync/README.md`](transfer/sync/README.md) owns the API and safety contract, including
 borrowed Rayon pools, whole-subtree operations, read-only-directory handling,
 exact supported timestamps, and joined partial failures. Mirror includes
 target-only deletion; it is not an unconditional metadata-repair sweep or a
@@ -639,8 +654,8 @@ Observed diff counts remain distinct from completed recursive filesystem work.
 Enable `features = ["parallel"]`. Prefer the explicit borrowed-pool API:
 
 ```rust,ignore
-let limits = diff_dirs::ParallelLimits::for_pool(&app_pool); // initially J=P, K=4P
-let mut walk = diff_dirs::walk_in_pool(original, target, &app_pool, limits)?;
+let limits = diff_dirs_tree_api::ParallelLimits::for_pool(&app_pool); // initially J=P, K=4P
+let mut walk = diff_dirs_tree_api::walk_in_pool(original, target, &app_pool, limits)?;
 while let Some(item) = walk.next() {
     let diff = item?;
     if replace_whole(&diff) {
@@ -749,6 +764,14 @@ changes live in summary `changed_dirs`, not streamed records; clean comparisons
 are silent in the library (the CLI still prints its final summary).
 
 ## Development and evidence
+
+Historical revision-bound research keeps its original coordinates. For current
+navigation: root `src/lib.rs` and API tests moved to `tree/api/`; `src/visitor.rs`
+is now `tree/inspect/src/visitor.rs`, listing/facts live in `tree/observe/src/`,
+and traversal lives in `tree/compare/src/`. Root `sync/` and `cli/` became
+`transfer/sync/` and `app/cli/`; `examples/perf.rs` is now
+`tree/api/examples/perf.rs`. This is a source/package relocation, not a serialized
+schema change or a new CLI mode.
 
 Use the environment's configured Rust toolchain with ordinary `cargo` commands.
 The project does not pin a compiler or retain a Rust 1.88 compatibility floor;

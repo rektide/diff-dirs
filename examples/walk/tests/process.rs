@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-use diff_dirs_walk_example::{Phase, SavedWalk, Unit, Work, codec};
+use diff_dirs_examples_walk::{Phase, SavedWalk, Unit, Work, codec};
 
 fn invoke(args: &[&std::ffi::OsStr]) -> serde_json::Value {
     let output = Command::new(env!("CARGO_BIN_EXE_walk")).args(args).output().unwrap();

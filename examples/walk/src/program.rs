@@ -1,4 +1,4 @@
-use diff_dirs::{Action, DirectoryPlan};
+use diff_dirs_tree_api::{Action, DirectoryPlan};
 
 use crate::{Error, Frame, Kind, Local, NativePath, Node, Recipe, add, require};
 

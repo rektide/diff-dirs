@@ -4,7 +4,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::process::{Command, Output};
 
-use diff_dirs_cursor_example::{Cursor, MAX_ARCHIVE_BYTES, read_cursor};
+use diff_dirs_examples_cursor::{Cursor, MAX_ARCHIVE_BYTES, read_cursor};
 use serde_json::Value;
 use support::{Fixture, non_utf8};
 
@@ -82,7 +82,7 @@ fn successive_processes_match_uninterrupted_output_and_native_paths() {
     assert_eq!(observed, events(&expected));
     assert_eq!(read_cursor(&partial).unwrap(), read_cursor(&full).unwrap());
     assert!(records.last().unwrap()["done"].as_bool().unwrap());
-    let bytes = diff_dirs_cursor_example::NativePath::new(&non_utf8()).bytes;
+    let bytes = diff_dirs_examples_cursor::NativePath::new(&non_utf8()).bytes;
     assert!(observed.iter().any(|v| v["type"] == "completion" && v["logical"] == serde_json::json!(bytes)));
     let root = observed
         .iter()

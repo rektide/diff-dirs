@@ -2,7 +2,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use diff_dirs::{CheckError, DirectoryPlan, Operations, Presence, Purpose, Visitor, inspect_directory};
+use diff_dirs_tree_api::{CheckError, DirectoryPlan, Operations, Presence, Purpose, Visitor, inspect_directory};
 
 use crate::{Attempt, Bindings, EffectOutcome, Error, Executor, Inspector, Node, Work, Writes, disjoint, report_name, require};
 

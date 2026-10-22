@@ -1,5 +1,5 @@
 [package]
-name = "diff-dirs-walk-example"
+name = "diff-dirs-examples-walk"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -18,7 +18,7 @@ cli = ["codec", "dep:clap", "dep:serde", "dep:serde_json"]
 
 [dependencies]
 bon = "3"
-diff-dirs = { path = "../..", default-features = false }
+diff-dirs-tree-api = { path = "../../tree/api", default-features = false }
 tempfile = "3"
 thiserror = "2"
 facet = { version = "=0.50.0-rc.5", optional = true }

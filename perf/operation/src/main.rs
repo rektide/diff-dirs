@@ -4,6 +4,8 @@ use diff_dirs_perf_runner::{
     scenario::{Case, Scenario},
 };
 use diff_dirs_sync::{CopyPolicy, Report};
+use diff_dirs_transfer_sync as diff_dirs_sync;
+use diff_dirs_tree_api as diff_dirs;
 use std::{path::Path, time::Instant};
 
 fn apply(source: &Path, target: &Path, mode: &str, threads: usize, pool: &rayon::ThreadPool) -> Result<Report> {

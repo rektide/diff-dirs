@@ -5,12 +5,15 @@ description: A standalone Unix Rust library and CLI that assesses real trees, tr
 resource: /examples/cursor/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-20 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
 sources:
+  - resource: "opencode://ses_e9d314c29ffeboK450qrHM3qhF"
+    title: Updated standalone package and facade coordinates while preserving local codec dependencies and persisted schema identity
   - resource: "opencode://ses_ea8162bcbffe20eNrM60NJtgVS"
     title: Implemented and verified the isolated cursor library, CLI, generated summary handler, process continuation, retry and subtree skip
   - resource: /design/cursor/cursor0.gpt6am.md
     title: Reviewed design implemented by this example
-  - resource: /src/visitor.rs
+  - resource: /tree/inspect/src/visitor.rs
     title: Public immediate-directory inspector and pure visitor contract
   - resource: "file:///home/rektide/src/kopacetic/crates/kopacetic-rkyv/src/lib.rs"
     title: Actual Snapshot codec, validation, identity and schema interfaces
@@ -22,7 +25,7 @@ verification:
 # Bounded assessment cursor
 
 An **assessment-only**, JJ-independent example. Each successful directory
-assessment uses public `diff_dirs::inspect_directory`. A sequential driver owns
+assessment uses public `diff_dirs_tree_api::inspect_directory`. A sequential driver owns
 its DFS frames, counts, child indices and continuation; it never restarts a walk
 at the root to skip old results. `NoVisitor` remains pure.
 
@@ -37,9 +40,11 @@ files are emitted, not installed into either input tree.** No sync actions run.
 - Unix native paths; verified on Linux with Rust 1.101 nightly.
 - Sibling checkouts `../../../kopacetic` and `../../../facet-format-path` relative
   to this directory. These are local path dependencies, not vendored code.
-- This crate is its own nested workspace with a committed lockfile and isolated
-  `target/`. Core's manifest/source and normal dependency graph are unchanged.
-  `kopacetic-core`'s default Kubernetes feature is disabled here.
+- Package `diff-dirs-examples-cursor` is its own nested workspace with a committed
+  lockfile and isolated `target/`; its executable remains `cursor`. Its facade
+  dependency is `../../tree/api` (`diff-dirs-tree-api`), and codec dependencies
+  stay outside the main workspace. `kopacetic-core`'s default Kubernetes feature
+  is disabled here.
 
 From the diff-dirs checkout, make a tiny fixture outside the input trees:
 
@@ -125,6 +130,7 @@ child, saves a blocked cursor and exits 1. Use `--units 2` for that demonstratio
 substitute. Serde is used only for JSON output and textual generated content.
 Application schema is `diff-dirs.cursor-example`, revision 1; expected identity
 is `DirectoryCursor/example`. Incompatible DTO changes require a schema revision.
+The path-derived Cargo package rename does not change these persisted identities.
 The descriptor accepts only `directory-summary/v1` and exactly its `label` key.
 
 Backend validation checks envelope/checksum, checked rkyv access, exact schema
@@ -152,7 +158,7 @@ concurrent mutation and locking; symlink leaves are not followed.
 cargo nextest run --manifest-path examples/cursor/Cargo.toml
 cargo clippy --manifest-path examples/cursor/Cargo.toml --all-targets -- -D warnings
 cargo fmt --manifest-path examples/cursor/Cargo.toml --check
-cargo tree -p diff-dirs --edges normal
+cargo tree -p diff-dirs-tree-api --edges normal
 ```
 
 - `src/cursor.rs`: DTO, sequential stepping, pure reduction and summary handler.

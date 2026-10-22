@@ -1,5 +1,5 @@
 //! Run with three absolute existing, disjoint source/target/reports roots.
-use diff_dirs_walk_example::{Bindings, ByteExecutor, DesiredCopy, FullInspector, Limits, Manifest, Request, StartParts, cursor};
+use diff_dirs_examples_walk::{Bindings, ByteExecutor, DesiredCopy, FullInspector, Limits, Manifest, Request, StartParts, cursor};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let paths: Vec<_> = std::env::args_os().skip(1).collect();

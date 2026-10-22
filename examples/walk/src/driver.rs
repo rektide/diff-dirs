@@ -1,4 +1,4 @@
-use diff_dirs::DirectoryPlan;
+use diff_dirs_tree_api::DirectoryPlan;
 
 use crate::{
     Aggregate, Bindings, DesiredCopy, Error, Frame, Manifest, ManifestState, Node, Outcome, Pending, Phase, SavedWalk, Unit, Work, add, expected_unit, require,

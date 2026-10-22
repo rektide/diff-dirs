@@ -1,24 +1,7 @@
-[package]
-name = "diff-dirs"
-version = "0.1.0"
-edition.workspace = true
-description = "Deterministic, metadata-based paired directory comparison"
-readme = "README.md"
-
 [workspace]
-members = ["tree/observe", "tree/inspect", "tree/compare", "cli", "sync", "perf/runner", "perf/operation"]
+members = ["tree/observe", "tree/inspect", "tree/compare", "tree/api", "transfer/sync", "app/cli", "perf/runner", "perf/operation"]
+exclude = ["examples/cursor", "examples/walk"]
 resolver = "3"
 
 [workspace.package]
 edition = "2024"
-
-[dependencies]
-diff-dirs-tree-inspect = { path = "tree/inspect", version = "0.1.0" }
-diff-dirs-tree-compare = { path = "tree/compare", version = "0.1.0" }
-rayon = { version = "1.12.0", optional = true }
-
-[features]
-native-dirent = ["diff-dirs-tree-inspect/native-dirent", "diff-dirs-tree-compare/native-dirent"]
-parallel = ["dep:rayon", "diff-dirs-tree-inspect/parallel", "diff-dirs-tree-compare/parallel"]
-parallel-diagnostics = ["parallel", "diff-dirs-tree-compare/parallel-diagnostics"]
-parallel-bench = ["parallel", "diff-dirs-tree-compare/parallel-bench"]

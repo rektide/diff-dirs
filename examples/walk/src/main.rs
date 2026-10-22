@@ -2,7 +2,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
-use diff_dirs_walk_example::{Bindings, ByteExecutor, DesiredCopy, FullInspector, Limits, Manifest, StartParts, Stop, codec, cursor};
+use diff_dirs_examples_walk::{Bindings, ByteExecutor, DesiredCopy, FullInspector, Limits, Manifest, StartParts, Stop, codec, cursor};
 
 #[derive(Parser)]
 #[command(about = "Bounded Unix byte-copy/manifest walking specimen")]

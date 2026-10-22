@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
-use diff_dirs_cursor_example::{Cursor, Descriptor, NativePath, RunOptions, read_cursor, write_cursor};
+use diff_dirs_examples_cursor::{Cursor, Descriptor, NativePath, RunOptions, read_cursor, write_cursor};
 use serde_json::json;
 
 #[derive(Parser)]

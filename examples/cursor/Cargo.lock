@@ -197,15 +197,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "diff-dirs"
-version = "0.1.0"
-
-[[package]]
-name = "diff-dirs-cursor-example"
+name = "diff-dirs-examples-cursor"
 version = "0.1.0"
 dependencies = [
  "clap",
- "diff-dirs",
+ "diff-dirs-tree-api",
  "facet",
  "kopacetic-core",
  "kopacetic-rkyv",
@@ -214,6 +210,32 @@ dependencies = [
  "tempfile",
  "thiserror",
 ]
+
+[[package]]
+name = "diff-dirs-tree-api"
+version = "0.1.0"
+dependencies = [
+ "diff-dirs-tree-compare",
+ "diff-dirs-tree-inspect",
+]
+
+[[package]]
+name = "diff-dirs-tree-compare"
+version = "0.1.0"
+dependencies = [
+ "diff-dirs-tree-inspect",
+]
+
+[[package]]
+name = "diff-dirs-tree-inspect"
+version = "0.1.0"
+dependencies = [
+ "diff-dirs-tree-observe",
+]
+
+[[package]]
+name = "diff-dirs-tree-observe"
+version = "0.1.0"
 
 [[package]]
 name = "digest"

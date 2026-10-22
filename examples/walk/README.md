@@ -5,7 +5,10 @@ description: A bounded Unix byte-copy and generated-manifest specimen with expli
 resource: /examples/walk/README.md
 status: implemented-bounded-specimen
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-20 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
 sources:
+  - resource: "opencode://ses_e9d314c29ffeboK450qrHM3qhF"
+    title: Updated the standalone package and facade imports without changing feature selection, local codec dependencies or saved schema identities
   - resource: "opencode://ses_ea7b7c0a4ffe1KVm1nvPn7svzl"
     title: Implemented and tested component construction, actual walking, retry/skip and fresh-process continuation
   - resource: /design/execution/builder0.gpt6am.md
@@ -31,6 +34,11 @@ verification:
 This standalone nested crate demonstrates **real byte copying, effectful directory
 finishes and continuation through four processes**. It does not modify core, sync
 or the original [assessment-only cursor](/examples/cursor/README.md).
+
+Package `diff-dirs-examples-walk` remains a standalone `[workspace]` with its own
+lockfile and target directory. Rust imports use `diff_dirs_examples_walk`; the
+`walk` executable still requires feature `cli`. Immediate inspection comes from
+the `diff-dirs-tree-api` facade at `../../tree/api`, not the retired root package.
 
 ## Run the four gates
 
@@ -170,11 +178,18 @@ This is not a portable `NAME_MAX` assertion; smaller filesystems can fail normal
 Feature `codec` uses actual Kopacetic Snapshot schema `diff-dirs.walk-example`,
 revision 1, identity `WalkingCursor` / `example`. `cli` adds this codec plus
 Clap/Serde JSON output. Archives are capped at 8 MiB before decode/after encode;
+the Cargo package rename does not change those serialized schema identities.
 projection/reconstruction allocations, listing width and individual file size
 are not bounded by that limit. Cursor publication is outside all three roots and
 separate from effects/stdout. Old/forked snapshots can repeat work; there is no
 cross-process exactly-once, history, recovery, locking or cleanup-reconciliation
 promise. Optional local path dependencies remain example-only.
+
+```sh
+cargo nextest run --offline --manifest-path examples/walk/Cargo.toml
+cargo nextest run --offline --manifest-path examples/walk/Cargo.toml --all-features
+cargo clippy --offline --manifest-path examples/walk/Cargo.toml --all-targets --all-features -- -D warnings
+```
 
 Exact checks, deviations from proposed spellings, and limitations are in the
 [implementation report](/design/execution/walk0.gpt61sxh.md).

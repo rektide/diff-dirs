@@ -185,19 +185,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "diff-dirs"
+name = "diff-dirs-app-cli"
 version = "0.1.0"
 dependencies = [
- "diff-dirs-tree-compare",
- "diff-dirs-tree-inspect",
- "rayon",
-]
-
-[[package]]
-name = "diff-dirs-cli"
-version = "0.1.0"
-dependencies = [
- "diff-dirs",
+ "diff-dirs-tree-api",
  "serde_json",
 ]
 
@@ -205,9 +196,9 @@ dependencies = [
 name = "diff-dirs-perf-operation"
 version = "0.0.0"
 dependencies = [
- "diff-dirs",
  "diff-dirs-perf-runner",
- "diff-dirs-sync",
+ "diff-dirs-transfer-sync",
+ "diff-dirs-tree-api",
  "rayon",
  "serde_json",
  "tempfile",
@@ -227,14 +218,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "diff-dirs-sync"
+name = "diff-dirs-transfer-sync"
 version = "0.1.0"
 dependencies = [
- "diff-dirs",
+ "diff-dirs-tree-compare",
+ "diff-dirs-tree-inspect",
  "rayon",
  "reflink-copy",
  "rustix",
  "tempfile",
+]
+
+[[package]]
+name = "diff-dirs-tree-api"
+version = "0.1.0"
+dependencies = [
+ "diff-dirs-tree-compare",
+ "diff-dirs-tree-inspect",
+ "rayon",
 ]
 
 [[package]]

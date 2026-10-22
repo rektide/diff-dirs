@@ -5,7 +5,10 @@ description: Separately generated trees, strictly read-only live comparisons, sa
 resource: /perf/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
 sources:
+  - resource: opencode://ses_e9d314c29ffeboK450qrHM3qhF
+    title: Relocated the perf example into the facade package and updated active build selectors and synchronization coordinates, preserving historical results
   - resource: opencode://ses_eb2165cc8ffe4vOmOvDBe7aXQu
     title: Replaced active Python performance entrypoints with checked-in Rust controls, reports, audits and resource observation; retained historical evidence
   - resource: opencode://ses_eb24f98a3ffewdVqa9lao6tXQu
@@ -16,7 +19,7 @@ sources:
     title: Added separate marked-owned-fixture synchronization benchmark method and retained copy/reflink/no-op/delta measurements without changing read-only live comparison commands
   - resource: opencode://ses_eb3948bedffe0T37Xc2wI2S5Jg
     title: Built reproducible fixtures/live tests, then same-build serial/per-frame/frontier comparisons, interleaved repeats, physical diagnostics, and process resource sampling
-  - resource: /examples/perf.rs
+  - resource: /tree/api/examples/perf.rs
     title: Executable fixture setup, scenarios, validation, and timing boundaries
   - resource: /README.md
     title: Metadata-only comparison contract and unrecovered historical measurement claims
@@ -32,6 +35,14 @@ The comparison example below remains the domain instrument. Former Python
 drivers are retired, not an alternative supported path. Historical sources are
 recoverable with `git show 997183df472f81d21e8d553a9002d083d636ef05:perf/PATH`.
 
+The source is now [`tree/api/examples/perf.rs`](/tree/api/examples/perf.rs), owned
+by `diff-dirs-tree-api`; target name and output path remain `perf` and
+`target/release/examples/perf`. Current operation controls consume the relocated
+facade and `transfer/sync` packages. Revision-bound results and archived experiment
+sources retain their original names and paths. The runner's generated archived
+`build-operation` compatibility is a separate follow-up, not verified by this
+relocation; ordinary workspace packages can be built directly.
+
 This measures the generic comparison library, **not copy/sync or jj-waltz**.
 Owned metadata-shape fixtures do not reproduce the historical 8 GB workload.
 Their payloads are empty except the tiny deliberately dense size differences.
@@ -46,7 +57,7 @@ Build both candidate and control with that same compiler; historical Rust 1.88
 results describe their original builds, not the current compiler's performance.
 
 ```sh
-cargo build --release --example perf
+cargo build --release -p diff-dirs-tree-api --example perf
 mkdir -p .test-agent/perf
 target/release/examples/perf setup .test-agent/perf/btrfs-30k 30000
 target/release/examples/perf setup .test-agent/perf/btrfs-192k 192000
@@ -138,7 +149,7 @@ rebuilding. Pool creation is outside all timings and one pool is shared across
 every walk/warmup in that process. For example:
 
 ```sh
-cargo build --release --example perf --features parallel-bench
+cargo build --release -p diff-dirs-tree-api --example perf --features parallel-bench
 target/release/examples/perf run .test-agent/perf/btrfs-192k 3
 target/release/examples/perf parallel 4 run .test-agent/perf/btrfs-192k 3
 target/release/examples/perf parallel 4 repeat /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 3
@@ -166,8 +177,8 @@ Build timing and instrumented executables separately. Do not use an all-features
 instrumented binary for the timing table:
 
 ```sh
-cargo build --release --example perf --features parallel-bench --target-dir target/frontier-timing
-cargo build --release --example perf --features parallel-diagnostics --target-dir target/frontier-instrumented
+cargo build --release -p diff-dirs-tree-api --example perf --features parallel-bench --target-dir target/frontier-timing
+cargo build --release -p diff-dirs-tree-api --example perf --features parallel-diagnostics --target-dir target/frontier-instrumented
 target/frontier-timing/release/examples/perf compare /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 4 5 4 256 live-node
 target/frontier-instrumented/release/examples/perf diagnose /home/rektide/a/a/opencode/node_modules /home/rektide/src/opencode-export-qa/node_modules 4 4 256
 ```
@@ -239,12 +250,12 @@ separate from the interleaved timing matrix.
 
 ## Filesystem synchronization — separate owned-fixture harness
 
-The `sync/` consumer has its own `sync_perf` example; it is **mutating**, unlike
+The `transfer/sync/` consumer has its own `sync_perf` example; it is **mutating**, unlike
 the arbitrary-pair read-only commands above. It accepts only a freshly generated
 marked fixture for benchmark runs and never offers an arbitrary-root sync mode.
 
 ```sh
-cargo build --release -p diff-dirs-sync --example sync_perf --features parallel --target-dir target/sync-perf
+cargo build --release -p diff-dirs-transfer-sync --example sync_perf --features parallel --target-dir target/sync-perf
 mkdir -p .test-agent/sync
 target/sync-perf/release/examples/sync_perf setup .test-agent/sync/btrfs-30k-new 300 100
 target/sync-perf/release/examples/sync_perf run .test-agent/sync/btrfs-30k-new 3

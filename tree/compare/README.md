@@ -9,6 +9,8 @@ verification:
   scope: Existing paired traversal and facade compatibility, not coordinated comparison
   method: Default, parallel and Linux nightly native nextest suites including frontier controls; clippy, doctests and Rustdoc
 sources:
+  - resource: "opencode://ses_e9d314c29ffeboK450qrHM3qhF"
+    title: Updated facade and API-test ownership after the final workspace relocation
   - resource: "opencode://ses_e9d737832ffeiy0f6OibOWOKSp"
     title: Extracted traversal and recursive audit while preserving frontier semantics and facade type identities
   - resource: /design/architecture/draft2.gpt6a.md#2-separate-immediate-inspection-from-traversal
@@ -34,7 +36,7 @@ coordinated multi-target frontier or generic progression controller is added.
 
 Features forward down the dependency graph: `parallel`, `native-dirent`, and the
 existing `parallel-diagnostics` / `parallel-bench` controls. Sequential execution
-remains the default. The root `diff-dirs` package temporarily preserves existing
-consumer imports; most integration tests remain there as external API tests.
+remains the default. The [`diff-dirs-tree-api` facade](../api/README.md) provides
+convenient public exports; external API integration tests now live there.
 Frontier unit tests live here and share only dependency-free fixture source with
 inspection, avoiding cyclic dev dependencies.

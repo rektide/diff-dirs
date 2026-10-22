@@ -3,7 +3,7 @@ mod support;
 use std::num::NonZeroUsize;
 use std::path::Path;
 
-use diff_dirs_cursor_example::{Counts, Cursor, Descriptor, Event, NativePath, Phase, RunOptions, decode, encode};
+use diff_dirs_examples_cursor::{Counts, Cursor, Descriptor, Event, NativePath, Phase, RunOptions, decode, encode};
 use kopacetic_core::EntityIdentity;
 use kopacetic_rkyv::{Schema, Snapshot};
 use support::{Fixture, file, non_utf8};

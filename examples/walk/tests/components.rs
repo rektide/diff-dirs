@@ -4,8 +4,8 @@ use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::{FileTypeExt, MetadataExt, symlink};
 use std::rc::Rc;
 
-use diff_dirs::DirectoryPlan;
-use diff_dirs_walk_example::*;
+use diff_dirs_examples_walk::*;
+use diff_dirs_tree_api::DirectoryPlan;
 
 struct Fixture {
     _temp: tempfile::TempDir,

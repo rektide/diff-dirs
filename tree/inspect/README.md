@@ -9,6 +9,8 @@ verification:
   scope: Extraction boundary and existing single-target behavior; no performance claims
   method: Prior extraction suites plus stable default owner and Linux nightly all-features workspace nextest; clippy, doctests and Rustdoc
 sources:
+  - resource: "opencode://ses_e9d314c29ffeboK450qrHM3qhF"
+    title: Updated facade navigation after the final workspace relocation
   - resource: "opencode://ses_e9d737832ffeiy0f6OibOWOKSp"
     title: Extracted immediate inspection, preserved private plan construction and added boundary verification
   - resource: "opencode://ses_e9d3bf383ffeIFJ9ghJT4v2a4w"
@@ -45,7 +47,7 @@ orchestrates admitted acquisition on the caller's Rayon pool. There is no new
 pooling, tuning or coordinated comparison implementation.
 
 [Comparison](../compare/README.md) owns recursive audit and paired walking. The
-root `diff-dirs` package temporarily re-exports the existing public API. Owner unit
+[`diff-dirs-tree-api` facade](../api/README.md) re-exports the same public types. Owner unit
 tests source-include only the dependency-free fixture in
 [`tests/support/fixture.rs`](../../tests/support/fixture.rs); no test dependency
 points back to comparison or the facade.

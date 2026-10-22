@@ -28,7 +28,7 @@ pub enum Error {
         source: std::io::Error,
     },
     #[error(transparent)]
-    Inspection(#[from] diff_dirs::Error),
+    Inspection(#[from] diff_dirs_tree_api::Error),
     #[error("{primary}; staging cleanup also failed: {cleanup}")]
     Cleanup { primary: Box<Error>, cleanup: Box<Error> },
     #[cfg(feature = "codec")]

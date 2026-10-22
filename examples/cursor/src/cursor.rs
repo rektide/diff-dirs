@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 
-use diff_dirs::{DirectoryPlan, NoVisitor, Presence, Purpose, inspect_directory};
+use diff_dirs_tree_api::{DirectoryPlan, NoVisitor, Presence, Purpose, inspect_directory};
 use facet::Facet;
 use serde::Serialize;
 
