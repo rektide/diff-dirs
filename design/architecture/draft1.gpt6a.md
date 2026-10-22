@@ -7,7 +7,7 @@ status: draft-for-design-selection
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-22 }
 sources:
   - resource: "opencode://ses_e9e45e9f4ffeZUWoZCK5VDjJvv"
-    title: Human requests a design refinement supporting coordinated comparison after discussing shared source observation versus independent destination cursors; develops the frontier, inspection, output, failure and verification contracts
+    title: Human requests coordinated comparison; develops its contracts and connects the subsequently accepted domain-owned crate decomposition
   - resource: /design/architecture/draft0.gpt6a.md
     revision: 7bde51f6
     title: Parent architecture refined here, especially source-to-many composition and parallel resource ownership
@@ -48,6 +48,10 @@ verification:
 ---
 
 # Coordinated source-to-many comparison
+
+**Accepted packaging refinement:** [Domain-owned crates](draft2.gpt6a.md) records
+the subsequent human-selected crate layout and path-derived names. Its extraction
+sequence prepares the inspection/traversal boundary before implementing this walk.
 
 ## 1. Design delta
 

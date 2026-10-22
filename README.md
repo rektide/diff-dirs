@@ -8,7 +8,7 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-22 }
 sources:
   - resource: opencode://ses_e9e45e9f4ffeZUWoZCK5VDjJvv
-    title: Connected the existing coordinated-multiple-destinations direction to the requested concrete architecture refinement
+    title: Connected coordinated comparison and the accepted crate decomposition and path-derived naming to the project entry point
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
     title: Reviewed the specimens and research flight, integrated comparison navigation, and linked the parent's extensive post-flight architecture draft
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
@@ -40,6 +40,11 @@ sources:
 ---
 
 # diff-dirs
+
+The accepted [crate decomposition](design/architecture/draft2.gpt6a.md) separates
+physical observation, immediate inspection, comparison traversal and effects into
+domain-owned crates, with package names derived from their paths. The extraction
+is being landed before the coordinated multi-destination comparison capability.
 
 A general tree-reconciliation library: compare an **original** tree (source of
 truth) against a **target** tree (a copy of some earlier generation of it) and

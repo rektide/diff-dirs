@@ -7,8 +7,10 @@ status: proposed-research-baseline
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-20 }
 updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-22 }
 sources:
+  - resource: /design/architecture/draft2.gpt6a.md
+    title: Accepted domain-grouped crate decomposition and path-derived names; implementation authorized through extraction and relocation before coordinated comparison
   - resource: "opencode://ses_e9e45e9f4ffeZUWoZCK5VDjJvv"
-    title: Connected the requested coordinated-comparison refinement and its single-frontier, destination-membership ownership to the maintained architecture
+    title: Connected coordinated comparison and the accepted domain-owned crate decomposition with path-derived package names to the maintained architecture
   - resource: /design/architecture/draft1.gpt6a.md
     title: Coordinated comparison refinement with shared source acquisition, per-destination assessment and deterministic grouped traversal
   - resource: "opencode://ses_ea82cf969ffeAXqmUxHChTJar2"
@@ -94,6 +96,13 @@ composition. One frontier owns ordered child edges carrying destination membersh
 source observations are shared, while policy, differences, errors and summaries
 remain per destination. This is the proposed response to the requested coordinated
 walk; independent effectful destination continuations remain a separate composition.
+
+The accepted [crate decomposition](/design/architecture/draft2.gpt6a.md) places
+observation, immediate inspection, traversal and the public facade under `tree/`,
+filesystem effects under `transfer/`, and the CLI under `app/`. Package names follow
+their full path (`diff-dirs-tree-inspect`, `diff-dirs-transfer-sync`, and so on).
+Extraction and relocation are the current implementation scope; the coordinated
+comparison capability follows that work.
 
 Assume a good source. Concurrency, locking and stable path topology are caller
 concerns. Failure promises **no effects history, recovery guarantee or rollback**.
