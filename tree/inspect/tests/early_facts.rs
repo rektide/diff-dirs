@@ -1,4 +1,7 @@
+#[path = "../../../tests/support/fixture.rs"]
 mod support;
+
+use diff_dirs_tree_inspect as diff_dirs;
 
 use std::path::Path;
 use std::sync::Mutex;
@@ -131,7 +134,8 @@ fn root_singletons_have_mandatory_metadata_provenance_on_each_present_side() {
         }
     }
     // Native-enabled and default visitors preserve the same baseline semantics.
-    let mut walk = diff_dirs::walk_with_visitor(&f.original, &f.target, NoVisitor).unwrap();
-    assert!(walk.next().is_none());
-    assert!(walk.into_summary().is_clean());
+    let plan = diff_dirs::inspect_root(&f.original, &f.target, Purpose::Compare, &NoVisitor).unwrap();
+    assert!(plan.diff().is_empty());
+    assert!(plan.operations().entries()[0].descends());
+    assert_eq!(plan.paired_children().count(), 0); // structural root, not a child listing
 }

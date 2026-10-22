@@ -6,7 +6,7 @@ use rayon::ThreadPool;
 
 use crate::frontier::Frontier;
 use crate::pair::Roots;
-use crate::{Check, DirDiff, DirectoryPlan, Error, Execution, NoCheck, NoScope, PlanWalk, Scope, Summary, Visitor, WalkOptions};
+use crate::{Check, CheckedScope, DirDiff, DirectoryPlan, Error, Execution, NoCheck, NoScope, PlanWalk, Scope, Summary, Visitor, WalkOptions};
 
 /// Per-walk admission budgets, not worker counts or a byte-memory bound.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,8 +42,7 @@ impl ParallelLimits {
 #[derive(Debug)]
 pub struct ParallelWalk<'pool, C = NoCheck, S = NoScope> {
     roots: Roots,
-    check: C,
-    scope: S,
+    visitor: CheckedScope<C, S>,
     pool: &'pool ThreadPool,
     frontier: Frontier,
 }
@@ -55,8 +54,8 @@ pub struct ParallelWalk<'pool, C = NoCheck, S = NoScope> {
 /// ```no_run
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let app_pool = rayon::ThreadPoolBuilder::new().num_threads(4).build()?;
-/// let limits = diff_dirs::ParallelLimits::for_pool(&app_pool);
-/// let mut walk = diff_dirs::walk_in_pool("original", "target", &app_pool, limits)?;
+/// let limits = diff_dirs_tree_compare::ParallelLimits::for_pool(&app_pool);
+/// let mut walk = diff_dirs_tree_compare::walk_in_pool("original", "target", &app_pool, limits)?;
 /// while let Some(item) = walk.next() {
 ///     let diff = item?;
 ///     println!("{:?}", diff.dir);
@@ -101,10 +100,10 @@ pub fn walk_in_pool_scoped<C: Check, S: Scope>(
     check: C,
     scope: S,
 ) -> Result<ParallelWalk<'_, C, S>, Error> {
+    let (roots, visitor) = Roots::bind_scoped(original, target, check, scope)?;
     Ok(ParallelWalk {
-        roots: Roots::new_checked(original, target, &check)?,
-        check,
-        scope,
+        roots,
+        visitor,
         pool,
         frontier: Frontier::new(limits),
     })
@@ -132,12 +131,11 @@ impl<C: Check, S: Scope> Iterator for ParallelWalk<'_, C, S> {
     fn next(&mut self) -> Option<Self::Item> {
         let Self {
             roots,
-            check,
-            scope,
+            visitor,
             pool,
             frontier,
         } = self;
-        pool.install(|| frontier.next_with(|dir| roots.inspect_scoped(dir.to_path_buf(), crate::Execution::Sequential, check, scope)))
+        pool.install(|| frontier.next_with(|dir| roots.inspect_visitor(dir.to_path_buf(), crate::Execution::Sequential, visitor)))
     }
 }
 

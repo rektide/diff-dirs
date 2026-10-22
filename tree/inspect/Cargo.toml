@@ -1,0 +1,16 @@
+[package]
+name = "diff-dirs-tree-inspect"
+version = "0.1.0"
+edition.workspace = true
+description = "Immediate directory inspection and validated comparison plans"
+readme = "README.md"
+
+[dependencies]
+rayon = { version = "1.12.0", optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix = { version = "1.1.5", features = ["fs"], optional = true }
+
+[features]
+native-dirent = ["dep:rustix"]
+parallel = ["dep:rayon"]

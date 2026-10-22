@@ -37,9 +37,9 @@ pub fn walk_with_options_scoped<C: Check, S: Scope>(
     check: C,
     scope: S,
 ) -> Result<Walk<C, S>, Error> {
-    let roots = Roots::new_checked(original, target, &check)?;
+    let (roots, visitor) = Roots::bind_scoped(original, target, check, scope)?;
     Ok(Walk {
-        inner: PlanWalk::new(roots, options, CheckedScope::new(check, scope).roots_checked()),
+        inner: PlanWalk::new(roots, options, visitor),
     })
 }
 
@@ -85,7 +85,7 @@ pub fn walk_with_options_visitor<V: Visitor>(
     options: WalkOptions,
     visitor: V,
 ) -> Result<PlanWalk<V>, Error> {
-    Ok(PlanWalk::new(Roots::new_checked(original, target, &NoCheck)?, options, visitor))
+    Ok(PlanWalk::new(Roots::new(original, target)?, options, visitor))
 }
 
 /// Deterministic DFS plan projection. Parallel epochs join before every return;

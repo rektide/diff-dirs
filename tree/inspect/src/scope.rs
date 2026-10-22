@@ -29,7 +29,7 @@ pub enum Visit {
 /// outside scheduler locks. There is no ordered notification guarantee.
 ///
 /// ```
-/// use diff_dirs::{scope_includes, Visit};
+/// use diff_dirs_tree_inspect::{scope_includes, Visit};
 /// use std::path::Path;
 /// let scope = |p: &Path| if p == Path::new("local") {
 ///     Visit::PreserveTree
@@ -38,8 +38,8 @@ pub enum Visit {
 /// assert!(scope_includes(&scope, Path::new("shared/file")));
 /// ```
 ///
-/// [`crate::Summary::scoped`] distinguishes scoped exhaustion from full-root
-/// cleanliness. Excluded boundaries are not an inventory of their interiors.
+/// Traversal summaries distinguish scoped exhaustion from full-root cleanliness.
+/// Excluded boundaries are not an inventory of their interiors.
 pub trait Scope: Sync {
     /// False promises unconditional Reconcile with no reliance on invocation.
     /// Implementations may be skipped entirely; leave true for any exclusion.

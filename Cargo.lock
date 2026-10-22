@@ -188,8 +188,9 @@ dependencies = [
 name = "diff-dirs"
 version = "0.1.0"
 dependencies = [
+ "diff-dirs-tree-compare",
+ "diff-dirs-tree-inspect",
  "rayon",
- "rustix",
 ]
 
 [[package]]
@@ -234,6 +235,22 @@ dependencies = [
  "reflink-copy",
  "rustix",
  "tempfile",
+]
+
+[[package]]
+name = "diff-dirs-tree-compare"
+version = "0.1.0"
+dependencies = [
+ "diff-dirs-tree-inspect",
+ "rayon",
+]
+
+[[package]]
+name = "diff-dirs-tree-inspect"
+version = "0.1.0"
+dependencies = [
+ "rayon",
+ "rustix",
 ]
 
 [[package]]

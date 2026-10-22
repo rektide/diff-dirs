@@ -1,33 +1,44 @@
-//! Immediate inspection and the legacy comparison projection of visitor plans.
+//! Validated paired-root binding and immediate inspection, without traversal.
 
-use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::{Check, DirDiff, DirectoryPlan, Entry, Error, Execution, Purpose, Side, Visitor};
-#[cfg(feature = "parallel")]
-use crate::{CheckedScope, Scope};
+use crate::{Check, CheckedScope, DirectoryPlan, Entry, Error, Execution, Purpose, Scope, Side, Visitor};
 
+/// Two existing real directory roots, with their mandatory no-follow binding
+/// facts retained privately. Contents are inspected only on explicit request.
+/// This is not a snapshot: callers own quiescence and ancestor confinement.
 #[derive(Debug)]
-pub(crate) struct Roots {
-    pub original: PathBuf,
-    pub target: PathBuf,
+pub struct PairedRoots {
+    original: PathBuf,
+    target: PathBuf,
     original_metadata: fs::Metadata,
     target_metadata: fs::Metadata,
 }
 
-impl Roots {
-    #[cfg(all(test, feature = "parallel"))]
+impl PairedRoots {
+    /// Validate original then target as real directories, without listing them.
     pub fn new(original: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Self, Error> {
         Self::new_checked(original, target, &crate::NoCheck)
     }
 
-    #[cfg(all(test, feature = "parallel"))]
-    pub fn inspect(&self, dir: PathBuf, execution: Execution) -> Result<ComparedPair, Error> {
-        self.inspect_scoped(dir, execution, &crate::NoCheck, &crate::NoScope)
+    /// Bind compatibility checks in their original source-first order, before
+    /// inspecting contents. Return the visitor with those root checks already
+    /// accounted for, so its later root steering does not repeat them. Use that
+    /// visitor with this same binding. Only this binding path can construct that
+    /// state; finalized-plan validation is never bypassed. Ownership and static
+    /// dispatch of the supplied policies survive.
+    pub fn bind_scoped<C: Check, S: Scope>(
+        original: impl AsRef<Path>,
+        target: impl AsRef<Path>,
+        check: C,
+        scope: S,
+    ) -> Result<(Self, CheckedScope<C, S>), Error> {
+        let roots = Self::new_checked(original, target, &check)?;
+        Ok((roots, CheckedScope::new(check, scope).roots_checked()))
     }
 
-    pub fn new_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<Path>, check: &C) -> Result<Self, Error> {
+    fn new_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<Path>, check: &C) -> Result<Self, Error> {
         let original = original.as_ref().to_path_buf();
         let target = target.as_ref().to_path_buf();
         let inspect = |path: &Path, side| {
@@ -59,27 +70,19 @@ impl Roots {
         })
     }
 
-    #[cfg(feature = "parallel")]
-    pub fn inspect_scoped<C: Check, S: Scope>(&self, dir: PathBuf, execution: Execution, check: &C, scope: &S) -> Result<ComparedPair, Error> {
-        self.inspect_visitor(dir, execution, &CheckedScope::new(check.borrowed(), scope.borrowed()).roots_checked())
-    }
-
-    pub fn inspect_visitor<V: Visitor>(&self, dir: PathBuf, execution: Execution, visitor: &V) -> Result<ComparedPair, Error> {
+    /// Finalize one immediate directory pair under this binding, never its
+    /// descendants. The caller admits routing ancestors and controls recursion.
+    /// At the empty relative path, root steering reuses mandatory binding facts;
+    /// stopped root descent returns that finalized root batch without listing.
+    /// Otherwise the result describes the directory's immediate children.
+    pub fn inspect_visitor<V: Visitor>(&self, dir: PathBuf, execution: Execution, visitor: &V) -> Result<DirectoryPlan, Error> {
         if V::ENABLED && dir.as_os_str().is_empty() {
             let root = crate::visitor::inspect_bound_root(&self.original, &self.target, &self.original_metadata, &self.target_metadata, visitor)?;
             if !root.operations().entries()[0].descends() {
-                return Ok(ComparedPair {
-                    diff: DirDiff::default(),
-                    children: Vec::new(),
-                    excluded: root.excluded(),
-                    scoped: visitor.scoped(),
-                    planned: root.work(),
-                    retained: root.retained(),
-                    plan: None,
-                });
+                return Ok(root);
             }
         }
-        let plan = crate::visitor::inspect_directory_execution(
+        crate::visitor::inspect_directory_execution(
             &self.original,
             &self.target,
             &dir,
@@ -88,32 +91,8 @@ impl Roots {
             Purpose::Compare,
             visitor,
             execution,
-        )?;
-        let diff = plan.diff().clone();
-        let changed = !diff.is_empty();
-        Ok(ComparedPair {
-            diff,
-            children: plan.children(),
-            excluded: plan.excluded(),
-            scoped: visitor.scoped(),
-            planned: plan.work(),
-            retained: plan.retained(),
-            // Clean metadata is no longer needed after late and child lowering.
-            // Release it in the worker, not while holding the frontier mutex.
-            plan: changed.then_some(plan),
-        })
+        )
     }
-}
-
-#[derive(Debug)]
-pub(crate) struct ComparedPair {
-    pub diff: DirDiff,
-    pub children: Vec<OsString>,
-    pub excluded: u64,
-    pub scoped: bool,
-    pub planned: u64,
-    pub retained: u64,
-    pub plan: Option<DirectoryPlan>,
 }
 
 #[cfg(all(test, feature = "parallel"))]
@@ -168,7 +147,6 @@ pub(crate) mod tests {
         );
         #[cfg(not(unix))]
         f.both_dir(".jj");
-        let roots = Roots::new_checked(&f.original, &f.target, &crate::NoCheck).unwrap();
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(4)
             .thread_name(|i| format!("diff-dirs-caller-{i}"))
@@ -183,11 +161,12 @@ pub(crate) mod tests {
                 crate::Visit::Reconcile
             }
         };
+        let (roots, visitor) = PairedRoots::bind_scoped(&f.original, &f.target, crate::NoCheck, scope).unwrap();
         pool.install(|| {
-            let pair = roots.inspect_scoped(PathBuf::new(), Execution::Parallel, &crate::NoCheck, &scope).unwrap();
-            assert!(pair.diff.is_empty());
-            assert!(pair.children.is_empty());
-            assert_eq!(pair.excluded, 1);
+            let plan = roots.inspect_visitor(PathBuf::new(), Execution::Parallel, &visitor).unwrap();
+            assert!(plan.diff().is_empty());
+            assert_eq!(plan.paired_children().count(), 0);
+            assert_eq!(plan.excluded(), 1);
         });
         *GATE.lock().unwrap() = None;
         let workers = WORKERS.lock().unwrap();

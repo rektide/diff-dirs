@@ -93,7 +93,7 @@ pub enum FactOrigin {
 /// neither field. Root singletons instead reuse mandatory root metadata.
 ///
 /// ```
-/// use diff_dirs::{CheckError, FileKind, Names, Visitor};
+/// use diff_dirs_tree_inspect::{CheckError, FileKind, Names, Visitor};
 /// struct LeavesOnly;
 /// impl Visitor for LeavesOnly {
 ///     fn early(&self, names: &mut Names) -> Result<(), CheckError> {
@@ -566,13 +566,22 @@ impl DirectoryPlan {
     pub fn work(&self) -> u64 {
         self.planned
     }
-    pub(crate) fn children(&self) -> Vec<OsString> {
+    /// Finalized admitted paired-directory basenames in native-byte order.
+    /// One-sided directories and type collisions remain opaque to comparison;
+    /// other drivers can inspect their operations under their own recursion rules.
+    /// Structural-root singletons contain no child listing and yield no names.
+    /// This projection does not publish mutable actions or plan constructors.
+    pub fn paired_children(&self) -> impl Iterator<Item = &OsStr> {
         self.operations
             .entries
             .iter()
-            .filter(|e| e.descends() && e.source.as_ref().is_some_and(|f| f.metadata.is_dir()) && e.target.as_ref().is_some_and(|f| f.metadata.is_dir()))
-            .map(|e| e.name.clone())
-            .collect()
+            .filter(|e| {
+                !self.operations.root
+                    && e.descends()
+                    && e.source.as_ref().is_some_and(|f| f.metadata.is_dir())
+                    && e.target.as_ref().is_some_and(|f| f.metadata.is_dir())
+            })
+            .map(|e| e.name.as_os_str())
     }
 }
 
@@ -587,7 +596,7 @@ impl DirectoryPlan {
 /// cancellation latency is promised for a stalled filesystem call.
 ///
 /// ```
-/// use diff_dirs::{Visitor, Names, Operations, Presence, CheckError};
+/// use diff_dirs_tree_inspect::{Visitor, Names, Operations, Presence, CheckError};
 /// struct Seed;
 /// impl Visitor for Seed {
 ///     fn early(&self, names: &mut Names) -> Result<(), CheckError> {
@@ -1100,7 +1109,7 @@ fn inspect_listed<V: Visitor>(
         .collect();
     let observe = |(name, listed): (Name, ListedPair)| {
         #[cfg(all(test, feature = "parallel"))]
-        crate::pair::tests::observe_worker();
+        crate::roots::tests::observe_worker();
         // Original before target, and indexed union order across parallel jobs.
         let s = listed.source.map(|entry| listed_facts(entry, true)).transpose()?;
         let t = listed
@@ -1421,7 +1430,7 @@ mod listing_tests {
                 Ok(())
             }
         }
-        let scratch = Path::new(env!("CARGO_MANIFEST_DIR")).join(".test-agent/native-dirent");
+        let scratch = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.test-agent/native-dirent");
         fs::create_dir_all(&scratch).unwrap();
         let f = crate::test_support::Fixture::new_in(&scratch);
         fs::create_dir(f.original.join("dir")).unwrap();
