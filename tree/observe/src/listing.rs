@@ -1,5 +1,5 @@
-//! Private, single-pass listing and deferred no-follow metadata. No handles escape
-//! into visitor payloads or plans. Native entries share one parent descriptor.
+//! Single-pass listing with private backend handles and deferred metadata.
+//! Native entries share one parent descriptor.
 
 use std::ffi::OsString;
 use std::fs::Metadata;
@@ -133,14 +133,7 @@ mod backend {
             };
             assert_eq!(attempted, [8192, 16384, 32768, 65536, 131072]);
             assert_eq!(buffer.len(), MAX_BUFFER);
-            let Error::Io {
-                path: actual,
-                operation,
-                source,
-            } = error
-            else {
-                panic!("expected original I/O error")
-            };
+            let (actual, operation, source) = error.into_parts();
             assert_eq!(actual, path);
             assert_eq!(operation, "read directory entry");
             assert_eq!(source.raw_os_error(), Some(rustix::io::Errno::INVAL.raw_os_error()));
@@ -213,43 +206,40 @@ mod backend {
     }
 }
 
-pub(crate) struct Entry {
+/// One owned native listing entry, with cached hints and deferred metadata.
+/// Dropping an entry performs no child observation. Backend resources remain
+/// private and may be shared by entries from the same listing.
+pub struct Entry {
     handle: backend::Handle,
     hints: EarlyFacts,
-    #[cfg(test)]
-    pub(crate) calls: Option<std::sync::Arc<std::sync::atomic::AtomicUsize>>,
 }
 impl Entry {
     fn new(handle: backend::Handle, hints: EarlyFacts) -> Self {
-        Self {
-            handle,
-            hints,
-            #[cfg(test)]
-            calls: None,
-        }
+        Self { handle, hints }
     }
-    pub(crate) fn file_name(&self) -> OsString {
+    /// Lossless basename returned by enumeration, without additional I/O.
+    pub fn file_name(&self) -> OsString {
         self.handle.file_name()
     }
-    pub(crate) fn path(&self) -> PathBuf {
+    /// Physical path as listed; not a guarantee against concurrent replacement.
+    pub fn path(&self) -> PathBuf {
         self.handle.path()
     }
-    pub(crate) fn hints(&self) -> EarlyFacts {
+    /// Already-available enumeration hints; never performs a metadata fallback.
+    pub fn hints(&self) -> EarlyFacts {
         self.hints
     }
-    pub(crate) fn metadata(self) -> io::Result<Metadata> {
-        #[cfg(test)]
-        if let Some(calls) = self.calls {
-            calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        }
-        self.handle.metadata()
-    }
-    #[cfg(test)]
-    pub(crate) fn set_kind(&mut self, kind: FileKind) {
-        self.hints.kind = kind;
+    /// Consume the handle to obtain no-follow metadata for this entry. Linux
+    /// uses its held parent directory; Windows reuses cached enumeration data.
+    pub fn metadata(self) -> Result<Metadata, Error> {
+        let path = self.path();
+        self.handle.metadata().map_err(|source| Error::io(path, "inspect entry", source))
     }
 }
 
-pub(crate) fn read(path: &Path) -> Result<Vec<Entry>, Error> {
+/// Enumerate one directory once, without traversing or acquiring missing child
+/// facts. Entry order is the backend's order; consumers own sorting/admission.
+/// The containing directory must be admitted and confined by the caller.
+pub fn read_directory(path: &Path) -> Result<Vec<Entry>, Error> {
     backend::read(path)
 }

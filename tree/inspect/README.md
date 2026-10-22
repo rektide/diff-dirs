@@ -1,18 +1,22 @@
 ---
 type: CrateGuide
 title: Immediate tree inspection
-description: Ownership of local observations, visitor policy and validated plans during the staged crate extraction.
+description: Ownership of immediate name unions, acquisition demands, visitor policy and validated plans above physical observation.
 resource: /tree/inspect/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
 verification:
   scope: Extraction boundary and existing single-target behavior; no performance claims
-  method: Default, parallel and Linux nightly native nextest suites; clippy, doctests and Rustdoc
+  method: Prior extraction suites plus stable default owner and Linux nightly all-features workspace nextest; clippy, doctests and Rustdoc
 sources:
   - resource: "opencode://ses_e9d737832ffeiy0f6OibOWOKSp"
     title: Extracted immediate inspection, preserved private plan construction and added boundary verification
+  - resource: "opencode://ses_e9d3bf383ffeIFJ9ghJT4v2a4w"
+    title: Separated physical observation from inspection demands, preserving error causes and early-admission coverage
   - resource: /design/architecture/draft2.gpt6a.md#2-separate-immediate-inspection-from-traversal
     title: Accepted extraction scope and encapsulation requirements
+  - resource: /design/architecture/draft2.gpt6a.md#3-extract-physical-observation
+    title: Physical acquisition extraction below inspection demand and policy orchestration
   - resource: /README.md#visitor-steered-planning
     title: Governing visitor, fact acquisition and validation contract
 ---
@@ -31,11 +35,14 @@ provides a read-only, finalized, paired-only child projection; it does not expos
 constructors or mutable plan fields. One-sided recursive consumers use the actual
 operations under their own traversal rules.
 
-For this checkpoint, listing, early physical hints and platform backends remain
-private here. The next accepted stage extracts them to `tree/observe`, including
-the physical error boundary. `native-dirent` remains opt-in (Linux needs nightly);
-`parallel` enables immediate acquisition on the caller's Rayon pool. There is no
-new pooling, tuning or coordinated comparison implementation.
+[Observation](../observe/README.md) owns listing entries, early physical hints,
+platform backends and explicit no-follow acquisition. Inspection decides which
+entries and link texts to acquire, orders failures and maps physical errors while
+retaining the original I/O cause. Physical hint types are re-exported unchanged;
+backend handles never enter visitor payloads or finalized plans. `native-dirent`
+forwards to observation and remains opt-in (Linux needs nightly); `parallel`
+orchestrates admitted acquisition on the caller's Rayon pool. There is no new
+pooling, tuning or coordinated comparison implementation.
 
 [Comparison](../compare/README.md) owns recursive audit and paired walking. The
 root `diff-dirs` package temporarily re-exports the existing public API. Owner unit

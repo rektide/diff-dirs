@@ -42,7 +42,7 @@ impl PairedRoots {
         let original = original.as_ref().to_path_buf();
         let target = target.as_ref().to_path_buf();
         let inspect = |path: &Path, side| {
-            let metadata = fs::symlink_metadata(path).map_err(|e| Error::io(path.to_path_buf(), "inspect root", e))?;
+            let metadata = diff_dirs_tree_observe::symlink_metadata(path).map_err(Error::root_observation)?;
             if C::ENABLED {
                 Entry {
                     root: path,
