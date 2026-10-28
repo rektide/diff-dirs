@@ -7,7 +7,7 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 sources:
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
-    title: Reviews the delivered process consumer, fixes explicit-subset handling after shared refresh failures, and verifies wide diagnostic counters
+    title: Reviews the delivered process consumer, fixes explicit-subset failure publication and the complete-file transport limit, and verifies wide diagnostic counters
   - resource: "opencode://ses_e7e8964e7ffe0nSda1UFEvX5PL"
     title: Implemented production sync continuation and this independent transport/CLI consumer, then verified partial lane heads and accepted decisions through new processes
   - resource: /transfer/sync/README.md
@@ -117,7 +117,7 @@ markers are data, not executable error objects or an operation recovery log.
 [`NativeString`](src/native.rs) stores Unix bytes or Windows UTF-16 units. Roots,
 basenames and rule paths never pass through lossy Unicode conversion. Foreign
 platform units refuse reconstruction. Windows code is present but not runtime
-verified; Linux is verified. The 32 MiB document limit bounds transport bytes,
+verified; Linux is verified. The 32 MiB document limit includes the published newline and bounds transport bytes,
 not total parsing/frontier memory.
 
 On resume only unstarted current-group decisions are refreshed, together, through

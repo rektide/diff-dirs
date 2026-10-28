@@ -618,13 +618,13 @@ pub fn publication_path(path: &Path, parts: &SyncParts) -> Result<PathBuf> {
 pub fn write(path: &Path, parts: &SyncParts, policies: Vec<PolicyConfig>) -> Result<()> {
     let path = publication_path(path, parts)?;
     let snapshot = Snapshot::new(parts, policies)?;
-    let bytes = serde_json::to_vec(&snapshot)?;
+    let mut bytes = serde_json::to_vec(&snapshot)?;
+    bytes.push(b'\n');
     if bytes.len() as u64 > MAX_BYTES {
         return Err("cursor exceeds 32 MiB transport limit".into());
     }
     let mut staged = tempfile::NamedTempFile::new_in(path.parent().ok_or("cursor parent")?)?;
     staged.write_all(&bytes)?;
-    staged.write_all(b"\n")?;
     staged.as_file().sync_all()?;
     staged.persist(path)?;
     Ok(())
