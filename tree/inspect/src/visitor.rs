@@ -3,10 +3,14 @@
 use std::ffi::{OsStr, OsString};
 use std::fs::Metadata;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use diff_dirs_tree_observe as observe;
 
 use crate::{Check, CheckError, DirDiff, EarlyFacts, Entry, Error, NoCheck, NoScope, Purpose, Scope, Side, Visit};
+
+#[path = "shared.rs"]
+pub(crate) mod shared;
 
 /// Presence from immediate directory listings, before entry metadata or readlink.
 /// Suppression never changes this fact and therefore cannot manufacture absence.
@@ -202,6 +206,30 @@ pub struct Facts {
     link: Option<PathBuf>,
 }
 
+// Ordinary pair inspection keeps its existing inline ownership. Only the
+// source-once epoch shares facts; either representation lends the same full Facts.
+#[derive(Debug)]
+enum SourceFacts {
+    Owned(Facts),
+    Shared(Arc<Facts>),
+}
+
+impl std::ops::Deref for SourceFacts {
+    type Target = Facts;
+    fn deref(&self) -> &Facts {
+        match self {
+            Self::Owned(facts) => facts,
+            Self::Shared(facts) => facts,
+        }
+    }
+}
+
+impl From<Facts> for SourceFacts {
+    fn from(facts: Facts) -> Self {
+        Self::Owned(facts)
+    }
+}
+
 impl Facts {
     fn supported(&self) -> bool {
         self.metadata.is_dir() || self.metadata.is_file() || self.metadata.is_symlink()
@@ -223,7 +251,7 @@ impl Facts {
 pub struct Operation {
     name: OsString,
     relative: PathBuf,
-    source: Option<Facts>,
+    source: Option<SourceFacts>,
     target: Option<Facts>,
     different: Option<bool>,
     action: Option<Action>,
@@ -241,7 +269,7 @@ impl Operation {
     }
     /// Actual admitted source facts; None is genuine source absence, not filtering.
     pub fn source(&self) -> Option<&Facts> {
-        self.source.as_ref()
+        self.source.as_deref()
     }
     /// Actual admitted target facts; source-only preparation has no target facts.
     pub fn target(&self) -> Option<&Facts> {
@@ -483,6 +511,24 @@ impl DirectoryPlan {
             })
             .map(|e| e.name.as_os_str())
     }
+
+    /// Lower this finalized batch to read-only comparison, coverage and owned
+    /// paired-child names. All full facts are released, including divergent ones;
+    /// the result grants no filesystem mutation authority.
+    pub fn into_comparison(self) -> shared::DirectoryComparison {
+        let children = self.paired_children().map(OsStr::to_os_string).collect();
+        shared::DirectoryComparison {
+            diff: self.diff,
+            coverage: shared::DirectoryCoverage {
+                excluded: self.excluded,
+                scoped: self.steered,
+                planned: self.planned,
+                retained: self.retained,
+            },
+            children,
+            root: self.operations.root,
+        }
+    }
 }
 
 /// Pure compiled early/late steering. `&self` and directory-local mutable
@@ -674,8 +720,17 @@ struct ListedPair {
 }
 
 fn facts_with_metadata(path: &Path, metadata: Metadata, read_link: bool) -> Result<Facts, Error> {
+    facts_with_metadata_using(path, metadata, read_link, |path| observe::read_link(path).map_err(Error::from))
+}
+
+fn facts_with_metadata_using(
+    path: &Path,
+    metadata: Metadata,
+    read_link: bool,
+    acquire_link: impl FnOnce(&Path) -> Result<PathBuf, Error>,
+) -> Result<Facts, Error> {
     let link = if metadata.is_symlink() && read_link {
-        Some(observe::read_link(path)?)
+        Some(acquire_link(path)?)
     } else {
         None
     };
@@ -685,14 +740,14 @@ fn facts_with_metadata(path: &Path, metadata: Metadata, read_link: bool) -> Resu
 fn operation(
     name: OsString,
     relative: PathBuf,
-    source: Option<Facts>,
+    source: Option<SourceFacts>,
     target: Option<Facts>,
     source_root: &Path,
     target_root: &Path,
 ) -> Result<Operation, Error> {
     let sd = source.as_ref().is_some_and(|f| f.metadata.is_dir());
     let td = target.as_ref().is_some_and(|f| f.metadata.is_dir());
-    let comparable = [&source, &target].into_iter().flatten().all(Facts::supported);
+    let comparable = source.as_deref().into_iter().chain(target.as_ref()).all(Facts::supported);
     let different = if comparable {
         Some(match (&source, &target) {
             (Some(_), Some(_)) if sd && td => false,
@@ -770,7 +825,7 @@ fn finish<V: Visitor>(mut operations: Operations, excluded: u64, visitor: &V) ->
     let mut retained = 0;
     for entry in &operations.entries {
         let path = operations.target_root.join(&entry.relative);
-        for (root, facts) in [(&operations.source_root, &entry.source), (&operations.target_root, &entry.target)] {
+        for (root, facts) in [(&operations.source_root, entry.source()), (&operations.target_root, entry.target())] {
             if let Some(facts) = facts
                 && !facts.supported()
                 && (operations.root || entry.action != Some(Action::PreserveTree))
@@ -968,49 +1023,20 @@ fn inspect_listed<V: Visitor>(
         });
         listed.push(pair);
     }
-    if V::ENABLED {
-        visitor.early(&mut names).map_err(|source| refusal(&target_root.join(dir), source))?;
-    }
-    if names
-        .entries
-        .windows(2)
-        .any(|pair| pair[0].name.as_encoded_bytes() >= pair[1].name.as_encoded_bytes())
-    {
-        return Err(refusal(&target_root.join(dir), "visitor reordered immutable union names".into()));
-    }
+    let Admitted { entries: admitted, coverage } = admit_names(names, listed, target_root, visitor)?;
     let mut operations = Operations {
         source_root: source_root.to_path_buf(),
         target_root: target_root.to_path_buf(),
         dir: dir.to_path_buf(),
         root: false,
         purpose,
-        entries: Vec::with_capacity(names.entries.len()),
+        entries: Vec::with_capacity(admitted.len()),
     };
-    let mut excluded = 0;
-    let mut first_excluded = None;
-    let mut preserved = Vec::new();
-    let admitted: Vec<_> = names
-        .entries
-        .into_iter()
-        .zip(listed)
-        .filter_map(|(name, listed)| {
-            if name.admission == Admission::PreserveTree {
-                excluded += 1;
-                if first_excluded.is_none() {
-                    first_excluded = Some(name.relative);
-                }
-                preserved.push(name.name);
-                None
-            } else {
-                Some((name, listed))
-            }
-        })
-        .collect();
     let observe = |(name, listed): (Name, ListedPair)| {
         #[cfg(all(test, feature = "parallel"))]
         crate::roots::tests::observe_worker();
         // Original before target, and indexed union order across parallel jobs.
-        let s = listed.source.map(|entry| listed_facts(entry, true)).transpose()?;
+        let s = listed.source.map(|entry| listed_facts(entry, true).map(SourceFacts::from)).transpose()?;
         let t = listed
             .target
             .map(|entry| listed_facts(entry, name.presence == Presence::Both || purpose == Purpose::Audit))
@@ -1032,9 +1058,62 @@ fn inspect_listed<V: Visitor>(
         admitted.into_iter().map(observe).collect()
     };
     operations.entries = observed?;
-    let mut plan = finish(operations, excluded, visitor)?;
-    plan.first_excluded = first_excluded;
-    plan.preserved = preserved;
+    finish_admitted(operations, coverage, visitor)
+}
+
+struct AdmissionCoverage {
+    excluded: u64,
+    first_excluded: Option<PathBuf>,
+    preserved: Vec<OsString>,
+}
+
+struct Admitted<T> {
+    entries: Vec<(Name, T)>,
+    coverage: AdmissionCoverage,
+}
+
+// Shared by independent pairs and source-once lanes. Physical presence and slot
+// identity remain fixed; only admission is projected into the acquisition stage.
+fn admit_names<T, V: Visitor>(mut names: Names, listed: Vec<T>, target_root: &Path, visitor: &V) -> Result<Admitted<T>, Error> {
+    if V::ENABLED {
+        visitor.early(&mut names).map_err(|source| refusal(&target_root.join(&names.dir), source))?;
+    }
+    if names
+        .entries
+        .windows(2)
+        .any(|pair| pair[0].name.as_encoded_bytes() >= pair[1].name.as_encoded_bytes())
+    {
+        return Err(refusal(&target_root.join(&names.dir), "visitor reordered immutable union names".into()));
+    }
+    let mut coverage = AdmissionCoverage {
+        excluded: 0,
+        first_excluded: None,
+        preserved: Vec::new(),
+    };
+    let entries = names
+        .entries
+        .into_iter()
+        .zip(listed)
+        .filter_map(|(name, listed)| {
+            if name.admission == Admission::PreserveTree {
+                coverage.excluded += 1;
+                if coverage.first_excluded.is_none() {
+                    coverage.first_excluded = Some(name.relative);
+                }
+                coverage.preserved.push(name.name);
+                None
+            } else {
+                Some((name, listed))
+            }
+        })
+        .collect();
+    Ok(Admitted { entries, coverage })
+}
+
+fn finish_admitted<V: Visitor>(operations: Operations, coverage: AdmissionCoverage, visitor: &V) -> Result<DirectoryPlan, Error> {
+    let mut plan = finish(operations, coverage.excluded, visitor)?;
+    plan.first_excluded = coverage.first_excluded;
+    plan.preserved = coverage.preserved;
     Ok(plan)
 }
 
@@ -1049,7 +1128,7 @@ pub fn inspect_root<V: Visitor>(source: &Path, target: &Path, purpose: Purpose, 
         Err(e) if e.io_error().kind() == std::io::ErrorKind::NotFound => None,
         Err(e) => return Err(Error::root_observation(e)),
     };
-    finish_root(source, target, s, t, purpose, visitor)
+    finish_root(source, target, s.into(), t, purpose, visitor)
 }
 
 pub(crate) fn inspect_bound_root<V: Visitor>(source: &Path, target: &Path, s: &Metadata, t: &Metadata, visitor: &V) -> Result<DirectoryPlan, Error> {
@@ -1061,7 +1140,8 @@ pub(crate) fn inspect_bound_root<V: Visitor>(source: &Path, target: &Path, s: &M
         Facts {
             metadata: s.clone(),
             link: None,
-        },
+        }
+        .into(),
         Some(Facts {
             metadata: t.clone(),
             link: None,
@@ -1071,7 +1151,7 @@ pub(crate) fn inspect_bound_root<V: Visitor>(source: &Path, target: &Path, s: &M
     )
 }
 
-fn finish_root<V: Visitor>(source: &Path, target: &Path, s: Facts, t: Option<Facts>, purpose: Purpose, visitor: &V) -> Result<DirectoryPlan, Error> {
+fn finish_root<V: Visitor>(source: &Path, target: &Path, s: SourceFacts, t: Option<Facts>, purpose: Purpose, visitor: &V) -> Result<DirectoryPlan, Error> {
     let mut names = Names {
         dir: PathBuf::new(),
         root: true,
@@ -1132,7 +1212,7 @@ pub fn inspect_single_root<V: Visitor>(root: &Path, side: Side, purpose: Purpose
     }
     let excluded = u64::from(names.entries[0].admission == Admission::PreserveTree);
     let (source, target) = if side == Side::Original {
-        (Some(observed), None)
+        (Some(observed.into()), None)
     } else {
         (None, Some(observed))
     };
