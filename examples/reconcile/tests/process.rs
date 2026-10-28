@@ -432,7 +432,7 @@ fn transport_limit_includes_the_published_newline_and_preserves_the_previous_cur
     let (mut parts, mut config) = transport::read(&f.cursor).unwrap();
     let size = |p: &_, c: &Vec<_>| serde_json::to_vec(&transport::Snapshot::new(p, c.clone()).unwrap()).unwrap().len();
     let mut before = size(&parts, &config);
-    if (transport::MAX_BYTES as usize - before) % 2 != 0 {
+    if !(transport::MAX_BYTES as usize - before).is_multiple_of(2) {
         // This data-only test need not bind the altered source. Changing the
         // final native byte from 101 to 33 shortens its wire spelling by one.
         parts.comparison.bindings.source.set_file_name("sourc!");
