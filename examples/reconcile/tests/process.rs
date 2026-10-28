@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use diff_dirs_example_reconcile::{native::NativeString, transport};
+use diff_dirs_examples_reconcile::{native::NativeString, transport};
 use diff_dirs_transfer_sync::coordinated::{ApplicationState, End};
 use serde_json::Value;
 
@@ -456,7 +456,7 @@ fn alias_and_nested_write_destinations_refuse_before_any_application() {
 
 #[test]
 fn assignment_paths_can_contain_equals_without_changing_target_identity() {
-    let parsed = diff_dirs_example_reconcile::native::assignment(OsStr::new("A=/path/with=equals")).unwrap();
+    let parsed = diff_dirs_examples_reconcile::native::assignment(OsStr::new("A=/path/with=equals")).unwrap();
     assert_eq!(parsed.0, "A");
     assert_eq!(parsed.1, Path::new("/path/with=equals"));
 }

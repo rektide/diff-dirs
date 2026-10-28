@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use clap::{Parser, Subcommand, ValueEnum};
-use diff_dirs_example_reconcile::{
+use diff_dirs_examples_reconcile::{
     Policy, PolicyConfig, Result, Rules,
     native::{NativeString, assignment},
     runtime, transport,
