@@ -5,10 +5,10 @@ description: Reading paths through consumer fit, I/O research, implementation de
 resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-28 }
+updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-28 }
 sources:
   - resource: opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY
-    title: Recovered the broad design, coordinated refinement and delivered extraction sequence; connected the current coordinated and resumable rebuild and repaired current source navigation
+    title: Recovered design chronology, integrated the coordinated rebuild and connected the subsequent independent JW/library architecture and performance check-in
   - resource: opencode://ses_ea82ab643ffel2vtvMoX2vqoZa
     title: Linked native-dirent tuning and optional Btrfs checksum research, with compressed-extent and live-generation limitations and separate open follow-up tickets
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
@@ -183,6 +183,12 @@ implementation completion.
 
 ## Consumer fit and I/O
 
+- [Current JW library-fit assessment](fit/jw-checkin0.gpt61sxh.md) and
+  [maintained consumer account](/doc/consumer/jj-waltz.md): actual 0.2 adoption,
+  shared paired inspection versus opaque work, route/decision costs and potential
+  lighter live execution. The [integrated consumer check-in](file:///home/rektide/src/jj-waltz/design/coordinated-refill/reseed-checkin0.gpt6ax.md)
+  connects native product choices and rechecked historical performance evidence.
+  Recommendations remain separate from new implementation selection.
 - [Fit assessment](fit/fit0.glm53m.md): jj-waltz's payload seam, the earlier
   deletion that integration must address, and initial contract contradictions.
 - [Integration handoff](fit/handoff0.glm53m.md): parent assessment of the

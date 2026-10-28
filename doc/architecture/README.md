@@ -5,10 +5,12 @@ description: Current component ownership, coordinated source-to-many comparison 
 resource: /doc/architecture/README.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-20 }
-updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-28 }
+updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-28 }
 sources:
   - resource: "opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY"
-    title: Reorganizes the maintained architecture around delivered coordinated comparison, partial traversal and decision checkpoints, and the production reconciliation rebuild
+    title: Integrates the coordinated rebuild and connects the subsequent consumer-led architecture/performance reassessment and library improvement requests
+  - resource: /doc/consumer/jj-waltz.md
+    title: Actual JW adoption, demonstrated help and prospective execution-shape improvements
   - resource: "opencode://ses_e7ea319dfffeZci454IqpWo77c"
     title: Implements coordinated memberships, independent lane returns, owned continuation and borrowed per-call policies
   - resource: "opencode://ses_e7eb22fb2ffeH5O20EZV5nW4B5"
@@ -142,6 +144,12 @@ Continuation is a saved route through accepted decisions, not a fresh scan or an
 effects recovery transaction.
 
 ## Components and ownership
+
+The [jj-waltz consumer account](/doc/consumer/jj-waltz.md) feeds the current
+architecture check-in: retain these owner boundaries while assessing lighter live
+execution, repeated route/decision costs and source sharing in opaque work. The
+consumer's actual N1 adoption and planned cohort remain distinct; these are
+improvement requests rather than changes to the implemented contracts below.
 
 | Component | Contract and owner |
 | --- | --- |
