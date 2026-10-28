@@ -3,11 +3,15 @@ type: ImplementationPlan
 title: Coordinated comparison and resumable reconciliation rebuild
 description: Recovered design sequence, current commission, implementation decisions and checkpoints for source-to-many comparison and usable continuation.
 resource: /design/architecture/rebuild0.gpt6a.md
-status: assessment-in-progress
+status: implementation-in-progress
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-28 }
 sources:
   - resource: "opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY"
-    title: Human commissions independently assessed coordinated comparison and resumability, sequential implementation with two Sol xhigh agents, and final design and ticket consolidation
+    title: Human commissions coordinated comparison and resumability, distinguishes partial traversal heads from unsaved in-flight operation progress, and requests sequential implementation plus final design and ticket consolidation
+  - resource: "opencode://ses_e7eb2765effe0QpPEd1cYR8AXz"
+    title: Independent design reconstruction identifies production retry ownership and distinguishes research completion from delivered capabilities
+  - resource: "opencode://ses_e7eb22fb2ffeH5O20EZV5nW4B5"
+    title: Independent source assessment identifies shared acquisition, lane reduction, ordered-error and resumable frontier obligations; commissioned for the first inspection implementation
   - resource: /design/architecture/draft0.gpt6a.md
     title: Broad component and continuation design after the research flight
   - resource: /design/architecture/draft1.gpt6a.md
@@ -74,13 +78,89 @@ that work; their content is preserved.
    failure isolation, acquisition counts, join boundaries and fresh-process
    continuation need direct verification before workload claims.
 
-## Implementation assessment
+## Partial traversal is the saved state
 
-Two independent assessments are in progress: design history and continuation
-scope; actual inspection/frontier seams and correctness obligations. Their
-findings inform the concrete implementation sequence. Choices about saved-state
-validation, effect granularity, control tokens, public identities and parallel
-admission will be recorded here before the corresponding implementation.
+The human corrected an insufficient parent framing of “closed steps.” A returned
+I/O attempt and a completed traversal node are different things. **The root and
+active ancestors normally remain partial at a pause.** Closing runtime handles or
+temporary permission scopes does not close those nodes or settle their descendants.
+
+Different destinations may admit different children and require different work at
+the same source coordinate. Saving only the currently executing leaf, one global
+path, or a supposedly completed root loses the other destination heads. The owned
+frontier must preserve:
+
+- every active ancestor and its lane-local phase, accepted local contribution and
+  accumulated child results;
+- the remaining ordered child suffixes with destination memberships;
+- each destination's pending evaluation/effect and the edge it still owns;
+- return and finish obligations, including destinations waiting at an ancestor
+  while another destination progresses deeper;
+- lane-local preservation, stop, failure and incomplete coverage;
+- any still-open control or acknowledgment window.
+
+For example, if A admits `a/` and `b/`, while B admits only `b/`, a pause deep under
+`a/` must retain B's position waiting for `b/`, A's remaining `a/` obligations and
+later `b/`, and both lanes' unfinished root reduction. A merged child-membership
+frontier can encode these heads without independent duplicate source walkers.
+Returning from `a/` folds only A's accepted result; it cannot complete B's root.
+
+**The subsequent human clarification fixes the checkpoint scope:** retain
+traversal and decision states, not partial progress *inside* in-flight work at a
+node. A production subdirectory copy or removal may remain one opaque call. Save
+between returned calls; do not save its internal recursive position, copied-file
+history, byte offsets, staging resources or temporary permission state. Parent
+frames can remain incomplete across many such calls. A failed operation can leave
+filesystem effects, but the traversal checkpoint is not their recovery log.
+
+`into_parts` preserves this machine. It must not call a summary extraction method
+that closes active ancestors. Prefix summaries may *project* pending ancestor
+closure without mutating saved traversal. Restoration must not replay accepted
+parents, change binding-index identity, or lose an unfinished recursive owner.
+
+## Selected sequence and review boundaries
+
+The two independent assessments agree that the extracted owners are sufficient.
+Implementation starts with the actual missing inspection seam, followed by the
+owned frontier and production reconciliation composition:
+
+1. **Shared immediate inspection:** source-once listing/facts, per-lane unions and
+   policy, existing comparison/finalization, ordered lane-local errors. Keep old
+   pair behavior and prove sharing with acquisition counts and fault injection.
+2. **Coordinated partial frontier and continuation:** grouped sequential DFS,
+   destination-specific membership/reduction, subset controls, owned validated
+   parts and explicit runtime binding. Prove deep pause/resume with differing
+   lane heads, not just serialization of completed directory results.
+3. **Production reconciliation goals:** target-tagged pending work and acceptance,
+   using sync's actual effects. Preserve unresolved goal and recursive ownership
+   independently of physical classifications. Prove fresh-process traversal and
+   decision continuation, returned-failure handling and truthful per-lane coverage.
+   Do not add continuation of an opaque operation's internal partial progress.
+4. **Bounded parallel observation and reporting:** one supplied executor with
+   explicit within-group admission, joined returns and unchanged ordered results;
+   grouped consumer surfaces and bounded N=1/N=2/several-destination evidence.
+
+The first builder owns only stage 1. A fresh Sol xhigh reviewer takes over the
+continuation assessment after the first analyst's 238.3k-token return; the stage-1
+builder returned its assessment at 188.5k and will hand off at a coherent checkpoint
+before exceeding the requested rollover range. Code writing and builds remain
+sequential.
+
+### Retry means an unfinished goal, not an old classification
+
+Sync may partially create a source-only directory before returning failure. It is
+then physically paired. Simply reclassifying it and applying a normal immediate
+paired batch can omit the interior that the original recursive goal still owns.
+If a whole-goal retry is supported, its reconciliation obligation must survive that
+change. Likewise, replaying an old `Action` or `DirDiff` is not a correct general
+retry algorithm. This is an implementation caution, not a requirement to implement
+partial-copy recovery or track the operation's internal work.
+
+The effects design must explicitly assign each expanded or opaque region one
+recursive owner, preserve that ownership on failure, and distinguish accepted
+comparison observations from settled reconciliation results. The exact supported
+effect granularity will follow this model rather than assume that an ancestor must
+be complete to permit saving.
 
 The main crates already own their appropriate domains. New capabilities should
 extend those boundaries, using the existing production effects where applicable.
