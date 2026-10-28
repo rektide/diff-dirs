@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 struct Policy {
     preserve: Vec<PathBuf>,
     refuse: Option<PathBuf>,
+    refuse_root: bool,
     roots: AtomicUsize,
     directories: Mutex<Vec<PathBuf>>,
 }
@@ -28,6 +29,9 @@ impl Visitor for Policy {
         Ok(())
     }
     fn late(&self, operations: &mut Operations) -> Result<(), CheckError> {
+        if operations.is_root() && self.refuse_root {
+            return Err("fixture root refusal".into());
+        }
         if !operations.is_root() && self.refuse.as_deref() == Some(operations.dir()) {
             return Err("fixture refusal".into());
         }
@@ -376,6 +380,16 @@ fn malformed_parts_and_policy_descriptors_refuse_before_binding_io() {
     let mut p = parts.clone();
     p.frames[0].lanes[0].subtree_changed = false;
     bad.push(p);
+    let mut p = parts.clone();
+    p.lanes[0].summary.pruned.push(PathBuf::new());
+    bad.push(p);
+    let mut p = Parts::fresh(s.bindings.clone()).unwrap();
+    p.root_pending = false;
+    for lane in &mut p.lanes {
+        lane.status = LaneStatus::Complete;
+        lane.summary.state = ScanState::Complete;
+    }
+    bad.push(p);
     fs::remove_dir_all(&s.bindings.source).unwrap();
     for parts in bad {
         assert!(Coordinated::from_parts(parts, Execution::Sequential).is_err());
@@ -385,6 +399,20 @@ fn malformed_parts_and_policy_descriptors_refuse_before_binding_io() {
     loans[0].descriptor = "different-policy/v2";
     assert!(matches!(run.bind(&loans), Err(Error::PolicyMismatch(_))));
     assert!(matches!(run.next_group(&loans), Err(Error::PolicyMismatch(_))));
+}
+
+#[test]
+fn structural_root_refusal_is_lane_local_and_does_not_replay_after_restore() {
+    let mut s = Setup::new(2);
+    s.shape();
+    s.policies[0].refuse_root = true;
+    let expected: Vec<_> = (0..2).map(|i| independent(&s, i)).collect();
+    let roots_before: Vec<_> = s.policies.iter().map(|p| p.roots.load(Ordering::Relaxed)).collect();
+    assert_eq!(collect(&s, s.run(), true), expected);
+    for (i, p) in s.policies.iter().enumerate() {
+        assert_eq!(p.roots.load(Ordering::Relaxed), roots_before[i] + 1);
+    }
+    assert!(s.policies[0].directories.lock().unwrap().is_empty());
 }
 
 #[test]

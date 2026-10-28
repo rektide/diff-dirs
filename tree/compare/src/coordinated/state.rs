@@ -150,6 +150,14 @@ impl Parts {
             };
             require(s.state == expected, "lane status/summary state mismatch")?;
             require(s.examined_directories < self.next_sequence, "assessment count exceeds group sequence")?;
+            require(
+                lane.status != LaneStatus::Complete || s.examined_directories != 0,
+                "completed lane has no root assessment",
+            )?;
+            require(
+                lane.status != LaneStatus::Failed || self.next_sequence != 1,
+                "failed lane has no attempted group",
+            )?;
             let counts = [
                 s.counts.files.changed,
                 s.counts.files.added,
@@ -158,6 +166,12 @@ impl Parts {
                 s.counts.dirs.removed,
             ];
             counts.into_iter().try_fold(0u64, add)?;
+            if s.examined_directories == 0 {
+                require(
+                    counts == [0; 5] && !s.scoped && s.excluded == 0 && s.planned == 0 && s.retained == 0,
+                    "unexamined lane has contributions",
+                )?;
+            }
             for (paths, postorder) in [(&s.changed_dirs, true), (&s.topmost_divergent, false), (&s.pruned, false)] {
                 let mut seen = HashSet::new();
                 for path in paths {
@@ -223,6 +237,12 @@ impl Parts {
                     !self.lanes[lane.target].summary.changed_dirs.contains(&frame.relative),
                     "active ancestor already folded",
                 )?;
+                if self.lanes[lane.target].summary.pruned.contains(&frame.relative) {
+                    require(
+                        frame.remaining.iter().all(|e| !e.members.contains(&lane.target)),
+                        "pruned ancestor retains child membership",
+                    )?;
+                }
                 if depth == 0 {
                     require(lane.direct_ancestor == lane.direct_changed, "root has a divergent ancestor")?;
                 }
@@ -265,6 +285,12 @@ impl Parts {
                 window.pruned.iter().all(|i| window.successful.binary_search(i).is_ok()),
                 "invalid pruned participants",
             )?;
+            for &target in &window.successful {
+                require(
+                    self.lanes[target].summary.pruned.contains(&frame.relative) == window.pruned.contains(&target),
+                    "control prune flags disagree with coverage",
+                )?;
+            }
             for &target in &window.pruned {
                 require(
                     frame.remaining.iter().all(|e| !e.members.contains(&target)),

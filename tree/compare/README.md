@@ -8,7 +8,8 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
 updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 verification:
   scope: Paired traversal, facade compatibility, and coordinated in-memory fresh-runtime continuation; no process transport or sync cursor yet
-  method: Default, parallel and Linux nightly native nextest suites including frontier controls; clippy, doctests and Rustdoc
+  method: Workspace default and all-feature nextest, affected default/all-feature checks, strict workspace clippy, doctests, Rustdoc, formatting and Rekon document validation
+  result: 198 workspace-default and 201 all-feature tests passed; 79 focused all-feature tests passed, including 22 coordinated tests; 19 workspace all-feature doctests and strict checks passed
 sources:
   - resource: "opencode://ses_e7ea319dfffeZci454IqpWo77c"
     title: Implements coordinated comparison with partial ancestor state, per-call policy loans, validated restoration, independent controls and fresh-runtime continuation tests
@@ -158,7 +159,7 @@ stable across voluntary pauses; continuation is not a fresh scan after edits.
 ### Consumer lowering and resources
 
 `next_group_with(&policies, |target, plan| value)` advances the **same frontier**,
-while lending the consumer ownership of each successful validated `DirectoryPlan`.
+while giving the consumer ownership of each successful validated `DirectoryPlan`.
 The consumer can lower exact selected decisions and optionally retain an ephemeral
 plan for an opaque application, without another comparison traversal. Lowering is
 pure projection, not effect acknowledgment; invocation order is unspecified, and
