@@ -347,6 +347,39 @@ fn stopped_lane_need_not_be_rebound_and_root_preservation_is_a_noop() {
 }
 
 #[test]
+fn stopped_root_descent_is_also_a_structural_noop_decision() {
+    struct StopRoot;
+    impl Visitor for StopRoot {
+        fn late(&self, ops: &mut Operations) -> Result<(), CheckError> {
+            if ops.is_root() {
+                for entry in ops.entries_mut() {
+                    entry.set_action(diff_dirs_tree_inspect::Action::Directory {
+                        container: diff_dirs_tree_inspect::Container::Keep,
+                        descend: false,
+                    });
+                }
+            }
+            Ok(())
+        }
+    }
+    let f = Setup::new();
+    file(f.source.join("file"), b"not traversed");
+    let runtime = SyncRuntime::new(vec![SyncTarget {
+        id: "A".into(),
+        descriptor: "stop-root/v1".into(),
+        applier: Applier::new(&f.source, &f.targets[0], CopyPolicy::Copy).unwrap().visitor(StopRoot),
+    }]);
+    let mut run = SyncCursor::new(&runtime, Execution::Sequential).unwrap();
+    run.next_group(&runtime).unwrap().unwrap();
+    run.parts().validate().unwrap();
+    assert!(run.pending().is_empty());
+    run.settle().unwrap();
+    assert!(run.reports()[0].satisfied);
+    assert_eq!(run.reports()[0].totals.applications, 0);
+    assert!(!f.targets[0].join("file").exists());
+}
+
+#[test]
 fn rejects_overlap_forged_barrier_and_incompatible_runtime_before_effects() {
     let f = Setup::new();
     file(f.source.join("file"), b"data");

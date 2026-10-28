@@ -108,6 +108,10 @@ impl DirectoryDecision {
                 self.coverage.excluded <= 1 && (self.entries[0].action == Action::PreserveTree || self.coverage.excluded == 0),
                 "invalid root exclusion",
             )?;
+            require(
+                self.entries[0].source == Some(Kind::Directory) && self.entries[0].target == Some(Kind::Directory),
+                "coordinated sync roots must both be directories",
+            )?;
         } else {
             require(self.coverage.excluded == self.excluded_names.len() as u64, "excluded count mismatch")?;
         }
@@ -115,7 +119,10 @@ impl DirectoryDecision {
         let mut retained = 0;
         for e in &self.entries {
             // A filesystem root singleton can have '/' as its name.
-            require(self.structural_root || native_name(&e.name), "invalid decision basename")?;
+            require(
+                !e.name.as_encoded_bytes().contains(&0) && (self.structural_root || native_name(&e.name)),
+                "invalid decision basename",
+            )?;
             let presence = match (e.source.is_some(), e.target.is_some()) {
                 (true, true) => Presence::Both,
                 (true, false) => Presence::SourceOnly,

@@ -149,6 +149,11 @@ impl SyncParts {
                         ApplicationState::Abandoned => require(lane.end == Some(End::Abandoned), "abandoned application without stopped lane")?,
                     }
                     if app.decision.structural_root {
+                        let source = &self.comparison.bindings.source;
+                        require(
+                            app.decision.entries[0].name == source.file_name().unwrap_or(source.as_os_str()),
+                            "structural root name mismatch",
+                        )?;
                         require(
                             app.state != ApplicationState::Unstarted
                                 && matches!(
