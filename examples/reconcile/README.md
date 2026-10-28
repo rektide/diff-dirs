@@ -6,6 +6,8 @@ resource: /examples/reconcile/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 sources:
+  - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
+    title: Reviews the delivered process consumer, fixes explicit-subset handling after shared refresh failures, and verifies wide diagnostic counters
   - resource: "opencode://ses_e7e8964e7ffe0nSda1UFEvX5PL"
     title: Implemented production sync continuation and this independent transport/CLI consumer, then verified partial lane heads and accepted decisions through new processes
   - resource: /transfer/sync/README.md
@@ -87,7 +89,10 @@ cargo run --manifest-path examples/reconcile/Cargo.toml -- resume \
 
 `--apply-only ID` is repeatable, requires `--groups 0` and sufficient application
 budget, and deliberately does not settle the control window. It makes a saved
-state before root closure directly observable. `--prune ID` removes that lane's
+state before root closure directly observable. A shared refresh may fail other
+selected peers before their turn; those peers are not dispatched again, and the
+reported application count includes only attempted requests. Healthy batches left
+unstarted after a refused request remain available on resume. `--prune ID` removes that lane's
 current paired-child memberships without canceling its immediate application;
 `--stop ID` abandons the lane's remaining obligations. Controls are explicit, not
 automatic pruning or recovery.

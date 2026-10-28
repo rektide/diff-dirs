@@ -197,7 +197,15 @@ fn main() -> Result<()> {
         } else {
             let token = run.current_token().ok_or("apply-only needs a current control window")?;
             let mut failures = Vec::new();
+            let mut applications = 0;
             for target in &apply_only {
+                // An earlier request's shared refresh may already have failed
+                // this selected peer. Do not redispatch it or lose that returned
+                // failure to a global invalid-control error before publication.
+                if !run.pending().iter().any(|pending| pending.0 == *target) {
+                    continue;
+                }
+                applications += 1;
                 match run.apply(&runtime, &token, &target.as_str().into()) {
                     Ok(_) => {}
                     Err(e @ (Error::Application { .. } | Error::Refresh(_))) => failures.push(e),
@@ -206,7 +214,7 @@ fn main() -> Result<()> {
             }
             Drive {
                 groups: 0,
-                applications: apply_only.len() as u64,
+                applications,
                 stop: if run.is_terminal() { Stop::Done } else { Stop::Budget },
                 failures,
             }
