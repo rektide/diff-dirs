@@ -315,7 +315,10 @@ impl Parts {
                     if active_child.is_some_and(|active| path.starts_with(&active.relative)) {
                         continue;
                     }
-                    if let Ok(index) = frame.remaining.binary_search_by(|edge| edge.name.as_encoded_bytes().cmp(child.as_encoded_bytes())) {
+                    if let Ok(index) = frame
+                        .remaining
+                        .binary_search_by(|edge| edge.name.as_encoded_bytes().cmp(child.as_encoded_bytes()))
+                    {
                         require(
                             frame.remaining[index].members.binary_search(&lane.target).is_err(),
                             "closed reduction overlaps unstarted child",

@@ -117,8 +117,8 @@ markers are data, not executable error objects or an operation recovery log.
 [`NativeString`](src/native.rs) stores Unix bytes or Windows UTF-16 units. Roots,
 basenames and rule paths never pass through lossy Unicode conversion. Foreign
 platform units refuse reconstruction. Windows code is present but not runtime
-verified; Linux is verified. The 32 MiB document limit includes the published newline and bounds transport bytes,
-not total parsing/frontier memory.
+verified; Linux is verified. The 32 MiB document limit includes the published
+newline and bounds transport bytes, not total parsing/frontier memory.
 
 On resume only unstarted current-group decisions are refreshed, together, through
 shared admitted inspection. Every refreshed signature is checked before refreshed
@@ -152,8 +152,11 @@ The process suite exercises separate executable invocations, including:
   destination root is removed.
 - Restored prune/stop controls, terminal resume after all tree roots are deleted,
   non-UTF8 roots/rules/names, wide counters and malformed schema/state/bindings.
+- Shared-refresh failures during explicit application subsets, wide diagnostic
+  output, and complete-file size refusal without replacing the previous checkpoint.
 
-These are tiny correctness fixtures, not a benchmark or crash-durability campaign.
-All **12 cases passed** in both default and all-feature builds on Linux, together
-with strict example Clippy and formatting. The production workspace separately
-passed 209 default / 212 all-feature nextest tests and 20 doctests at this checkpoint.
+These are correctness fixtures and a transport-boundary case, not a benchmark or
+crash-durability campaign. All **14 cases passed** in both default and all-feature
+builds on Linux, together with strict example Clippy and formatting. The production
+workspace separately passed 214 default / 217 all-feature nextest tests and 20
+doctests at this checkpoint.

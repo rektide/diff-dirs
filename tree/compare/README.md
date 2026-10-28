@@ -7,9 +7,9 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
 updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 verification:
-  scope: Paired traversal, facade compatibility, and coordinated in-memory fresh-runtime continuation; no process transport or sync cursor yet
+  scope: Paired traversal, facade compatibility, partial-frontier continuation and lane-specific closed-reduction validation; effect and transport integration are verified separately
   method: Workspace default and all-feature nextest, affected default/all-feature checks, strict workspace clippy, doctests, Rustdoc, formatting and Rekon document validation
-  result: 198 workspace-default and 201 all-feature tests passed; 79 focused all-feature tests passed, including 22 coordinated tests; 19 workspace all-feature doctests and strict checks passed
+  result: 214 workspace-default and 217 all-feature tests passed; 163 feature-disabled library/consumer tests and 26 focused all-feature coordinated tests passed; 20 workspace all-feature doctests and strict checks passed
 sources:
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
     title: Reproduces and fixes inconsistent closed reductions on restoration while preserving lane-specific partial-child returns
