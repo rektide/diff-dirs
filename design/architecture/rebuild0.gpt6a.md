@@ -1,13 +1,13 @@
 ---
-type: ImplementationPlan
+type: ImplementationReport
 title: Coordinated comparison and resumable reconciliation rebuild
-description: Recovered design sequence, current commission, implementation decisions and checkpoints for source-to-many comparison and usable continuation.
+description: Recovered design sequence, delivered source-to-many comparison and production traversal-state continuation, with reviewed checkpoints and final verification.
 resource: /design/architecture/rebuild0.gpt6a.md
-status: implementation-in-progress
+status: implemented
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-28 }
 sources:
   - resource: "opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY"
-    title: Human commissions coordinated comparison and resumability, distinguishes partial traversal heads from unsaved in-flight operation progress, and requests sequential implementation plus final design and ticket consolidation
+    title: Commissions and integrates coordinated comparison and production traversal-state continuation, records the human's checkpoint distinction, reviews staged work and consolidates architecture and tickets
   - resource: "opencode://ses_e7eb2765effe0QpPEd1cYR8AXz"
     title: Independent design reconstruction identifies production retry ownership and distinguishes research completion from delivered capabilities
   - resource: "opencode://ses_e7eb22fb2ffeH5O20EZV5nW4B5"
@@ -17,7 +17,7 @@ sources:
   - resource: "opencode://ses_e7e8964e7ffe0nSda1UFEvX5PL"
     title: Reviews and implements production sync continuation, exact saved decisions, borrowed policy composition and fresh-process transport verification
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
-    title: Independently reviews coordinated state and identifies two corrupted-checkpoint validation gaps for the final correction pass
+    title: Independently reviews and corrects checkpoint consistency, explicit-subset failure publication and complete-file size accounting, then verifies the integrated workspace and process consumer
   - resource: /design/architecture/draft0.gpt6a.md
     title: Broad component and continuation design after the research flight
   - resource: /design/architecture/draft1.gpt6a.md
@@ -48,8 +48,8 @@ The October 28 commission prioritizes **one source compared/reconciled against
 multiple destinations**, and also asks that the resumable design be tackled.
 Implementation proceeds sequentially, supported by two independent Sol xhigh
 analysts/builders. The parent owns architectural decisions and integration.
-The completed result will receive a maintained design account and an epic with
-explicit completed and remaining work.
+The delivered result is connected through the [maintained architecture](/doc/architecture/README.md)
+and the epic's explicit completed capabilities and remaining measurement work.
 
 The earlier extraction-only stop is historical scope for a completed pass. It is
 not a prohibition on this new commission. Conversely, a research ticket's closure
@@ -134,9 +134,8 @@ parents, change binding-index identity, or lose an unfinished recursive owner.
 
 ## Selected sequence and review boundaries
 
-The two independent assessments agree that the extracted owners are sufficient.
-Implementation starts with the actual missing inspection seam, followed by the
-owned frontier and production reconciliation composition:
+The two independent assessments established that the extracted owners were
+sufficient. The implementation followed this sequence:
 
 1. **Shared immediate inspection:** source-once listing/facts, per-lane unions and
    policy, existing comparison/finalization, ordered lane-local errors. Keep old
@@ -150,15 +149,16 @@ owned frontier and production reconciliation composition:
    independently of physical classifications. Prove fresh-process traversal and
    decision continuation, returned-failure handling and truthful per-lane coverage.
    Do not add continuation of an opaque operation's internal partial progress.
-4. **Bounded parallel observation and reporting:** one supplied executor with
-   explicit within-group admission, joined returns and unchanged ordered results;
-   grouped consumer surfaces and bounded N=1/N=2/several-destination evidence.
+4. **Joined parallel observation and reporting:** shared inspection uses the
+   caller's current Rayon pool for within-group metadata work, with sequential
+   inter-group progression. No new pair-frontier J/K or fixed-byte limit is claimed.
+   Grouped reporting, source-acquisition discriminators and multi-lane correctness
+   cases are delivered; comparative workload measurement is a separate open ticket.
 
-The first builder owns only stage 1. A fresh Sol xhigh reviewer takes over the
-continuation assessment after the first analyst's 238.3k-token return; the stage-1
-builder returned its assessment at 188.5k and will hand off at a coherent checkpoint
-before exceeding the requested rollover range. Code writing and builds remain
-sequential.
+Implementation and builds were sequential. Sol handoffs occurred at 238.3k,
+293.5k, 259.6k and 237.3k context; the final reviewer finished at 212.9k. Fresh
+agents inherited the selected contracts and committed checkpoints rather than
+continuing beyond the human's tightened 200k–320k rollover window.
 
 ### Retry means an unfinished goal, not an old classification
 
@@ -183,15 +183,12 @@ implementation rather than being a prerequisite inherited from exploratory work.
 
 ## Verification and final documentation
 
-Checkpoint each coherent implementation stage, review interfaces before the next
-dependent stage, and keep build/test execution sequential. Use meaningful focused
-tests and the repository's nextest, clippy, doctest and formatting checks.
-Record actual commands and limitations with the delivered result.
-
-After implementation, reorganize the maintained architecture and reading paths
-around the resulting capabilities. Preserve the numbered drafts as design history,
-with clear links to the current account. Create the requested epic and readable
-child tickets from actual delivered scope and identified remaining work.
+Coherent stages were committed and interfaces reviewed before dependent builds.
+Focused regressions preceded corrections; final verification used nextest, strict
+Clippy/Rustdoc, doctests and formatting. The maintained architecture, root guide,
+facade guide and design index now lead to the delivered capabilities. Numbered
+drafts retain their historical arguments and link forward to current contracts.
+The epic and readable child tickets record actual implementation and remaining work.
 
 ## Implementation checkpoints
 
@@ -239,22 +236,65 @@ child tickets from actual delivered scope and identified remaining work.
   under both default and all-feature builds. Strict clippy/Rustdoc, formatting and
   owned document checks passed. The builder rolled over at 237.3k. Independent
   checkpoint validation corrections and final integration review follow.
+- `a6a74eb0`, `933772a4`, `70d5afef` — reproduced and corrected inconsistent
+  saved reductions. A closed descendant must already be folded into its active
+  ancestor except while that lane still owes the immediate child's return; closed
+  reductions cannot occupy that lane's unstarted subtree. Normal differing lane
+  return positions remain valid. Ordered-edge lookup avoids scanning every pending
+  child for every closed coordinate.
+- `55aecd0a` — corrected the standalone package to the accepted full-path name,
+  `diff-dirs-examples-reconcile`; the executable remains `reconcile`.
+- `f56a3cea`, `28846bd0`, `8456ab85` — reproduced and corrected explicit-subset
+  handling when shared refresh has already terminated selected peers. The example
+  now preserves returned failures and publishes the checkpoint instead of trying
+  to dispatch those peers again. Additional coverage verifies sparse live lanes,
+  missing inactive roots, reordered runtimes, opaque replacement ownership and
+  wide diagnostic counters.
+- `4c8e1f4d`, `6a5e1722`, `697a35df`, `ea7ffbb7` — reproduced and corrected the
+  transport boundary so the trailing newline counts toward the complete-file
+  limit; refusal leaves the previous checkpoint intact. Final owner documentation
+  and verification were completed. No remaining correctness blocker was found
+  in the delivered composition by the independent review.
 
 ### Selected continuation composition
 
-The continuation review supports a comparison-owned partial frontier wrapped by
+The delivered composition uses a comparison-owned partial frontier wrapped by
 sync's current-group decision barrier. Sync accepts each destination's opaque
 immediate application separately, then permits paired-child traversal. A snapshot
 may therefore contain A's accepted application and B's unstarted one while both
 root traversals remain incomplete.
 
-For this slice, preserve exact selected action/entry decisions and validate fresh
-facts before dispatching an unstarted application after restoration. Refresh only
-unstarted lanes together, retaining source sharing. Do not replay accepted ancestor
-policy or compare an ancestor's old whole-directory signature after its own writes;
-validate its physical routing and retain its prior admitted-edge decision.
+Exact selected action/entry decisions are preserved; fresh facts are validated
+before dispatching an unstarted application after restoration. Only unstarted
+lanes refresh, together. Accepted ancestor policy and whole-directory signatures
+are not replayed after their own writes; physical routing is checked while the
+prior admitted-edge decision is retained.
 
-Whole-goal retry is not required. A failed opaque application can terminate its
-lane and leave recovery to a fresh run; healthy lanes continue with their existing
-heads. This avoids introducing an unnecessary retry interpreter or claiming that
-the saved traversal can resume an operation's internal partial copy.
+A failed opaque application terminates its lane and leaves recovery to a fresh
+run; healthy lanes continue with their existing heads. The saved traversal does
+not resume an operation's internal partial copy.
+
+## Final verification and remaining work
+
+The independent final pass reported these successful checks on Linux:
+
+| Check | Result |
+| --- | --- |
+| Workspace nextest, default / all features | 214 / 217 passed |
+| Explicit feature-disabled library and sync packages | 163 passed |
+| Standalone reconciliation consumer, default / all features | 14 / 14 passed |
+| Workspace doctests | 20 passed |
+| Workspace and example Clippy | All targets/features, warnings denied |
+| Workspace and example Rustdoc | Warnings denied |
+| Workspace and example formatting | Passed |
+
+Commands and fixture boundaries are retained in the
+[process guide](/examples/reconcile/README.md#verification) and owner guides.
+Parent document checks cover the changed maintained accounts, links, anchors and
+session provenance; historical drafts retain revision-bound source coordinates.
+Windows transport code is present but was not executed in this Linux verification.
+
+`diffdir-tree-coordinated-measure` remains open for controlled N=1/N=2/several-lane
+workload comparisons. Correct acquisition sharing and continuation are verified;
+no new end-to-end speedup is claimed. Source sharing is per inspection epoch;
+resumed unstarted-decision refresh and execution have their own physical work.

@@ -82,7 +82,7 @@ extensions:
   related_work: [diffdir-tree, diffdir-tree-architecture-statement]
 verification:
   method: Parent source review and integration of named implementation returns; runtime checks are attributed in the rebuild account; explicit document checks
-  result: Prior baseline checks passed; current revision checked with Rekon's document checker
+  result: Delivered comparison and production continuation passed final reported workspace/process checks; current maintained documents passed link, anchor and provenance checks
 ---
 
 # Composable tree reconciliation
@@ -105,6 +105,9 @@ state.
 Work anchor: **`diffdir-tree-coordinated`**. Its child tickets record delivered
 inspection, traversal, continuation, sync and process capabilities, final review
 and documentation, and the separate workload-measurement follow-up.
+The [final verification account](/design/architecture/rebuild0.gpt6a.md#final-verification-and-remaining-work)
+records the 217-test all-feature workspace run, 14-case process consumer and the
+remaining empirical performance study.
 
 | Capability | Owner and standing |
 | --- | --- |
@@ -372,6 +375,11 @@ staged leaf installation and postorder permissions. Completion reports the chose
 policy's result, not equality of deliberately preserved roots.
 
 ### JJ archive to receiving workspace
+
+This is the earlier native-consumer research context, retained to explain the
+broader design. It is not a claim that this coordinated rebuild changed or freshly
+verified JW's native implementation or defaults. The linked native studies own
+their revision-bound observations.
 
 The normal JW donor here is the **JJ archive**: the primary checkout owning the
 real `.jj/repo`, not necessarily a colocated checkout or a bare repository. A
