@@ -57,9 +57,10 @@ The [root specification](../README.md) owns the current public contract.
 
 - [Current rebuild and checkpoints](architecture/rebuild0.gpt6a.md): the October 28
   commission, independently assessed scope, partial multi-destination heads and
-  traversal/decision checkpoints. Shared immediate inspection is delivered;
-  coordinated traversal and production reconciliation continuation are being built
-  sequentially. This is the current implementation account and decision trail.
+  traversal/decision checkpoints. Shared immediate inspection and the coordinated
+  frontier with owned continuation are delivered; production reconciliation and
+  fresh-process transport are being built next. This is the current implementation
+  account and decision trail.
 - [Broad component design](architecture/draft0.gpt6a.md): the first post-research
   technical draft, covering observation, selected work, progression, continuation,
   effects and runtime resources. It is the wider architectural context.

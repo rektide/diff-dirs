@@ -13,7 +13,9 @@ sources:
   - resource: "opencode://ses_e7eb22fb2ffeH5O20EZV5nW4B5"
     title: Independent source assessment identifies shared acquisition, lane reduction, ordered-error and resumable frontier obligations; commissioned for the first inspection implementation
   - resource: "opencode://ses_e7ea319dfffeZci454IqpWo77c"
-    title: Fresh continuation review models partial destination heads and selects exact unstarted-decision refresh when opaque failures are terminal
+    title: Models partial destination heads, selects exact unstarted-decision refresh, and implements the coordinated frontier with owned continuation and lane-local controls
+  - resource: "opencode://ses_e7e8964e7ffe0nSda1UFEvX5PL"
+    title: Reviews the production sync boundary, borrowed policy composition and current-group acceptance barrier; commissioned for sync and fresh-process continuation
   - resource: /design/architecture/draft0.gpt6a.md
     title: Broad component and continuation design after the research flight
   - resource: /design/architecture/draft1.gpt6a.md
@@ -203,6 +205,18 @@ child tickets from actual delivered scope and identified remaining work.
   checks passed: 27 default and 30 all-feature inspection tests, four doctests,
   strict clippy/Rustdoc, formatting and README checks. The inspection builder
   handed off and rolled over at 293.5k context.
+- `72d2d627`, `bea79a04` — coordinated comparison and owned partial-frontier
+  continuation, followed by strengthened restored completion/prune validation.
+  Stable target IDs, merged paired-child memberships, independent lane reductions,
+  atomic prune/stop controls, explicit runtime binding and fresh control tokens are
+  delivered. Policies are borrowed per call; `next_group_with` lends the same
+  traversal to consumer plan lowering. Partial heads survive `into_parts`, and
+  prefix summary projection does not mutate them. Queued routes receive no-follow
+  checks separately counted from source observation. Reported verification passed:
+  198 default / 201 all-feature workspace tests, 19 doctests, strict clippy/Rustdoc,
+  formatting and document checks. The parent reviewed state ownership, membership,
+  closure, tokens, policy loans and lowering. The builder rolled over at 259.6k;
+  production sync and process transport are the next commissioned stage.
 
 ### Selected continuation composition
 
