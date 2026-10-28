@@ -435,6 +435,39 @@ fn wide_cumulative_counters_have_an_explicit_lossless_json_representation() {
     p.lanes[0].completed.bytes_copied = u128::from(u64::MAX) + 7;
     transport::write(&f.cursor, &p, config).unwrap();
     assert_eq!(transport::read(&f.cursor).unwrap().0, p);
+    let output = f.invoke(f.resume_args(0, 0), 0);
+    assert_eq!(
+        output["reports"][0]["completed"]["bytes_copied"].as_number().unwrap().as_u128(),
+        Some(u128::from(u64::MAX) + 7)
+    );
+    assert_eq!(f.parts(), p);
+}
+
+#[cfg(unix)]
+#[test]
+fn explicit_subset_saves_shared_refresh_failures_without_redispatching_failed_peers() {
+    use std::os::unix::fs::symlink;
+    let f = Fixture::new();
+    file(f.source.join("x"), b"source payload");
+    file(f.b.join("x"), b"old");
+    f.invoke(f.start_args(1, 0), 0);
+    fs::remove_file(f.b.join("x")).unwrap();
+    symlink("old", f.b.join("x")).unwrap();
+    let mut args = f.resume_args(0, 2);
+    args.extend(["--apply-only".into(), "A".into(), "--apply-only".into(), "B".into()]);
+    let out = f.invoke(args, 2);
+    assert_eq!(out["applications"], 1, "only A's refused shared-refresh request was attempted");
+    assert_eq!(out["failures"].as_array().unwrap().len(), 1);
+    assert!(!f.a.join("x").exists());
+    assert!(fs::symlink_metadata(f.b.join("x")).unwrap().is_symlink());
+    let parts = f.parts();
+    assert_eq!(parts.lanes[1].end, Some(End::DecisionChanged));
+    let applications = &parts.current.as_ref().unwrap().applications;
+    assert_eq!(applications[0].state, ApplicationState::Unstarted);
+    assert_eq!(applications[1].state, ApplicationState::Failed);
+    f.invoke(f.resume_args(100, 100), 2);
+    assert_eq!(fs::read(f.a.join("x")).unwrap(), b"source payload");
+    assert_eq!(f.parts().lanes[1].applications, 0);
 }
 
 #[test]
