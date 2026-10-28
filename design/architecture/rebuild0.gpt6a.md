@@ -178,3 +178,36 @@ After implementation, reorganize the maintained architecture and reading paths
 around the resulting capabilities. Preserve the numbered drafts as design history,
 with clear links to the current account. Create the requested epic and readable
 child tickets from actual delivered scope and identified remaining work.
+
+## Implementation checkpoints
+
+- `2c29671b` — shared immediate source inspection. Inspection now shares the
+  physical source listing/facts and original physical error causes while retaining
+  independent target unions, policy and ordered failures. Existing pairs keep
+  inline fact ownership; shared lanes use immutable shared source facts. Reduced
+  results release facts and carry comparison, coverage and paired children.
+  Reported verification: 123 feature-disabled library/consumer tests, 172 default
+  workspace tests, 175 all-feature workspace tests, 24 native-only inspection
+  tests, 18 doctests, strict clippy/Rustdoc, formatting and document checks passed.
+  The parent reviewed source acquisition, shared-error ownership and reduction.
+  A successor seam will expose validated plans for action-decision lowering and
+  already-admitted current-directory refresh, without replaying root policy.
+
+### Selected continuation composition
+
+The continuation review supports a comparison-owned partial frontier wrapped by
+sync's current-group decision barrier. Sync accepts each destination's opaque
+immediate application separately, then permits paired-child traversal. A snapshot
+may therefore contain A's accepted application and B's unstarted one while both
+root traversals remain incomplete.
+
+For this slice, preserve exact selected action/entry decisions and validate fresh
+facts before dispatching an unstarted application after restoration. Refresh only
+unstarted lanes together, retaining source sharing. Do not replay accepted ancestor
+policy or compare an ancestor's old whole-directory signature after its own writes;
+validate its physical routing and retain its prior admitted-edge decision.
+
+Whole-goal retry is not required. A failed opaque application can terminate its
+lane and leave recovery to a fresh run; healthy lanes continue with their existing
+heads. This avoids introducing an unnecessary retry interpreter or claiming that
+the saved traversal can resume an operation's internal partial copy.
