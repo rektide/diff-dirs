@@ -31,6 +31,7 @@ pub use diff_dirs_tree_compare::{
     ParallelLimits, ParallelPlanWalk, ParallelWalk, walk_in_pool, walk_in_pool_checked, walk_in_pool_scoped, walk_in_pool_visitor,
 };
 
+pub use diff_dirs_tree_compare::coordinated;
 #[doc(hidden)]
 #[cfg(feature = "parallel-bench")]
 pub use diff_dirs_tree_compare::walk_per_frame;

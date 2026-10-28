@@ -5,6 +5,7 @@
 //! the optional joined directory frontier, never filesystem mutation.
 
 mod audit;
+pub mod coordinated;
 mod model;
 mod pair;
 mod walk;
