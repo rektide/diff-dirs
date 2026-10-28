@@ -5,8 +5,14 @@ description: Generic deterministic directory comparison, consumer-driven reconci
 resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
+updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-28 }
 sources:
+  - resource: opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY
+    title: Reconstructed the design sequence and integrated delivered shared inspection and coordinated partial-frontier continuation into the project specification
+  - resource: opencode://ses_e7ea319dfffeZci454IqpWo77c
+    title: Implemented coordinated comparison, destination-specific controls and reductions, owned continuation parts and explicit runtime binding
+  - resource: opencode://ses_e7eb22fb2ffeH5O20EZV5nW4B5
+    title: Implemented source-once immediate inspection, original shared error causes, validated-plan lowering and already-admitted refresh
   - resource: opencode://ses_e9d314c29ffeboK450qrHM3qhF
     title: Relocated the workspace facade, synchronization and CLI; updated package coordinates, source navigation and current embedding commands without changing behavior
   - resource: opencode://ses_e9e45e9f4ffeZUWoZCK5VDjJvv
@@ -47,8 +53,10 @@ The accepted [crate decomposition](design/architecture/draft2.gpt6a.md) separate
 physical observation, immediate inspection, comparison traversal and effects into
 domain-owned crates, with package names derived from their paths. The root is a
 virtual workspace; the convenient public facade is
-[`diff-dirs-tree-api`](tree/api/README.md). Coordinated multi-destination
-comparison remains future work.
+[`diff-dirs-tree-api`](tree/api/README.md). Its additive
+[`coordinated` module](tree/compare/README.md#coordinated-comparison) compares one
+source against several destinations and preserves partial traversal state across
+pauses.
 
 A general tree-reconciliation library: compare an **original** tree (source of
 truth) against a **target** tree (a copy of some earlier generation of it) and
@@ -63,15 +71,14 @@ For a numbered walkthrough, see [net execution flow](design/execution/flow0.gpt6
 and [context payloads and donor state](design/execution/state0.gpt6a.md). Both keep
 the generic library, an example consumer, and JW-specific behavior separate.
 
-The [architecture statement](doc/architecture/README.md) defines the component
-and composition model used by the current research flight. Its
-[independent synthesis](design/architecture/synthesis0.gpt61sxh.md) records the
-open mechanisms; this README and the sync specification still govern delivered APIs.
-The completed [research comparison](design/architecture/comparison0.gpt61sxh.md)
-records what the early bets established, narrowed and left conditional.
-The [parent technical architecture draft](design/architecture/draft0.gpt6a.md)
-specifies the next design in detail, including component-built execution and
-runtime-adjustable observation resources.
+The [current rebuild and checkpoints](design/architecture/rebuild0.gpt6a.md) and
+[design reading map](design/index.md#start-here-the-rebuild-and-its-design-sequence)
+explain which document is which: the broad component design (`draft0`), coordinated
+comparison refinement (`draft1`), delivered crate extraction (`draft2`), and this
+implementation. The [architecture home](doc/architecture/README.md) connects those
+owners. The earlier [research comparison](design/architecture/comparison0.gpt61sxh.md)
+retains the evidence behind the wider design; this README and the sync specification
+govern delivered APIs.
 
 The standalone [cursor example](examples/cursor/README.md) uses immediate
 inspection to assess N directories, serialize its DFS state through kopacetic-rkyv,
@@ -719,30 +726,88 @@ repeatable live single-root win with explicit P4/J4/K256, but also saturation
 of the conservative default K, root-wide serialization, and CPU/memory/latency
 costs. Limits are caller policy; enabling Rayon alone promises no speedup.
 
+## Coordinated multiple destinations
+
+`diff_dirs_tree_api::coordinated` implements a **streaming walk of one original
+and several destinations together**. Each immediate directory group shares one
+source listing and each demanded source-entry acquisition. Its destinations retain
+independent policy, differences, ordered errors, child membership and summaries.
+One frontier visits the merged paired-child sequence in native-name DFS order.
+One-sided directory interiors remain opaque separately for each destination.
+
+```rust,no_run
+use diff_dirs_tree_api::{Execution, NoVisitor};
+use diff_dirs_tree_api::coordinated::{Bindings, Coordinated, TargetBinding, TargetPolicy};
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let bindings = Bindings {
+    source: "/source".into(),
+    targets: vec![
+        TargetBinding { id: "a".into(), root: "/target-a".into(), policy: "mirror/v1".into() },
+        TargetBinding { id: "b".into(), root: "/target-b".into(), policy: "mirror/v1".into() },
+    ],
+};
+let visitor = NoVisitor;
+let policies: Vec<_> = bindings.targets.iter().map(|target| TargetPolicy {
+    target: &target.id, descriptor: &target.policy, visitor: &visitor,
+}).collect();
+let mut run = Coordinated::new(bindings.clone(), Execution::Sequential)?;
+run.bind(&policies)?;
+let first = run.next_group(&policies)?;
+// Save the actual partial frontier, including its open control window.
+let parts = run.into_parts();
+let mut run = Coordinated::from_parts(parts, Execution::Sequential)?;
+let restored_control = run.current_token(); // old runtime tokens are invalid
+run.bind(&policies)?;
+while let Some(group) = run.next_group(&policies)? {
+    for lane in group.outcomes {
+        match lane.outcome {
+            Ok(compared) => println!("{:?}: {:?}", lane.target, compared.diff),
+            Err(error) => eprintln!("{:?}: {error}", lane.target),
+        }
+    }
+}
+let summaries = run.prefix_summaries();
+# let _ = (first, restored_control, summaries);
+# Ok(()) }
+```
+
+Groups include clean outcomes and return only after started inspection work joins.
+A slow lane backpressures its current group; a failed lane terminates once while
+healthy lanes continue. `prune_here(&token, &targets)` changes only the selected
+successful lanes' child memberships. `stop_lanes(&targets)` abandons their future
+memberships and leaves their coverage incomplete. Invalid control subsets are
+rejected atomically. Per-lane summaries preserve ordinary comparison semantics.
+
+**Resumability retains traversal and decisions.** The root and active ancestors
+can remain partial. `Parts` retains their lane-local reductions, remaining child
+suffixes, destination memberships and open control state. `heads()` shows lanes
+waiting at an ancestor while another descends. `prefix_summaries()` projects known
+ancestor changes without closing or mutating this state.
+
+Construction and restoration validate data without filesystem access; explicit
+`bind` reconstructs runtime root facts and checks compatible caller-supplied policy
+descriptors. Accepted ancestors and root policy are not replayed. Restored windows
+receive new runtime tokens without reemitting their groups. Failed/stopped/completed
+roots are not rebound; terminal continuation needs no tree access. Applications
+own transport, native-path encoding and separate output delivery.
+
+Roots are absolute normalized paths to existing real directories. Read-only aliases
+remain distinct lanes. Trees and frozen policy must remain stable across pauses;
+queued routes receive explicit no-follow checks, counted separately from shared
+entry acquisition. Current-group storage, child memberships and summary vectors
+remain width-sensitive. `Execution::Parallel` supports joined within-group metadata
+work in the current caller pool; inter-group traversal is sequential. Pair-walker
+J/K limits do not describe this composition.
+
+`next_group_with` exposes validated plans for consumer-owned lowering and optional
+ephemeral application facts; its payload never enters saved `Parts`. The
+[owner guide](tree/compare/README.md#coordinated-comparison) owns the detailed API.
+The [earlier proposal](design/architecture/draft1.gpt6a.md) remains design history;
+the [rebuild account](design/architecture/rebuild0.gpt6a.md) records delivered checks.
+
 ## Future enhancements
 
-These are prospective capabilities, not current API promises.
-
-### Coordinated multiple destinations
-
-Plan a **streaming walk of one original and several destinations together**,
-advancing their comparisons through the same ordered directory/name sequence.
-Inspect the current source directory once and share that observation across the
-participating destinations, rather than independently walking the full source
-for each target. Keep per-destination differences, progress, and errors distinct.
-
-This should retain live, directory-at-a-time processing: a persistent cache or
-whole-source catalog is not required. The design needs bounded lookahead and a
-deliberate policy for slow, stopped, or failed destinations, with source stability
-defined for the shared observations. Test one, two, and several destinations to
-establish where the extra coordination pays off. Multiple destinations are a
-future extension; the current API compares one pair.
-
-The [coordinated comparison design](/design/architecture/draft1.gpt6a.md)
-now specifies a proposed single frontier with destination membership per child,
-shared source-fact acquisition, joined directory groups, lane-local errors and
-pruning, and per-destination summaries. It refines the earlier source-cohort design
-for this coordinated read-only use case and lists the implementation proof obligations.
+Further mechanisms remain prospective rather than current API promises.
 
 The [optimization comparison](/design/performance/comparison0.gpt6a.md) connects
 the independent inventories and their experiment briefs. Other ideas remain
