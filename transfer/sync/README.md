@@ -5,10 +5,10 @@ description: Root-bound record application, explicit copy policies, staged repla
 resource: /transfer/sync/README.md
 status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 sources:
   - resource: "opencode://ses_e7e8964e7ffe0nSda1UFEvX5PL"
-    title: Implemented production coordinated reconciliation with a resumable application barrier, lent runtime policies, exact decision refresh and returned-work accounting
+    title: Implemented production coordinated reconciliation and a runnable fresh-process consumer with resumable barriers, lent policies, exact decision refresh and returned-work accounting
   - resource: opencode://ses_e9d314c29ffeboK450qrHM3qhF
     title: Relocated synchronization and its fixtures, replaced the facade dependency with direct inspection/comparison owners and updated current APIs and commands
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
@@ -361,6 +361,19 @@ Terminal restoration needs no appliers or access to removed tree roots. Transpor
 and checkpoint publication are application responsibilities. Parts validation
 checks structure, not the truth of forged accepted results. Forked/old snapshots
 can repeat effects; publication is not transactional or exactly-once.
+
+The runnable [fresh-process consumer](/examples/reconcile/README.md) supplies
+application-owned versioned JSON, lossless native path units, `start`/`resume`,
+group/application budgets and separate staged checkpoint publication. It is an
+explicitly built standalone example, not a default library transport dependency.
+
+The October 28 coordinated checkpoint passed **209 default** and **212 all-feature**
+workspace nextest tests, plus **158 feature-disabled library/consumer tests**, with
+real reflinks required. The standalone process consumer passed **12 cases** both
+default and all-feature. All **20 workspace doctests**, strict workspace/example
+Clippy, warnings-denied workspace Rustdoc, formatting and owned-document checks
+passed. Linux is verified; other operating systems remain unverified. These are
+correctness/regression checks, not a performance campaign.
 
 ## Scope and absence authority
 

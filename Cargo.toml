@@ -1,6 +1,6 @@
 [workspace]
 members = ["tree/observe", "tree/inspect", "tree/compare", "tree/api", "transfer/sync", "app/cli", "perf/runner", "perf/operation"]
-exclude = ["examples/cursor", "examples/walk"]
+exclude = ["examples/cursor", "examples/walk", "examples/reconcile"]
 resolver = "3"
 
 [workspace.package]
