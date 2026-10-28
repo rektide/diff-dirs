@@ -7,6 +7,8 @@ status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
 sources:
+  - resource: "opencode://ses_e7e8964e7ffe0nSda1UFEvX5PL"
+    title: Implemented production coordinated reconciliation with a resumable application barrier, lent runtime policies, exact decision refresh and returned-work accounting
   - resource: opencode://ses_e9d314c29ffeboK450qrHM3qhF
     title: Relocated synchronization and its fixtures, replaced the facade dependency with direct inspection/comparison owners and updated current APIs and commands
   - resource: opencode://ses_ea9c65f5fffeyf5EYvFs581in4
@@ -238,6 +240,127 @@ require updating exhaustive literals; native Rust performance consumers compile
 with this change, but no performance campaign was run. This generic library
 work does not select JW transfer defaults, migrate its configuration, move `.jj`
 metadata, or settle its paused working-copy protocol.
+
+## Coordinated reconciliation and continuation
+
+`coordinated::SyncCursor` composes the comparison frontier with the **same
+production application kernel**. `SyncRuntime` separately owns the appliers and
+their executable policies. Temporary composite visitor loans last only for each
+inspection call: policies need neither cloning nor serialization, and the objects
+are not self-referential.
+
+```rust,no_run
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use diff_dirs_tree_compare::Execution;
+use diff_dirs_transfer_sync::{Applier, CopyPolicy, SyncCursor, SyncRuntime, SyncTarget};
+use diff_dirs_transfer_sync::coordinated::Limits;
+let runtime = SyncRuntime::new(vec![
+    SyncTarget { id: "A".into(), descriptor: "mirror/v1".into(),
+        applier: Applier::new("source", "target-a", CopyPolicy::Copy)? },
+    SyncTarget { id: "B".into(), descriptor: "mirror/v1".into(),
+        applier: Applier::new("source", "target-b", CopyPolicy::Copy)? },
+]);
+let mut run = SyncCursor::new(&runtime, Execution::Sequential)?;
+let progress = run.drive(&runtime, Limits { groups: 1, applications: 1 })?;
+// A may be applied while B is still pending and the root traversal is partial.
+let saved = run.into_parts(); // releases all cached full plans/runtime facts
+let mut resumed = SyncCursor::from_parts(saved, Execution::Sequential)?;
+if !resumed.is_terminal() {
+    // A new process reconstructs compatible runtime policies, not saved callbacks.
+    resumed.bind(&runtime)?;
+    resumed.drive(&runtime, Limits { groups: 100, applications: 100 })?;
+}
+for lane in resumed.reports() {
+    println!("{}: satisfied={}, copied={}", lane.target.0,
+        lane.satisfied, lane.totals.completed.files_copied);
+}
+# let _ = progress;
+# Ok(()) }
+```
+
+All roots must already be real directories. Source/target and cross-target
+equality or nesting are rejected before effects, including resolved name aliases;
+Unix additionally rejects identical root device/inode identities. Existing root
+ancestors cannot be symlinks. This is still the stable, nonhostile-tree contract,
+not protection against hidden mount aliases or concurrent replacement. Whole-root
+initialization/replacement remains available through the existing applier APIs,
+not through this first coordinated cursor.
+
+### Traversal and application are different acceptance states
+
+`next_group(&runtime)` publishes clean outcomes as well as differences and
+lane-local comparison failures. Each successful ordinary directory receives an
+unstarted application. `apply(&runtime, &token, &target)` consumes the cursor's own
+pending plan, accepts its returned report once, and leaves other lanes pending.
+Comparison cannot advance until every current application is accepted, failed or
+abandoned. A structural-root preservation/stopped-descent outcome is an accepted
+no-op, with no interior application.
+
+The comparison frontier alone advances paired children. One-sided interiors and
+replacements remain opaque production calls, including recursive visitor policy,
+staging, metadata and permission finalization. A zero immediate `work()` count
+does **not** justify skipping application: a retained target-only container may
+still select recursive descendant work.
+
+`prune_here` changes selected paired-child memberships, not the immediate batch;
+`stop_lanes` abandons selected live lanes. Control tokens are runtime-local and
+reissued after restoration. `settle()` closes a disposed group's control window
+and folds ready returns without another inspection. Thus a checkpoint can retain
+deep partial ancestors, B waiting while A descends alone, a return before a later
+shared sibling, or accepted applications before root closure. `heads()` and
+`reports()` are nonmutating views, not destructive summary extraction.
+
+### Saved decisions and fresh execution
+
+`SyncParts` is public versioned semantic data, validated by `from_parts` without
+filesystem access. It contains the comparison frontier, current application
+dispositions, frozen copy policies, callback descriptors and per-lane cumulative
+counters. It contains no Metadata, handles, full plans, error causes or resources.
+The caller must make each descriptor identify all behavior-affecting callback
+inputs; the library cannot introspect arbitrary callback code.
+
+An outstanding `DirectoryDecision` records the complete selected name union:
+early-excluded names plus admitted clean/preserved/different entries, acquired
+kinds, presence, comparison, baseline and final actions, coordinate, purpose and
+coverage. It saves neither old metadata nor bytes. On restoration **all unstarted
+lanes are refreshed together** with shared source inspection; every refreshed
+signature is checked before any refreshed effect. A mismatch/refusal terminates
+its lane while validated healthy peers remain runnable. The application uses
+fresh facts. Matching decisions are not a historical content or inode certificate.
+
+Accepted ancestor/root policy is not replayed, accepted applications are not
+refreshed, and observations are not committed twice. Physical no-follow routing
+is revalidated before effects and before queued paired edges are inspected. Old
+whole-ancestor signatures are not required to match their own accepted writes.
+
+A returned opaque application failure is **terminal for that lane**. Its actual
+partial progress is counted, remaining lane memberships are stopped, and healthy
+lanes continue. There is no same-continuation retry, subdirectory-internal cursor,
+partial-copy recovery log or automatic cleanup/reconciliation pass. Start a fresh
+run to reconcile the remaining actual filesystem state. Staging/permission scopes
+are closed before each returned application; cleanup/restoration failures retain
+their existing production error semantics.
+
+### Budgets and reports
+
+`drive` counts joined comparison groups and application requests, including a
+refused restore refresh, not bytes/syscalls/memory/latency. One application can
+copy a large opaque subtree. Zero budgets do not start new work; ready pure
+returns may drain. Lane failures appear in `Drive.failures`; healthy lanes can
+still finish, so `Stop::Done` does **not** mean every lane succeeded.
+
+`LaneReport.observed` is the committed **pre-application** comparison projection.
+`totals` separately accumulate actual returned application results, including
+failures. Cumulative work counters use `u128`; individual kernel reports retain
+their existing `u64` types. `retained` includes immediate comparison retention
+once plus additional recursive retention. `satisfied` is true only after successful
+lane exhaustion, never after failure, explicit stop or traversal prune. Visitor
+preservation is part of the declared policy and does not itself imply failure.
+
+Terminal restoration needs no appliers or access to removed tree roots. Transport
+and checkpoint publication are application responsibilities. Parts validation
+checks structure, not the truth of forged accepted results. Forked/old snapshots
+can repeat effects; publication is not transactional or exactly-once.
 
 ## Scope and absence authority
 

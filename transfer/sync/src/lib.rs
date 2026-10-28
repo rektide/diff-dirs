@@ -4,10 +4,13 @@
 
 mod apply;
 mod authority;
+pub mod coordinated;
 mod model;
 mod paths;
 mod platform;
 mod visitor;
+
+pub use coordinated::{SyncCursor, SyncRuntime, SyncTarget};
 
 pub use apply::{clear, clear_with_visitor, seed_leaves};
 pub use authority::{Absence, NeverRemove, RemoveAll};
