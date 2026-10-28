@@ -55,6 +55,8 @@ impl AddAssign for Progress {
 pub struct Report {
     /// Finalized immediate namespace actions encountered by application,
     /// including recursive batches. Not completed work; collisions are coupled.
+    /// Conditional routing creation is counted only once descendant work needs
+    /// that container; immediate observed plans still count its potential action.
     pub planned: u64,
     /// Visible completed operations, not hypothetical actions from a diff or
     /// discarded private preparations. A clean/retained-only run is all zero.
@@ -121,6 +123,8 @@ impl Error for Issue {
 #[derive(Debug)]
 pub struct Failure {
     /// Finalized encountered namespace proposals, independently of completed work.
+    /// Conditional routing ancestors count when descendant work needs them,
+    /// including an attempted materialization that fails.
     pub planned: u64,
     /// Encountered retention/exclusion counters; satisfaction is always false.
     pub policy: Box<Policy>,

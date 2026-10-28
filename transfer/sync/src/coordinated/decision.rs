@@ -176,6 +176,10 @@ impl DirectoryDecision {
                     container: Container::Create, ..
                 } => sd && e.target.is_none(),
                 Action::Directory {
+                    container: Container::CreateIfNeeded,
+                    descend,
+                } => sd && e.target.is_none() && descend,
+                Action::Directory {
                     container: Container::Keep, ..
                 } => td,
                 Action::Directory {
@@ -191,7 +195,7 @@ impl DirectoryDecision {
                     | Action::ReplaceWithLeaf
                     | Action::ReplaceWithDirectory { .. }
                     | Action::Directory {
-                        container: Container::Create | Container::Remove,
+                        container: Container::Create | Container::CreateIfNeeded | Container::Remove,
                         ..
                     }
             ));

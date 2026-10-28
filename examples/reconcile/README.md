@@ -6,6 +6,8 @@ resource: /examples/reconcile/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 sources:
+  - resource: "opencode://ses_e7be6b24fffeDISpWdV1xNbqhD"
+    title: Adopts exact 0.2 library pins and locks and extends the example's action vocabulary for source-only conditional routing
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
     title: Reviews the delivered process consumer, fixes explicit-subset failure publication and the complete-file transport limit, and verifies wide diagnostic counters
   - resource: "opencode://ses_e7e8964e7ffe0nSda1UFEvX5PL"
@@ -113,6 +115,12 @@ spellings belong to this example, not to runtime Rust layout. Unknown fields,
 vocabulary, versions, incompatible policy descriptors and invalid saved state are
 refused before execution. Actual error causes are returned live; saved terminal
 markers are data, not executable error objects or an operation recovery log.
+
+The 0.2 library adoption adds `directory/create-if-needed/descend` to this
+vocabulary. Older readers reject unknown spellings; it is not a serialization
+of pending routing ancestors or a partial-copy checkpoint. Shape/descent legality
+is still checked by the decoded production decision validator. The example's
+stock preserve/refuse CLI policy does not itself select this new routing action.
 
 [`NativeString`](src/native.rs) stores Unix bytes or Windows UTF-16 units. Roots,
 basenames and rule paths never pass through lossy Unicode conversion. Foreign

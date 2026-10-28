@@ -7,6 +7,8 @@ status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 sources:
+  - resource: "opencode://ses_e7be6b24fffeDISpWdV1xNbqhD"
+    title: Implements conditional source-only routing containers with runtime pending ancestry, postorder modes, preview and saved-decision integration; verifies focused production cases
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
     title: Reviews production cursor and saved decisions, adds sparse live-rebinding and opaque replacement ownership coverage, and verifies the corrected integration
   - resource: "opencode://ses_e7e8964e7ffe0nSda1UFEvX5PL"
@@ -175,6 +177,54 @@ Create, descend: false }` explicitly creates an empty source-only container;
 Keep on an absent container with child work is invalid, never silently overridden.
 Whole immediate batches validate before their writes or child admission. A later
 child-batch refusal can leave its already-authorized newly created ancestor.
+
+### Conditional routing containers
+
+`Action::Directory { container: Container::CreateIfNeeded, descend: true }`
+explicitly permits inspection through a **source-only real directory** without
+eagerly creating its target container. Other shapes and stopped descent fail
+whole-immediate-batch validation. Use ordinary eager `Create` for an explicitly
+selected empty directory, and coupled `ReplaceWithDirectory` for an authorized
+leaf collision; conditional creation cannot reinterpret that collision as absence.
+
+During opaque source-only application, a runtime-only vector holds active pending
+ancestors: physical output path, source permissions and materialization state.
+It is depth-sized (directory listings/plans remain separately width-sensitive).
+The first admitted namespace effect materializes its chain, then uses the normal
+entry kernel, parent-local staging and permission leases. Later siblings reuse
+created ancestors. Their source modes are installed **postorder**, after all
+descendants return, including failure. Pending names that were never created are
+never chmodded/finalized. Only actual creations contribute completed directory
+counts, exactly once. No effect means no staging, chmod or target skeleton; there
+is no prewalk, create-then-prune or cleanup of pre-existing empty directories.
+
+This mutable chain is sequential within its opaque application; independent outer
+entries can still run in a caller's parallel batch. Physical output may be under
+replacement staging, but visitors keep final logical root-relative coordinates.
+The paired frontier does not gain membership after these directories are created.
+Pending ancestry is **not serialized partial-effect progress**: the call completes
+or fails with joined scopes before returning. A saved current group retains the
+new action and validates/refreshes it normally; it does not save recursion midway.
+Coordinated root binding still requires existing real directory roots.
+
+Immediate `DirectoryPlan.work()`/observed planned coverage counts a conditional
+obligation before its opaque interior is known. Recursive `Report.planned`,
+`Failure.planned` and `preview().planned` resolve that obligation: count each
+routing container only once a descendant needs it (including an attempted but
+failed materialization). Thus an unmatched conditional branch has zero recursive
+planned and completed effects despite its immediate potential obligation. Preview
+remains read-only and can predict the necessary chain without creating it.
+
+The focused [production tests](/transfer/sync/tests/conditional.rs) cover no-match,
+selected empty directories, sibling reuse, read-only modes, staged transitions,
+partial failures, invalid actions and current-group restoration. The public addition
+uses the [coordinated 0.2 marker](/README.md#development-and-evidence).
+
+Verification on 2026-10-28: the required-reflink, all-target/all-feature workspace
+run passed **230 tests**, including nine conditional-container cases; **20
+workspace doctests** and **15 reconciliation-example tests** passed. Workspace
+and example strict Clippy passed. These are bounded semantic/compatibility checks,
+not a measurement of source-sharing throughput or stalled-call latency.
 
 Collisions remain `Presence::Both`: `ReplaceWithLeaf` and
 `ReplaceWithDirectory` are indivisible named-entry actions. A policy cannot

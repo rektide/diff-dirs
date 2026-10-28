@@ -5,8 +5,10 @@ description: Deterministic paired and coordinated directory comparison, resumabl
 resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-28 }
+updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 sources:
+  - resource: opencode://ses_e7be6b24fffeDISpWdV1xNbqhD
+    title: Adds explicit source-only conditional routing creation, effect/preview/continuation verification and the coordinated 0.2 public-interface marker
   - resource: opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY
     title: Reconstructed the design sequence and integrated shared inspection, coordinated partial-frontier continuation and production reconciliation into the project specification
   - resource: opencode://ses_e7e8964e7ffe0nSda1UFEvX5PL
@@ -293,12 +295,19 @@ initially propose normal mirror work. Equal leaves remain no-ops.
   directory while allowing child work; `preserve_tree()` also stops descent.
   Named `refuse(cause)` methods attach an actual slot's final logical coordinate.
 * A whole immediate batch is validated before application or child publication.
-  `Directory { container: Keep/Create/Remove, descend }` separates container work
+  `Directory { container: Keep/Create/CreateIfNeeded/Remove, descend }` separates container work
   from descent. Keeping an absent source-only container while admitting child
   writes is invalid. Directory↔leaf replacements are **coupled actions**, never
   independently editable delete/create halves. Equal-leaf force installation is
   deliberately not supported. The exact authority table and staging contract
   are in [`Action`'s Rustdoc](tree/inspect/src/visitor.rs).
+
+  `CreateIfNeeded` is restricted to source-only real directories with descent.
+  Sync can inspect through absent routing ancestors, creating them only when an
+  admitted descendant effect needs them. No match leaves no empty skeleton.
+  Eager `Create` still creates an explicitly selected empty directory. This does
+  not split coupled collisions or add paired-frontier membership; see
+  [conditional routing containers](transfer/sync/README.md#conditional-routing-containers).
 
 ```rust,no_run
 use diff_dirs_tree_api::{CheckError, Names, Operations, Presence, Visitor};
@@ -363,7 +372,7 @@ Readlink remains literal and path-based; stable caller-owned trees are required.
 
 `DirectoryPlan.diff()` and `Summary.counts` retain baseline observed comparison;
 `DirectoryPlan.work()` and `Summary.planned` count immediate proposed namespace
-actions, with a collision counted once. Conditional directory removal may later
+actions, with a collision counted once. Conditional directory creation/removal may later
 retain a necessary ancestor. `retained` counts changed action slots, including
 stopped clean descent. These are neither recursive payload catalogs nor actual
 completed operations. Exclusions/retention never certify full-root cleanliness.
@@ -879,6 +888,14 @@ changes live in summary `changed_dirs`, not streamed records; clean comparisons
 are silent in the library (the CLI still prints its final summary).
 
 ## Development and evidence
+
+The `CreateIfNeeded` public enum/action addition is marked **0.2.0** across the
+five library packages and CLI, with exact internal dependency pins. This is an
+explicit pre-alpha source-interface marker, not a compatibility promise for
+unchanged version numbers. Development-only perf tools retain their `0.0.0`
+versions; consuming examples pin the reviewed library version and refresh their
+receiving locks. Earlier research coordinates and version statements remain
+historical evidence.
 
 Historical revision-bound research keeps its original coordinates. For current
 navigation: root `src/lib.rs` and API tests moved to `tree/api/`; `src/visitor.rs`

@@ -220,6 +220,14 @@ fn action(v: Action) -> String {
             descend: true,
         } => "directory/create/descend",
         Action::Directory {
+            container: Container::CreateIfNeeded,
+            descend: false,
+        } => "directory/create-if-needed/stop",
+        Action::Directory {
+            container: Container::CreateIfNeeded,
+            descend: true,
+        } => "directory/create-if-needed/descend",
+        Action::Directory {
             container: Container::Remove,
             descend: false,
         } => "directory/remove/stop",
@@ -253,6 +261,14 @@ fn parse_action(v: &str) -> Result<Action> {
         },
         "directory/create/descend" => Action::Directory {
             container: Container::Create,
+            descend: true,
+        },
+        "directory/create-if-needed/stop" => Action::Directory {
+            container: Container::CreateIfNeeded,
+            descend: false,
+        },
+        "directory/create-if-needed/descend" => Action::Directory {
+            container: Container::CreateIfNeeded,
             descend: true,
         },
         "directory/remove/stop" => Action::Directory {
@@ -628,4 +644,22 @@ pub fn write(path: &Path, parts: &SyncParts, policies: Vec<PolicyConfig>) -> Res
     staged.as_file().sync_all()?;
     staged.persist(path)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod action_tests {
+    use super::*;
+    #[test]
+    fn conditional_creation_vocabulary_round_trips_without_losing_descent() {
+        for descend in [false, true] {
+            let value = Action::Directory {
+                container: Container::CreateIfNeeded,
+                descend,
+            };
+            assert_eq!(parse_action(&action(value)).unwrap(), value);
+        }
+        // Structural legality (including the invalid stop spelling) is enforced
+        // by decoded current-group decision validation, not vocabulary parsing.
+        assert!(parse_action("directory/create-if-needed/unknown").is_err());
+    }
 }

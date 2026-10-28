@@ -194,7 +194,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
             let root = diff_dirs_tree_inspect::inspect_root(&self.original, &self.target, Purpose::Compare, &self.steering()).map_err(Failure::checked)?;
             context.excluded.fetch_add(root.excluded(), Ordering::Relaxed);
             context.retained.fetch_add(root.retained(), Ordering::Relaxed);
-            context.planned.fetch_add(root.work(), Ordering::Relaxed);
+            context.planned.fetch_add(unconditional_work(&root), Ordering::Relaxed);
             context.preview_entry(&root.operations().entries()[0])?;
             Ok(Progress::default())
         })();
@@ -230,7 +230,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
         let plan = diff_dirs_tree_inspect::inspect_root(&self.original, &self.target, Purpose::Copy, &self.steering()).map_err(Failure::checked)?;
         context.excluded.fetch_add(plan.excluded(), Ordering::Relaxed);
         context.retained.fetch_add(plan.retained(), Ordering::Relaxed);
-        context.planned.fetch_add(plan.work(), Ordering::Relaxed);
+        context.planned.fetch_add(unconditional_work(&plan), Ordering::Relaxed);
         let arena = Staging::new(parent, std::iter::once(self.target.file_name().expect("root name")));
         let result = context
             .execute_entry(&self.original, &self.target, &plan.operations().entries()[0], &arena, 0, true)
@@ -269,7 +269,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
         let plan = diff_dirs_tree_inspect::inspect_root(&self.original, &self.target, Purpose::Copy, &self.steering()).map_err(Failure::checked)?;
         context.excluded.fetch_add(plan.excluded(), Ordering::Relaxed);
         context.retained.fetch_add(plan.retained(), Ordering::Relaxed);
-        context.planned.fetch_add(plan.work(), Ordering::Relaxed);
+        context.planned.fetch_add(unconditional_work(&plan), Ordering::Relaxed);
         let arena = Staging::new(parent, std::iter::once(self.target.file_name().expect("leaf root has name")));
         let result = context
             .execute_entry(&self.original, &self.target, &plan.operations().entries()[0], &arena, 0, true)
@@ -365,6 +365,50 @@ struct PreparedLeaf {
     _output: Option<File>,
 }
 
+/// Active source-only routing ancestry. Physical output paths can be inside a
+/// staging arena; policy coordinates remain on the Operation/plan. Frames live
+/// only across this opaque recursive application and finalize in postorder.
+struct PendingDirectory {
+    path: PathBuf,
+    permissions: Permissions,
+    created: bool,
+    relaxed: bool,
+    needed: bool,
+}
+
+fn conditional(entry: &Operation) -> bool {
+    matches!(
+        entry.action(),
+        Some(Action::Directory {
+            container: Container::CreateIfNeeded,
+            ..
+        })
+    )
+}
+
+fn unconditional_work(plan: &DirectoryPlan) -> u64 {
+    plan.operations().entries().iter().filter(|e| e.has_work() && !conditional(e)).count() as u64
+}
+
+fn materialize_pending(pending: &mut [PendingDirectory], parent: &Writable<'_>) -> Result<(), Failure> {
+    // The external parent is real and its batch owns this lease until recursive
+    // application returns. Created routing frames stay writable until postorder.
+    for frame in pending.iter_mut() {
+        frame.needed = true;
+    }
+    parent.ensure()?;
+    for frame in pending {
+        if !frame.created {
+            fs::create_dir(&frame.path).map_err(|error| Failure::io("create conditional routing directory", &frame.path, error))?;
+            // Record ownership before any fallible metadata/permission work.
+            // Each frame contributes actual creation once, when it unwinds.
+            frame.created = true;
+            frame.relaxed = relax(&frame.path)?.1;
+        }
+    }
+    Ok(())
+}
+
 impl Context<'static> {
     fn new(policy: CopyPolicy, parallel: bool) -> Self {
         Self::checked(policy, parallel, Path::new(""), Path::new(""), &NoCheck, &NoScope, &RemoveAll, &NoVisitor)
@@ -454,7 +498,7 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
             })
             .collect();
         self.planned
-            .fetch_add(entries.iter().filter(|e| e.has_work()).count() as u64, Ordering::Relaxed);
+            .fetch_add(entries.iter().filter(|e| e.has_work() && !conditional(e)).count() as u64, Ordering::Relaxed);
         let arena = Staging::new(to, plan.operations().entries().iter().map(|e| e.name()));
         let result = self.batch(&entries, |index, entry| {
             self.execute_entry(&from.join(entry.name()), &to.join(entry.name()), entry, &arena, index, recurse_pairs)
@@ -463,7 +507,8 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
         arena.finish(result, self)
     }
 
-    fn preview_entry(&self, entry: &Operation) -> Result<(), Failure> {
+    fn preview_entry(&self, entry: &Operation) -> Result<bool, Failure> {
+        let mut needed = entry.has_work() && !conditional(entry);
         let relative = entry.relative_path();
         let from = self.original.join(relative);
         let to = self.target.join(relative);
@@ -477,15 +522,18 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
                 self.removable(&to, relative, true)?;
                 (None, Some(to.as_path()))
             }
-            _ => return Ok(()),
+            _ => return Ok(needed),
         };
         let plan = self.plan(relative, source, target)?;
         self.retained.fetch_add(plan.retained(), Ordering::Relaxed);
-        self.planned.fetch_add(plan.work(), Ordering::Relaxed);
+        self.planned.fetch_add(unconditional_work(&plan), Ordering::Relaxed);
         for child in plan.operations().entries() {
-            self.preview_entry(child)?;
+            needed |= self.preview_entry(child)?;
         }
-        Ok(())
+        if conditional(entry) && needed {
+            self.planned.fetch_add(1, Ordering::Relaxed);
+        }
+        Ok(needed)
     }
 
     fn execute_entry(
@@ -530,6 +578,19 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
                 self.copy_directory_selected(from, to, entry.relative_path(), entry.source().expect("source directory").metadata(), descend)
                     .map(|done| (done, false))
             }
+            Action::Directory {
+                container: Container::CreateIfNeeded,
+                ..
+            } => self
+                .copy_directory_pending(
+                    from,
+                    to,
+                    entry.relative_path(),
+                    entry.source().expect("source directory").metadata(),
+                    &arena.writable,
+                    &mut Vec::new(),
+                )
+                .map(|done| (done, false)),
             Action::ReplaceWithDirectory { descend } => {
                 let staged = arena.entry(index, to)?;
                 let prepared = self.copy_directory_selected(
@@ -611,6 +672,93 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
         result
     }
 
+    /// Opaque source-only recursion, not a discovery pass. A mutable depth-sized
+    /// chain deliberately makes this part sequential even in a parallel batch;
+    /// independent top-level entries can still execute in parallel. Once an
+    /// admitted ordinary effect is encountered, use the same production entry
+    /// kernel and parent-local staging as eager copying.
+    fn copy_directory_pending(
+        &self,
+        from: &Path,
+        to: &Path,
+        relative: &Path,
+        metadata: &Metadata,
+        parent: &Writable<'_>,
+        pending: &mut Vec<PendingDirectory>,
+    ) -> Result<Progress, Failure> {
+        if self.stopped.load(Ordering::Acquire) {
+            return Ok(Progress::default());
+        }
+        pending.push(PendingDirectory {
+            path: to.to_owned(),
+            permissions: metadata.permissions(),
+            created: false,
+            relaxed: false,
+            needed: false,
+        });
+        let result = (|| {
+            // No target directory is needed to inspect source-only children.
+            let plan = self.plan(relative, Some(from), None)?;
+            self.retained.fetch_add(plan.retained(), Ordering::Relaxed);
+            self.planned.fetch_add(unconditional_work(&plan), Ordering::Relaxed);
+            let arena = Staging::new(to, plan.operations().entries().iter().map(|e| e.name()));
+            let mut progress = Progress::default();
+            let result = (|| {
+                for (index, entry) in plan.operations().entries().iter().enumerate() {
+                    if self.stopped.load(Ordering::Acquire) {
+                        break;
+                    }
+                    let from = from.join(entry.name());
+                    let to = to.join(entry.name());
+                    let result = if conditional(entry) {
+                        self.copy_directory_pending(
+                            &from,
+                            &to,
+                            entry.relative_path(),
+                            entry.source().expect("source directory").metadata(),
+                            parent,
+                            pending,
+                        )
+                    } else {
+                        (|| {
+                            if entry.has_work() {
+                                materialize_pending(pending, parent)?;
+                            }
+                            self.execute_entry(&from, &to, entry, &arena, index, true).map(|(done, _)| done)
+                        })()
+                    };
+                    match result {
+                        Ok(done) => progress += done,
+                        Err(mut failure) => {
+                            failure.completed += progress;
+                            return Err(failure);
+                        }
+                    }
+                }
+                Ok(progress)
+            })();
+            arena.finish(result, self)
+        })();
+        let frame = pending.pop().expect("active pending directory");
+        if frame.needed {
+            self.planned.fetch_add(1, Ordering::Relaxed);
+        }
+        if !frame.created {
+            return result;
+        }
+        // Even failure finalizes every created routing ancestor, only after all
+        // of its descendants/siblings have returned. Never chmod a pending name.
+        let mut result = finish_permissions(result, &frame.path, frame.permissions, frame.relaxed, false);
+        add_progress(
+            &mut result,
+            Progress {
+                directories_created: 1,
+                ..Progress::default()
+            },
+        );
+        result
+    }
+
     fn reconcile_directory(
         &self,
         source: Option<&Path>,
@@ -621,7 +769,7 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
     ) -> Result<(Progress, bool), Failure> {
         let plan = self.plan(relative, source, Some(path))?;
         self.retained.fetch_add(plan.retained(), Ordering::Relaxed);
-        self.planned.fetch_add(plan.work(), Ordering::Relaxed);
+        self.planned.fetch_add(unconditional_work(&plan), Ordering::Relaxed);
         let arena = Staging::new(path, plan.operations().entries().iter().map(|e| e.name()));
         let mut kept = !remove || plan.excluded() != 0;
         let mut progress = Progress::default();

@@ -15,8 +15,8 @@ parallel = ["diff-dirs-transfer-sync/parallel", "diff-dirs-tree-compare/parallel
 native-dirent = ["diff-dirs-transfer-sync/native-dirent", "diff-dirs-tree-compare/native-dirent"]
 
 [dependencies]
-diff-dirs-transfer-sync = { path = "../../transfer/sync" }
-diff-dirs-tree-compare = { path = "../../tree/compare" }
+diff-dirs-transfer-sync = { path = "../../transfer/sync", version = "=0.2.0" }
+diff-dirs-tree-compare = { path = "../../tree/compare", version = "=0.2.0" }
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["arbitrary_precision"] }

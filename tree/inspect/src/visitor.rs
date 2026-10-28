@@ -144,6 +144,11 @@ pub enum Container {
     Keep,
     /// Create an absent directory needed as a legal routing ancestor.
     Create,
+    /// Source-only routing directory, with descent required. Inspect through the
+    /// absent target and create this container only if admitted descendant work
+    /// needs it. An explicitly selected empty directory uses eager `Create`.
+    /// Pending ancestors are runtime effect state, not new paired traversal.
+    CreateIfNeeded,
     /// Remove after child reconciliation only if no descendant survives.
     Remove,
 }
@@ -155,7 +160,7 @@ pub enum Container {
 /// | source-only leaf | KeepLeaf, InstallLeaf |
 /// | target-only leaf | KeepLeaf, RemoveLeaf |
 /// | two leaves | KeepLeaf; InstallLeaf only when different |
-/// | source-only directory | Create directory, optionally descend |
+/// | source-only directory | Create, optionally descend; CreateIfNeeded with descent |
 /// | target-only directory | Keep/Remove container and descend; Keep may stop |
 /// | two directories | Keep container, descend or stop |
 /// | source leaf / target directory | ReplaceWithLeaf, or keep target directory |
@@ -186,6 +191,8 @@ pub enum Action {
     /// Independent container authority and child admission, subject to the table
     /// above. Removing with descent stopped, or keeping an absent container, is
     /// invalid; the library never silently creates a refused routing ancestor.
+    /// `CreateIfNeeded` requires a source-only directory and `descend: true`;
+    /// it does not authorize replacement of an existing leaf or directory.
     Directory { container: Container, descend: bool },
     /// Coupled directory-to-leaf replacement. Sync locally checks removability
     /// of this affected target subtree before staging/chmod/dismantling it.
@@ -346,7 +353,7 @@ impl Operation {
         )
     }
     /// Whether a namespace action is proposed for this name. Directory removal
-    /// is conditional on descendants; this is not a claim of completed work.
+    /// and conditional creation depend on descendants; this is not a claim of completed work.
     pub fn has_work(&self) -> bool {
         matches!(
             self.action,
@@ -356,7 +363,7 @@ impl Operation {
                     | Action::ReplaceWithLeaf
                     | Action::ReplaceWithDirectory { .. }
                     | Action::Directory {
-                        container: Container::Create | Container::Remove,
+                        container: Container::Create | Container::CreateIfNeeded | Container::Remove,
                         ..
                     }
             )
@@ -381,6 +388,10 @@ impl Operation {
             Action::Directory {
                 container: Container::Create, ..
             } => sd && t.is_none(),
+            Action::Directory {
+                container: Container::CreateIfNeeded,
+                descend,
+            } => sd && t.is_none() && descend,
             Action::Directory {
                 container: Container::Keep, ..
             } => td,

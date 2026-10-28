@@ -1,6 +1,6 @@
 [package]
 name = "diff-dirs-app-cli"
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
 publish = false
 
@@ -9,7 +9,7 @@ name = "diff-dirs"
 path = "src/main.rs"
 
 [dependencies]
-diff-dirs-tree-api = { path = "../../tree/api" }
+diff-dirs-tree-api = { path = "../../tree/api", version = "=0.2.0" }
 serde_json = "1.0.154"
 
 [features]
