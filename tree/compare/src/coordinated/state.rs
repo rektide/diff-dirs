@@ -315,10 +315,12 @@ impl Parts {
                     if active_child.is_some_and(|active| path.starts_with(&active.relative)) {
                         continue;
                     }
-                    require(
-                        frame.remaining.iter().all(|edge| edge.name != child || !edge.members.contains(&lane.target)),
-                        "closed reduction overlaps unstarted child",
-                    )?;
+                    if let Ok(index) = frame.remaining.binary_search_by(|edge| edge.name.as_encoded_bytes().cmp(child.as_encoded_bytes())) {
+                        require(
+                            frame.remaining[index].members.binary_search(&lane.target).is_err(),
+                            "closed reduction overlaps unstarted child",
+                        )?;
+                    }
                     require(lane.subtree_changed, "lost returned child divergence")?;
                 }
             }
