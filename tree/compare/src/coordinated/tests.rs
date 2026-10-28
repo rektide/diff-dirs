@@ -5,6 +5,30 @@ use std::fs;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+#[test]
+fn explicit_settlement_closes_only_ready_returns_without_inspection() {
+    let setup = Setup::new(1);
+    for root in [&setup.bindings.source, &setup.bindings.targets[0].root] {
+        fs::create_dir(root.join("a")).unwrap();
+        fs::create_dir(root.join("b")).unwrap();
+    }
+    let policies = setup.loans();
+    let mut run = Coordinated::new(setup.bindings.clone(), Execution::Sequential).unwrap();
+    run.bind(&policies).unwrap();
+    run.next_group(&policies).unwrap().unwrap();
+    run.next_group(&policies).unwrap().unwrap();
+    let inspections = setup.policies[0].directories.lock().unwrap().len();
+    run.settle();
+    assert!(run.current_token().is_none());
+    assert_eq!(run.parts().frames.len(), 1);
+    assert_eq!(run.parts().frames[0].remaining[0].name, "b");
+    assert_eq!(setup.policies[0].directories.lock().unwrap().len(), inspections);
+    run.parts().validate().unwrap();
+    assert_eq!(run.next_group(&policies).unwrap().unwrap().relative, Path::new("b"));
+    run.settle();
+    assert_eq!(run.parts().lanes[0].status, LaneStatus::Complete);
+}
+
 #[derive(Default)]
 struct Policy {
     preserve: Vec<PathBuf>,

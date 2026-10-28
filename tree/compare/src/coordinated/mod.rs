@@ -268,6 +268,16 @@ impl Coordinated {
         })
     }
 
+    /// Close the current control window and fold only already-ready returns.
+    /// Performs no observation, policy callback or filesystem access. Effectful
+    /// compositions call this only after disposing their current applications;
+    /// it permits a checkpoint after child return but before a queued sibling's
+    /// next inspection, without duplicating this frontier's reduction owner.
+    pub fn settle(&mut self) {
+        self.parts.window = None;
+        self.settle_returns();
+    }
+
     /// Observe exactly one next directory group, including a clean/empty group.
     /// None drains only remaining pure returns and marks eligible lanes complete.
     pub fn next_group<V: Visitor>(&mut self, policies: &[TargetPolicy<'_, V>]) -> Result<Option<ComparedGroup>, Error> {
