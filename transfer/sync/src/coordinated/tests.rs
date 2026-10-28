@@ -134,6 +134,98 @@ fn barrier_saves_a_before_b_without_reapplying_or_replaying_root_policy() {
 }
 
 #[test]
+fn sparse_live_runtime_keeps_original_indices_through_pending_refresh() {
+    let mut f = Setup::new();
+    for name in ["c", "d"] {
+        let root = f._owned.path().join(name);
+        fs::create_dir(&root).unwrap();
+        f.targets.push(root);
+    }
+    f.paired("paired/deep");
+    file(f.source.join("root"), b"root");
+    file(f.source.join("paired/deep/file"), b"nested");
+    let hooks = Arc::new(AtomicUsize::new(0));
+    let runtime = f.runtime(
+        (0..4)
+            .map(|i| Rules {
+                roots: hooks.clone(),
+                preserve: if i == 0 { vec!["".into()] } else { Vec::new() },
+                refuse: (i == 2).then(PathBuf::new),
+            })
+            .collect(),
+    );
+    let mut run = SyncCursor::new(&runtime, Execution::Sequential).unwrap();
+    let root = run.next_group(&runtime).unwrap().unwrap();
+    assert!(root.outcomes[2].outcome.is_err());
+    assert_eq!(run.pending(), [TargetId::from("lane-1"), "lane-3".into()]);
+    for target in run.pending() {
+        run.apply(&runtime, &root.token, &target).unwrap();
+    }
+    run.settle().unwrap();
+    assert_eq!(run.parts().comparison.lanes[0].status, LaneStatus::Complete);
+    let group = run.next_group(&runtime).unwrap().unwrap();
+    assert_eq!(group.relative, Path::new("paired"));
+    run.apply(&runtime, &group.token, &"lane-1".into()).unwrap();
+    let parts = run.into_parts();
+    parts.validate().unwrap();
+    for i in [0, 2] {
+        fs::remove_dir_all(&f.targets[i]).unwrap();
+    }
+    let mut targets: Vec<_> = runtime.targets.into_iter().filter(|t| matches!(t.id.0.as_str(), "lane-1" | "lane-3")).collect();
+    targets.reverse();
+    let runtime = SyncRuntime::new(targets);
+    let mut restored = SyncCursor::from_parts(parts, Execution::Sequential).unwrap();
+    restored.bind(&runtime).unwrap();
+    assert_eq!(restored.pending(), [TargetId::from("lane-3")]);
+    assert!(finish(&mut restored, &runtime).failures.is_empty());
+    assert_eq!(hooks.load(Ordering::Relaxed), 4, "accepted structural root hooks must not replay");
+    let reports = restored.reports();
+    assert!(reports[0].satisfied);
+    assert_eq!(reports[2].totals.end, Some(End::ComparisonFailed));
+    for i in [1, 3] {
+        assert!(reports[i].satisfied);
+        assert_eq!(reports[i].totals.applications, 3);
+        assert_eq!(reports[i].totals.completed.files_copied, 2);
+        assert_eq!(fs::read(f.targets[i].join("paired/deep/file")).unwrap(), b"nested");
+    }
+    restored.parts().validate().unwrap();
+}
+
+#[test]
+fn opaque_replacement_does_not_join_later_paired_traversal_after_becoming_a_directory() {
+    let f = Setup::new();
+    file(f.source.join("pkg/deep/file"), b"source");
+    file(f.targets[0].join("pkg"), b"replace this leaf");
+    fs::create_dir_all(f.targets[1].join("pkg/deep")).unwrap();
+    let runtime = f.runtime(vec![Rules::default(), Rules::default()]);
+    let mut run = SyncCursor::new(&runtime, Execution::Sequential).unwrap();
+    let root = run.next_group(&runtime).unwrap().unwrap();
+    for target in run.pending() {
+        run.apply(&runtime, &root.token, &target).unwrap();
+    }
+    assert_eq!(fs::read(f.targets[0].join("pkg/deep/file")).unwrap(), b"source");
+    let mut run = SyncCursor::from_parts(run.into_parts(), Execution::Sequential).unwrap();
+    run.bind(&runtime).unwrap();
+    for expected in ["pkg", "pkg/deep"] {
+        let group = run.next_group(&runtime).unwrap().unwrap();
+        assert_eq!(group.relative, Path::new(expected));
+        assert_eq!(group.outcomes.len(), 1);
+        assert_eq!(group.outcomes[0].target, TargetId::from("lane-1"));
+        run.apply(&runtime, &group.token, &"lane-1".into()).unwrap();
+    }
+    run.settle().unwrap();
+    let reports = run.reports();
+    assert!(reports.iter().all(|r| r.satisfied));
+    assert_eq!(reports[0].observed.examined_directories, 1);
+    assert_eq!(reports[1].observed.examined_directories, 3);
+    assert_eq!(reports[0].totals.completed.files_removed, 1);
+    for report in reports {
+        assert_eq!(report.totals.completed.files_copied, 1, "each interior has exactly one recursive owner");
+    }
+    run.parts().validate().unwrap();
+}
+
+#[test]
 fn deep_lane_heads_pure_returns_and_control_windows_survive() {
     let f = Setup::new();
     f.paired("a/deep");
