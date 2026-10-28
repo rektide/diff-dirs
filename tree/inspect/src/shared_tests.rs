@@ -708,6 +708,81 @@ fn equal_read_only_roots_remain_distinct_bindings_and_disabled_visitors_never_ru
     assert!(!results[2].outcome.as_ref().unwrap().coverage().scoped);
 }
 
+#[test]
+fn caller_selected_full_plans_share_source_facts_until_the_caller_lowers_them() {
+    for &execution in executions() {
+        let f = Fixture::new();
+        let targets = targets(&f, 2);
+        file(&f.original.join("source"), b"source");
+        let counted = Counted::default();
+        let roots = SharedRoots::bind_using(&f.original, targets, &counted).unwrap();
+        let visitors = [NoVisitor, NoVisitor];
+        let plans = roots
+            .inspect_lowered_using(InspectionAt::RootGated(Path::new("")), &requests(&visitors), execution, &counted, |_, plan| {
+                plan
+            })
+            .unwrap();
+        assert_eq!(counted.count(Call::List, &f.original), 1);
+        assert_eq!(counted.count(Call::Stat, &f.original.join("source")), 1);
+        let source = |index: usize| plans[index].outcome.as_ref().unwrap().operations().entries()[0].source().unwrap();
+        assert!(std::ptr::eq(source(0), source(1)));
+        assert!(counted.facts.lock().unwrap().iter().all(|facts| facts.upgrade().is_some()));
+        for plan in plans {
+            let comparison = plan.outcome.unwrap().into_comparison();
+            assert_eq!(comparison.diff().files.added, [OsString::from("source")]);
+        }
+        counted.assert_released();
+    }
+}
+
+#[test]
+fn already_admitted_root_refresh_skips_only_structural_hooks_without_rebinding_or_reinspection() {
+    struct DirectoryOnly<'a>(&'a Mutex<Vec<&'static str>>);
+    impl Visitor for DirectoryOnly<'_> {
+        fn early(&self, names: &mut Names) -> Result<(), CheckError> {
+            assert!(!names.is_root(), "accepted structural-root decision replayed");
+            assert_eq!(names.dir(), Path::new(""));
+            self.0.lock().unwrap().push("early");
+            Ok(())
+        }
+        fn late(&self, operations: &mut Operations) -> Result<(), CheckError> {
+            assert!(!operations.is_root(), "accepted structural-root decision replayed");
+            assert_eq!(operations.entries().len(), 1);
+            self.0.lock().unwrap().push("late");
+            Ok(())
+        }
+    }
+    let f = Fixture::new();
+    let targets = targets(&f, 2);
+    file(&f.original.join("source"), b"source");
+    let counted = Counted::default();
+    let roots = SharedRoots::bind_using(&f.original, targets.clone(), &counted).unwrap();
+    let calls = Mutex::new(Vec::new());
+    let visitors = [DirectoryOnly(&calls), DirectoryOnly(&calls)];
+    let results = roots
+        .inspect_lowered_using(
+            InspectionAt::AlreadyAdmitted(Path::new("")),
+            &requests(&visitors),
+            Execution::Sequential,
+            &counted,
+            |_, plan| {
+                assert!(!plan.operations().is_root());
+                plan.into_comparison()
+            },
+        )
+        .unwrap();
+    assert!(results.into_iter().all(|result| result.outcome.is_ok()));
+    assert_eq!(*calls.lock().unwrap(), ["early", "early", "late", "late"]);
+    assert_eq!(counted.count(Call::Root, &f.original), 1);
+    assert_eq!(counted.count(Call::List, &f.original), 1);
+    assert_eq!(counted.count(Call::Stat, &f.original.join("source")), 1);
+    for target in targets {
+        assert_eq!(counted.count(Call::Root, &target), 1);
+        assert_eq!(counted.count(Call::List, &target), 1);
+    }
+    counted.assert_released();
+}
+
 #[cfg(feature = "parallel")]
 #[test]
 fn wide_group_metadata_uses_and_joins_the_callers_pool() {

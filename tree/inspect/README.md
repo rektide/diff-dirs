@@ -9,10 +9,10 @@ updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 verification:
   scope: Immediate source-once acquisition and pair/sync regressions; not coordinated traversal, resumable execution or performance
   method: Counted and faulted real-filesystem acquisition tests, pure-default owner and Linux nightly workspace default/all-features nextest, strict clippy, formatting, doctests and Rustdoc
-  result: 123 pure-default owner/consumer tests, 172 default workspace tests, 175 all-feature workspace tests and 18 doctests passed; native-only inspection also passed
+  result: Baseline 2c29671b passed 123 pure-default owner/consumer tests, 172 default and 175 all-feature workspace tests and 18 doctests; the lowering/admission successor passed 27 default and 30 all-feature inspection tests
 sources:
   - resource: "opencode://ses_e7eb22fb2ffeH5O20EZV5nW4B5"
-    title: Implemented and verified the immediate source-once inspection epoch, full lane visitors, original shared error causes and fact-releasing comparison lowering
+    title: Implemented and verified source-once inspection, original shared error causes, consumer-selected full-plan lowering and already-admitted inspection without root-policy replay
   - resource: "opencode://ses_e9d314c29ffeboK450qrHM3qhF"
     title: Updated facade navigation after the final workspace relocation
   - resource: "opencode://ses_e9d737832ffeiy0f6OibOWOKSp"
@@ -66,14 +66,31 @@ error, late steering and whole-batch validation. Shared source failures use
 Listing failure is never absence; a lane that preserves an entry does not demand
 its source facts. Root preservation uses mandatory binding facts without listing.
 
-Each `TargetComparison` contains either its tagged failure or a reduced
+By default, each `TargetComparison` contains either its tagged failure or a reduced
 `DirectoryComparison`: baseline diff, `DirectoryCoverage`, paired child names and
 a structural-root flag. `DirectoryPlan::into_comparison()` offers the same
 fact-releasing lowering for ordinary immediate plans. Reduced results carry no
 full metadata, acquisition handles or mutation authority.
 
+`inspect_with` uses that same epoch but passes each successful validated
+`DirectoryPlan` to a caller-selected lowering function. Its generic
+`TargetComparison<T>` preserves consumer-owned decisions rather than forcing them
+through the diff projection. The callback can capture names, presence/comparison,
+actions/baselines, `excluded_names()` and descent into owned semantic signatures,
+or deliberately retain a full plan. It is pure lowering, not policy acceptance or
+effect execution. Failed lanes never call it; callback order is unspecified.
+
+`inspect_admitted_with` and its reduced `inspect_admitted_visitor` convenience
+explicitly require caller-accepted root/ancestor admission. They skip structural
+root hooks even at the empty relative path, while still running normal directory
+hooks. Validated root bindings remain mandatory. A resumed consumer is responsible
+for compatible accepted decisions and structural route validation, without
+replaying accepted root policy just to refresh an unstarted directory batch.
+
 All started work joins before return. Root binding facts remain with the runtime;
-child facts and handles do not. Parallel execution uses the current caller's Rayon
+child facts and handles do not remain in the reduced result. A caller choosing
+full plans retains their immutable facts until lowering/dropping them; no listing
+handles enter plans. Parallel execution uses the current caller's Rayon
 pool for wide metadata phases, not a new pool or J/K-controlled directory frontier.
 Complete unions and output can still grow with width and target count: no byte or
 total-memory bound is claimed.

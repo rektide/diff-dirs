@@ -59,10 +59,23 @@ pub struct TargetVisitor<'a, V> {
 /// One selected target's entire immediate outcome, in request/binding order.
 /// Shared source failures retain the **same original** error and I/O cause in an
 /// Arc, rather than reobserving or reconstructing an OS error for each target.
+/// The default payload is reduced comparison; [`SharedRoots::inspect_with`]
+/// permits a caller-owned projection of the complete validated plan instead.
 #[derive(Debug)]
-pub struct TargetComparison {
+pub struct TargetComparison<T = DirectoryComparison> {
     pub target: usize,
-    pub outcome: Result<DirectoryComparison, Arc<Error>>,
+    pub outcome: Result<T, Arc<Error>>,
+}
+
+struct Lowering<T, F> {
+    outcomes: Vec<Option<Result<T, Arc<Error>>>>,
+    lower: F,
+}
+
+impl<T, F: FnMut(usize, DirectoryPlan) -> T> Lowering<T, F> {
+    fn successful(&mut self, position: usize, target: usize, plan: DirectoryPlan) {
+        self.outcomes[position] = Some(Ok((self.lower)(target, plan)));
+    }
 }
 
 /// Construction fails before any target assessment or interior listing.
@@ -117,6 +130,19 @@ impl std::error::Error for SharedInputError {}
 struct BoundTarget {
     path: PathBuf,
     metadata: Metadata,
+}
+
+enum InspectionAt<'a> {
+    RootGated(&'a Path),
+    AlreadyAdmitted(&'a Path),
+}
+
+impl InspectionAt<'_> {
+    fn dir(&self) -> &Path {
+        match self {
+            Self::RootGated(dir) | Self::AlreadyAdmitted(dir) => dir,
+        }
+    }
 }
 
 /// One real source directory root and ordered real target directory roots.
@@ -219,6 +245,68 @@ impl SharedRoots {
         self.inspect_using(dir, targets, execution, &Physical)
     }
 
+    /// Inspect the same source-once epoch, lowering each successful **validated**
+    /// full plan into a caller-owned value before it is discarded. This retains
+    /// action/baseline choices, exclusion and descent information for consumers
+    /// that need more than a DirDiff, without introducing another inspector.
+    /// Failed lanes never invoke `lower`; a consumer may return its own Result
+    /// as T to distinguish lowering refusal from acquisition/policy failure.
+    ///
+    /// Lowering runs synchronously outside metadata jobs. Its invocation order is
+    /// unspecified (a preserved root can precede a peer's interior assessment).
+    /// It must only project supplied facts/decisions, not perform I/O or effects.
+    /// It is not a traversal acceptance or effect acknowledgment notification;
+    /// another invocation/retry can inspect and lower the same directory again.
+    ///
+    /// Return owned semantic decisions to release full facts. Deliberately
+    /// returning a DirectoryPlan or cloned Metadata instead retains those facts
+    /// at the caller's cost. No listing handles enter plans or returned values.
+    pub fn inspect_with<V: Visitor, T>(
+        &self,
+        dir: &Path,
+        targets: &[TargetVisitor<'_, V>],
+        execution: Execution,
+        lower: impl FnMut(usize, DirectoryPlan) -> T,
+    ) -> Result<Vec<TargetComparison<T>>, SharedInputError> {
+        self.inspect_lowered_using(InspectionAt::RootGated(dir), targets, execution, &Physical, lower)
+    }
+
+    /// Reduced inspection of a directory whose admission the caller has already
+    /// accepted. Unlike [`Self::inspect_visitor`], an empty relative path does
+    /// **not** replay structural-root policy. Real-root binding validation still
+    /// applies; ordinary directory-union early/late callbacks run as usual.
+    /// See [`Self::inspect_admitted_with`] for the full-plan lowering variant and
+    /// the caller's responsibility for admission and routing.
+    pub fn inspect_admitted_visitor<V: Visitor>(
+        &self,
+        dir: &Path,
+        targets: &[TargetVisitor<'_, V>],
+        execution: Execution,
+    ) -> Result<Vec<TargetComparison>, SharedInputError> {
+        self.inspect_admitted_with(dir, targets, execution, |_, plan| plan.into_comparison())
+    }
+
+    /// Full-plan lowering at an **already admitted** directory. Structural root
+    /// hooks are skipped even at the empty relative path, so refreshing an
+    /// unstarted directory batch need not replay an accepted root decision.
+    /// Directory hooks (`is_root() == false`) still execute for every ready lane.
+    ///
+    /// The caller must have accepted the root/ancestor descent for these exact
+    /// lanes under compatible frozen policy and must validate real-directory
+    /// routes before inspection when rebinding resumed state. This method neither
+    /// accepts saved decisions nor validates past policy/execution itself. The
+    /// same source-once acquisition, full-plan validation, errors and pure-lowering
+    /// contract as [`Self::inspect_with`] apply. It grants no mutation authority.
+    pub fn inspect_admitted_with<V: Visitor, T>(
+        &self,
+        dir: &Path,
+        targets: &[TargetVisitor<'_, V>],
+        execution: Execution,
+        lower: impl FnMut(usize, DirectoryPlan) -> T,
+    ) -> Result<Vec<TargetComparison<T>>, SharedInputError> {
+        self.inspect_lowered_using(InspectionAt::AlreadyAdmitted(dir), targets, execution, &Physical, lower)
+    }
+
     fn inspect_using<V: Visitor>(
         &self,
         dir: &Path,
@@ -226,12 +314,27 @@ impl SharedRoots {
         execution: Execution,
         acquire: &impl Acquire,
     ) -> Result<Vec<TargetComparison>, SharedInputError> {
+        self.inspect_lowered_using(InspectionAt::RootGated(dir), targets, execution, acquire, |_, plan| plan.into_comparison())
+    }
+
+    fn inspect_lowered_using<V: Visitor, T>(
+        &self,
+        at: InspectionAt<'_>,
+        targets: &[TargetVisitor<'_, V>],
+        execution: Execution,
+        acquire: &impl Acquire,
+        lower: impl FnMut(usize, DirectoryPlan) -> T,
+    ) -> Result<Vec<TargetComparison<T>>, SharedInputError> {
+        let dir = at.dir();
         self.validate_input(dir, targets)?;
-        let mut outcomes: Vec<_> = targets.iter().map(|_| None).collect();
+        let mut output = Lowering {
+            outcomes: targets.iter().map(|_| None).collect(),
+            lower,
+        };
         let mut ready = Vec::new();
         for (position, request) in targets.iter().enumerate() {
             let target = &self.targets[request.target];
-            if V::ENABLED && dir.as_os_str().is_empty() {
+            if V::ENABLED && matches!(at, InspectionAt::RootGated(_)) && dir.as_os_str().is_empty() {
                 let root = finish_root(
                     &self.source,
                     &target.path,
@@ -245,11 +348,11 @@ impl SharedRoots {
                 );
                 match root {
                     Err(error) => {
-                        outcomes[position] = Some(Err(Arc::new(error)));
+                        output.outcomes[position] = Some(Err(Arc::new(error)));
                         continue;
                     }
                     Ok(plan) if !plan.operations.entries[0].descends() => {
-                        outcomes[position] = Some(Ok(plan.into_comparison()));
+                        output.successful(position, request.target, plan);
                         continue;
                     }
                     Ok(_) => {}
@@ -258,11 +361,11 @@ impl SharedRoots {
             ready.push(position);
         }
         if !ready.is_empty() {
-            self.inspect_ready(dir, targets, ready, execution, acquire, &mut outcomes);
+            self.inspect_ready(dir, targets, ready, execution, acquire, &mut output);
         }
         Ok(targets
             .iter()
-            .zip(outcomes)
+            .zip(output.outcomes)
             .map(|(request, outcome)| TargetComparison {
                 target: request.target,
                 outcome: outcome.expect("every requested target was assessed"),
@@ -285,21 +388,21 @@ impl SharedRoots {
         Ok(())
     }
 
-    fn inspect_ready<V: Visitor>(
+    fn inspect_ready<V: Visitor, T>(
         &self,
         dir: &Path,
         targets: &[TargetVisitor<'_, V>],
         ready: Vec<usize>,
         execution: Execution,
         acquire: &impl Acquire,
-        outcomes: &mut [Option<Result<DirectoryComparison, Arc<Error>>>],
+        output: &mut Lowering<T, impl FnMut(usize, DirectoryPlan) -> T>,
     ) {
         let source = match listed(&self.source.join(dir), acquire) {
             Ok(source) => source,
             Err(error) => {
                 let error = Arc::new(error);
                 for position in ready {
-                    outcomes[position] = Some(Err(Arc::clone(&error)));
+                    output.outcomes[position] = Some(Err(Arc::clone(&error)));
                 }
                 return;
             }
@@ -323,7 +426,7 @@ impl SharedRoots {
                     }
                     prepared.push((position, admitted));
                 }
-                Err(error) => outcomes[position] = Some(Err(Arc::new(error))),
+                Err(error) => output.outcomes[position] = Some(Err(Arc::new(error))),
             }
         }
         // Consume every source handle before late assessment. Excluded handles
@@ -358,7 +461,7 @@ impl SharedRoots {
             })
             .into_iter()
             .collect::<Result<Vec<_>, _>>();
-            outcomes[position] = Some(entries.and_then(|entries| {
+            let plan = entries.and_then(|entries| {
                 finish_admitted(
                     Operations {
                         source_root: self.source.clone(),
@@ -371,9 +474,12 @@ impl SharedRoots {
                     coverage,
                     request.visitor,
                 )
-                .map(DirectoryPlan::into_comparison)
                 .map_err(Arc::new)
-            }));
+            });
+            match plan {
+                Ok(plan) => output.successful(position, request.target, plan),
+                Err(error) => output.outcomes[position] = Some(Err(error)),
+            }
         }
     }
 }

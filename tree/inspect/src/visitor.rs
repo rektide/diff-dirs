@@ -481,6 +481,14 @@ impl DirectoryPlan {
     pub fn preserves(&self, name: &OsStr) -> bool {
         self.preserved.iter().any(|n| n == name)
     }
+    /// Sorted immediate basenames excluded before child observation. Late
+    /// preservation remains visible as an operation's PreserveTree action.
+    /// Structural roots use their singleton operation and excluded count instead
+    /// of a fictitious parent-listing name. These names have no observations in
+    /// this plan; shared peers may still have demanded their source facts.
+    pub fn excluded_names(&self) -> &[OsString] {
+        &self.preserved
+    }
     /// Declared scoped coverage, not proof that some particular action changed.
     pub fn steered(&self) -> bool {
         self.steered
@@ -513,8 +521,9 @@ impl DirectoryPlan {
     }
 
     /// Lower this finalized batch to read-only comparison, coverage and owned
-    /// paired-child names. All full facts are released, including divergent ones;
-    /// the result grants no filesystem mutation authority.
+    /// paired-child names. This plan releases its full-fact ownership, including
+    /// divergent entries; shared peers/root bindings can retain their own facts.
+    /// The result grants no filesystem mutation authority.
     pub fn into_comparison(self) -> shared::DirectoryComparison {
         let children = self.paired_children().map(OsStr::to_os_string).collect();
         shared::DirectoryComparison {
