@@ -1,11 +1,14 @@
 ---
 type: CrateGuide
 title: Public tree comparison facade
-description: Convenient exports of immediate inspection and deterministic paired traversal, without filesystem effects.
+description: Convenient exports of immediate inspection, paired traversal and coordinated source-to-many continuation, without filesystem effects.
 resource: /tree/api/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
+updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-28 }
 sources:
+  - resource: "opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY"
+    title: Connects the delivered coordinated module and its continuation owner to the facade guide
   - resource: "opencode://ses_e9d314c29ffeboK450qrHM3qhF"
     title: Relocated the public facade, API integration tests and perf example into the path-derived workspace
   - resource: /design/architecture/draft2.gpt6a.md
@@ -25,8 +28,16 @@ sources:
 This crate re-exports the same inspection types and comparison functions, not a
 second implementation. [Inspection](../inspect/README.md) owns immediate facts,
 visitor policy and validated plans; [comparison](../compare/README.md) owns paired
-traversal, pruning, audits and summaries. Neither depends on the facade or on
+and coordinated traversal, pruning, audits, summaries and owned continuation.
+Neither depends on the facade or on
 [filesystem synchronization](/transfer/sync/README.md).
+
+`diff_dirs_tree_api::coordinated` re-exports the comparison owner's module. Its
+`Coordinated` machine shares source observations across destination lanes and
+retains partial ancestor frames, child memberships and controls through `Parts`.
+The [coordinated guide](../compare/README.md#coordinated-comparison) owns construction,
+binding, per-call policy loans and restoration. The separate sync crate composes
+that frontier with production effects; the facade itself stays read-only.
 
 Default builds are std-only. `parallel` forwards to inspection/comparison and
 adds a direct optional Rayon dependency used by the `perf` example. `native-dirent`
@@ -46,4 +57,6 @@ cargo check -p diff-dirs-tree-api --example perf --features parallel-bench,paral
 
 The [root specification](/README.md) governs behavior. The
 [performance guide](/perf/README.md) owns harness commands and timing boundaries;
-relocation is not a new performance result or coordinated-comparison capability.
+relocation itself was not a performance result. The subsequent
+[rebuild](/design/architecture/rebuild0.gpt6a.md) records coordinated implementation
+and its verification separately.

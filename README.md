@@ -1,14 +1,16 @@
 ---
 type: Specification
 title: diff-dirs
-description: Generic deterministic directory comparison, consumer-driven reconciliation, and explicit scan coverage.
+description: Deterministic paired and coordinated directory comparison, resumable traversal and decision state, and explicit reconciliation coverage.
 resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-28 }
 sources:
   - resource: opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY
-    title: Reconstructed the design sequence and integrated delivered shared inspection and coordinated partial-frontier continuation into the project specification
+    title: Reconstructed the design sequence and integrated shared inspection, coordinated partial-frontier continuation and production reconciliation into the project specification
+  - resource: opencode://ses_e7e8964e7ffe0nSda1UFEvX5PL
+    title: Implemented production coordinated synchronization, exact saved decisions, current-group acceptance and the fresh-process reconciliation consumer
   - resource: opencode://ses_e7ea319dfffeZci454IqpWo77c
     title: Implemented coordinated comparison, destination-specific controls and reductions, owned continuation parts and explicit runtime binding
   - resource: opencode://ses_e7eb22fb2ffeH5O20EZV5nW4B5
@@ -91,6 +93,11 @@ The follow-up [component-built walking example](examples/walk/README.md) perform
 real byte-copy and generated-finish work, with separate assessment/effect budgets
 and fresh-process continuation. Its library is codec-free by default; optional
 Snapshot transport remains example-local.
+
+The [production reconciliation example](examples/reconcile/README.md) now drives
+the coordinated frontier and real sync kernels across fresh processes. It saves
+partial traversal heads and selected decisions through an application-owned JSON
+transport, including a pause after one destination applies but before another does.
 
 ## Positioning
 
@@ -603,9 +610,10 @@ diff-dirs-tree-api = { path = "/path/to/diff-dirs/tree/api" }
 
 Use `diff_dirs_tree_api` in Rust. Packages follow their repository paths:
 `diff-dirs-tree-{observe,inspect,compare,api}`, `diff-dirs-transfer-sync`, and
-`diff-dirs-app-cli`. The standalone examples are `diff-dirs-examples-cursor`
-and `diff-dirs-examples-walk`, still outside this workspace; their executables
-remain `cursor` and `walk`. No root package named `diff-dirs` remains.
+`diff-dirs-app-cli`. The standalone examples are `diff-dirs-examples-cursor`,
+`diff-dirs-examples-walk` and `diff-dirs-examples-reconcile`, outside this workspace;
+their executables are `cursor`, `walk` and `reconcile`. No root package named
+`diff-dirs` remains.
 
 ### Optional cached Linux dirents
 
@@ -804,6 +812,48 @@ ephemeral application facts; its payload never enters saved `Parts`. The
 [owner guide](tree/compare/README.md#coordinated-comparison) owns the detailed API.
 The [earlier proposal](design/architecture/draft1.gpt6a.md) remains design history;
 the [rebuild account](design/architecture/rebuild0.gpt6a.md) records delivered checks.
+
+## Coordinated reconciliation and process continuation
+
+`diff_dirs_transfer_sync::coordinated` composes `SyncCursor` with an independently
+owned `SyncRuntime`. Comparison owns paired-child traversal. Production sync owns
+each destination's opaque immediate application, including recursive one-sided
+copy/removal and coupled replacements. A group's application barrier can retain
+A's accepted result and B's unstarted decision while both root traversals remain
+partial.
+
+Saved `SyncParts` contains the comparison frontier, exact metadata-free selected
+decisions, application dispositions and cumulative returned accounting. Runtime
+callbacks, full plans, metadata, pools and in-flight operation progress are not
+saved. After restoration, unstarted current-group lanes refresh together and their
+complete decision signatures are checked before refreshed effects. Accepted
+applications and ancestor/root policy are not replayed. Source sharing is per
+inspection epoch; restored refresh and filesystem execution have their own I/O.
+
+An opaque application failure terminates its lane with its actual returned outcome;
+healthy destinations continue. Reports distinguish observed comparison, accepted
+applications and visible filesystem work. Explicit traversal pruning leaves
+reconciliation incomplete; policy preservation remains part of the chosen policy.
+Effect bindings require existing, disjoint real-directory roots, including
+cross-destination checks. The [sync guide](transfer/sync/README.md#coordinated-reconciliation-and-continuation)
+owns the API and reporting contract.
+
+The standalone [fresh-process consumer](examples/reconcile/README.md) is runnable:
+
+```sh
+cargo run --manifest-path examples/reconcile/Cargo.toml -- start \
+  --source /data/source --target A=/data/target-a --target B=/data/target-b \
+  --copy-policy copy --cursor /data/checkpoints/reconcile.json \
+  --groups 1 --applications 1
+cargo run --manifest-path examples/reconcile/Cargo.toml -- resume \
+  --cursor /data/checkpoints/reconcile.json --groups 2 --applications 3
+```
+
+Its versioned transport preserves native path spelling and publishes separately
+outside the tree roots. The example's transport/CLI dependencies stay outside the
+default library workspace. Budgets count joined groups and application requests;
+one opaque application can perform a whole subtree operation. Checkpoints preserve
+the route and decisions between returned calls, not partial-copy recovery state.
 
 ## Future enhancements
 

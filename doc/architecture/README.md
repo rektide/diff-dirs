@@ -13,6 +13,10 @@ sources:
     title: Implements coordinated memberships, independent lane returns, owned continuation and borrowed per-call policies
   - resource: "opencode://ses_e7eb22fb2ffeH5O20EZV5nW4B5"
     title: Implements shared source acquisition, original shared errors and validated-plan lowering
+  - resource: "opencode://ses_e7e8964e7ffe0nSda1UFEvX5PL"
+    title: Implements production sync continuation, exact decision refresh and the runnable fresh-process transport consumer
+  - resource: /examples/reconcile/README.md
+    title: Delivered start/resume consumer and fresh-process verification boundaries
   - resource: /design/architecture/rebuild0.gpt6a.md
     title: Current commission, corrected checkpoint scope, implementation decisions and verified checkpoints
   - resource: /tree/compare/README.md
@@ -104,7 +108,7 @@ state.
 | Paired and coordinated traversal | Delivered in [comparison](/tree/compare/README.md): paired walks plus the coordinated membership frontier. |
 | Coordinated comparison continuation | Delivered: validated owned parts, partial heads, independent returns, control-token restoration and explicit runtime binding. |
 | Ordinary production filesystem effects | Delivered in [sync](/transfer/sync/README.md): staging, replacement, copy policy, timestamps, recursive policy and joined failures. |
-| Coordinated production sync and process transport | Current implementation stage; [rebuild checkpoints](/design/architecture/rebuild0.gpt6a.md) record its progress. |
+| Coordinated production sync and process transport | Delivered: [sync cursor/runtime](/transfer/sync/README.md#coordinated-reconciliation-and-continuation) and [fresh-process consumer](/examples/reconcile/README.md). |
 | Generated inputs and native workspace adapters | Wider research and bounded specimens, linked below; their standing is separate from the delivered comparison APIs. |
 
 The [root specification](/README.md) and [sync specification](/transfer/sync/README.md)
@@ -211,6 +215,7 @@ force all jobs into the paired comparison walk:
 | Paired read-only comparison | Core descends finalized admitted paired directories; one-sided directories remain opaque units. Only baseline-divergent batches are yielded. |
 | Coordinated comparison | One delivered frontier merges per-destination admitted paired children into edges carrying destination membership. Joined directory groups include clean outcomes and lane-local failures; one-sided regions remain opaque per destination. |
 | Current sync | Paired walker owns matched-directory descent; sync recursively owns source-only copies, target-only removal and replacement interiors, using the same inspector/policy. |
+| Coordinated sync | The comparison frontier owns paired edges; `SyncCursor` retains a destination-application barrier before advancing those edges. The production kernel owns each opaque one-sided/replacement interior. |
 | Assessment continuation | Caller-built driver can select one-sided interiors and the directory side of collisions too. This assessment coverage does not split coupled mutation authority. |
 
 Work carries its inputs, parameters, target and dependency position: before
@@ -276,12 +281,20 @@ its staging/permission scopes permits a pause; it does **not** close the partial
 ancestor frames. Do not serialize that operation's internal recursion, copied-file
 history or byte offsets.
 
-The current reconciliation direction holds a directory group's control window
+The implemented `SyncCursor` holds a directory group's control window
 while each destination's local application is accepted or terminated. Exact
 metadata-free decisions survive a pause; ephemeral plans do not. On restoration,
 only unstarted applications are refreshed together and checked against those
 decisions. Returned failures end their lane rather than introducing in-flight
 recovery or a retry log. Healthy lanes retain their heads and can continue.
+
+`SyncRuntime` owns the appliers and lends their composed policy per call. Separate
+`SyncParts` stores decisions and application dispositions, while full plans are an
+expendable runtime cache. `settle()` drains ready pure returns without inspecting
+the next group; `drive` counts groups and application requests separately. The
+[production example](/examples/reconcile/README.md) exercises these boundaries in
+fresh processes with an application-owned versioned, native-path-preserving JSON
+transport.
 
 Old checkpoint reuse can repeat effects or output. Checkpoint publication and
 external delivery have no joint transaction. Trees and frozen policy must remain
@@ -432,8 +445,10 @@ Its `next_group_with` gives a consumer validated plans through the same traversa
 the consumer's lowering payload never enters comparison `Parts`.
 
 Production sync provides recursive execution, joint preview and public-plan
-revalidation. Coordinated sync integration and fresh-process proof are the current
-build stage, recorded in the [rebuild account](/design/architecture/rebuild0.gpt6a.md).
+revalidation. Its coordinated cursor reuses the production kernel with saved
+decision validation and a group barrier. The [fresh-process consumer](/examples/reconcile/README.md)
+and [rebuild account](/design/architecture/rebuild0.gpt6a.md) record implementation
+and verification.
 The following earlier research discriminators concern broader capabilities rather
 than prerequisites for using delivered coordinated comparison:
 

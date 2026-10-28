@@ -15,7 +15,9 @@ sources:
   - resource: "opencode://ses_e7ea319dfffeZci454IqpWo77c"
     title: Models partial destination heads, selects exact unstarted-decision refresh, and implements the coordinated frontier with owned continuation and lane-local controls
   - resource: "opencode://ses_e7e8964e7ffe0nSda1UFEvX5PL"
-    title: Reviews the production sync boundary, borrowed policy composition and current-group acceptance barrier; commissioned for sync and fresh-process continuation
+    title: Reviews and implements production sync continuation, exact saved decisions, borrowed policy composition and fresh-process transport verification
+  - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
+    title: Independently reviews coordinated state and identifies two corrupted-checkpoint validation gaps for the final correction pass
   - resource: /design/architecture/draft0.gpt6a.md
     title: Broad component and continuation design after the research flight
   - resource: /design/architecture/draft1.gpt6a.md
@@ -217,6 +219,18 @@ child tickets from actual delivered scope and identified remaining work.
   formatting and document checks. The parent reviewed state ownership, membership,
   closure, tokens, policy loans and lowering. The builder rolled over at 259.6k;
   production sync and process transport are the next commissioned stage.
+- `d696f5b1`, `a7813f25`, `262cbbbf`, `1c8e4dd5` — pure return settlement,
+  production sync cursor/runtime and application barrier, structural-root decision
+  validation, then the runnable fresh-process consumer. Exact metadata-free
+  decisions survive pauses; full plans are runtime-only. Resumed unstarted lanes
+  refresh together before effects. Actual returned application totals are separate
+  from observed comparison and use wide cumulative counters. Opaque failure ends
+  its lane, with healthy lanes continuing. Reported verification passed: 209
+  default / 212 all-feature workspace tests, 158 explicitly feature-disabled
+  library/consumer tests, 20 doctests, and all 12 standalone process-consumer tests
+  under both default and all-feature builds. Strict clippy/Rustdoc, formatting and
+  owned document checks passed. The builder rolled over at 237.3k. Independent
+  checkpoint validation corrections and final integration review follow.
 
 ### Selected continuation composition
 

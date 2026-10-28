@@ -58,9 +58,9 @@ The [root specification](../README.md) owns the current public contract.
 - [Current rebuild and checkpoints](architecture/rebuild0.gpt6a.md): the October 28
   commission, independently assessed scope, partial multi-destination heads and
   traversal/decision checkpoints. Shared immediate inspection and the coordinated
-  frontier with owned continuation are delivered; production reconciliation and
-  fresh-process transport are being built next. This is the current implementation
-  account and decision trail.
+  frontier with owned continuation, production reconciliation and fresh-process
+  transport are delivered. This is the current implementation account, review
+  trail and checkpoint history.
 - [Broad component design](architecture/draft0.gpt6a.md): the first post-research
   technical draft, covering observation, selected work, progression, continuation,
   effects and runtime resources. It is the wider architectural context.
@@ -81,6 +81,12 @@ The [root specification](../README.md) owns the current public contract.
 
 ## Current execution and state
 
+- [Coordinated comparison](/tree/compare/README.md#coordinated-comparison),
+  [production coordinated sync](/transfer/sync/README.md#coordinated-reconciliation-and-continuation)
+  and [fresh-process reconciliation](/examples/reconcile/README.md): delivered
+  source sharing, lane-specific partial heads, exact saved decisions and opaque
+  production effects. The process consumer is the runnable starting point for
+  the current rebuild.
 - [Parent technical architecture draft](architecture/draft0.gpt6a.md): extensive
   post-flight design specifying dependency direction, typed goals, exact progression
   and saved-state ownership, generated inputs, native flows, and caller-owned
