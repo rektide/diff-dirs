@@ -302,6 +302,27 @@ impl Parts {
         if !self.root_pending && self.frames.is_empty() {
             require(self.lanes.iter().all(|l| l.status != LaneStatus::Active), "empty frontier has active lanes")?;
         }
+        // Check reductions only after the complete frame/membership structure is
+        // validated. A closed descendant inside this lane's active child has
+        // folded there, but need not have propagated through its pending return.
+        for (depth, frame) in self.frames.iter().enumerate() {
+            for lane in &frame.lanes {
+                let active_child = self.frames.get(depth + 1).filter(|child| child.lanes.iter().any(|l| l.target == lane.target));
+                for path in &self.lanes[lane.target].summary.changed_dirs {
+                    let Some(Component::Normal(child)) = path.strip_prefix(&frame.relative).ok().and_then(|suffix| suffix.components().next()) else {
+                        continue;
+                    };
+                    if active_child.is_some_and(|active| path.starts_with(&active.relative)) {
+                        continue;
+                    }
+                    require(
+                        frame.remaining.iter().all(|edge| edge.name != child || !edge.members.contains(&lane.target)),
+                        "closed reduction overlaps unstarted child",
+                    )?;
+                    require(lane.subtree_changed, "lost returned child divergence")?;
+                }
+            }
+        }
         Ok(())
     }
 }

@@ -11,6 +11,8 @@ verification:
   method: Workspace default and all-feature nextest, affected default/all-feature checks, strict workspace clippy, doctests, Rustdoc, formatting and Rekon document validation
   result: 198 workspace-default and 201 all-feature tests passed; 79 focused all-feature tests passed, including 22 coordinated tests; 19 workspace all-feature doctests and strict checks passed
 sources:
+  - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
+    title: Reproduces and fixes inconsistent closed reductions on restoration while preserving lane-specific partial-child returns
   - resource: "opencode://ses_e7ea319dfffeZci454IqpWo77c"
     title: Implements coordinated comparison with partial ancestor state, per-call policy loans, validated restoration, independent controls and fresh-runtime continuation tests
   - resource: /tree/compare/src/coordinated/mod.rs
@@ -126,8 +128,11 @@ diff is neither a mutation nor post-reconciliation verification.
 `new`, `Parts::fresh`, `Parts::validate` and `from_parts` perform no filesystem
 access. Roots must be absolute, lexically normalized native paths. Validation
 checks version, identities, paths, phases/control positions, ordered memberships,
-active return edges, summary ordering, ancestry and checked counters. It does not
-authenticate a checkpoint or prove past observations/decisions.
+active return edges, summary ordering, ancestry and checked counters. Closed
+reductions cannot overlap a lane's unstarted children or lose evidence already
+folded into a frame. Evidence inside that lane's still-active child need not yet
+have propagated to its parent. Validation does not authenticate a checkpoint or
+prove past observations/decisions.
 
 `bind(&policies)` checks compatible descriptors **before I/O**, then validates real
 live roots and active routing ancestors without replaying accepted root/ancestor
@@ -174,5 +179,6 @@ nor reinterprets pair-frontier J/K limits. Every returned group joins started wo
 Storage remains width-sensitive: current destination/source unions, selected child
 suffixes, memberships and summary vectors can grow. Full plans retained by a
 consumer add their own fact ownership. No fixed-byte, latency or whole-tree-memory
-bound is claimed. Process transport and production coordinated sync remain later
-compositions, not capabilities established by the in-memory restoration tests.
+bound is claimed. [Production coordinated sync](../../transfer/sync/README.md#coordinated-reconciliation-and-continuation)
+and the [fresh-process consumer](../../examples/reconcile/README.md) compose this
+frontier; their effect and transport guarantees have separate verification.

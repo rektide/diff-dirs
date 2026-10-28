@@ -730,6 +730,9 @@ fn partial_active_child_exempts_only_lanes_that_still_owe_its_return() {
             assert_eq!(parts.frames[0].remaining[0].members, [1]);
             assert_eq!(parts.lanes[0].summary.changed_dirs, [PathBuf::from("a/x"), "a".into()]);
             assert!(parts.frames[0].lanes[0].subtree_changed, "a already returned for lane 0");
+            let mut corrupted = parts.clone();
+            corrupted.frames[0].lanes[0].subtree_changed = false;
+            assert!(Coordinated::from_parts(corrupted, Execution::Sequential).is_err());
         } else {
             assert!(!parts.frames[0].lanes[0].subtree_changed);
         }
