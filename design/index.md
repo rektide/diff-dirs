@@ -5,8 +5,10 @@ description: Reading paths through consumer fit, I/O research, implementation de
 resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6.1-sol#high", at: 2026-10-20 }
+updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-28 }
 sources:
+  - resource: opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY
+    title: Recovered the broad design, coordinated refinement and delivered extraction sequence; connected the current coordinated and resumable rebuild and repaired current source navigation
   - resource: opencode://ses_ea82ab643ffel2vtvMoX2vqoZa
     title: Linked native-dirent tuning and optional Btrfs checksum research, with compressed-extent and live-generation limitations and separate open follow-up tickets
   - resource: opencode://ses_ea82cf969ffeAXqmUxHChTJar2
@@ -50,6 +52,31 @@ sources:
 # Design and implementation evidence
 
 The [root specification](../README.md) owns the current public contract.
+
+## Start here: the rebuild and its design sequence
+
+- [Current rebuild and checkpoints](architecture/rebuild0.gpt6a.md): the October 28
+  commission, independently assessed scope, partial multi-destination heads and
+  traversal/decision checkpoints. Shared immediate inspection is delivered;
+  coordinated traversal and production reconciliation continuation are being built
+  sequentially. This is the current implementation account and decision trail.
+- [Broad component design](architecture/draft0.gpt6a.md): the first post-research
+  technical draft, covering observation, selected work, progression, continuation,
+  effects and runtime resources. It is the wider architectural context.
+- [Coordinated comparison refinement](architecture/draft1.gpt6a.md): the subsequent
+  one-source/many-destination design. One frontier owns child memberships; each
+  destination retains its policy, differences, failures and coverage.
+- [Accepted crate decomposition](architecture/draft2.gpt6a.md): the next landing
+  decision, already implemented through `tree/`, `transfer/sync` and `app/cli`
+  relocation. Its instruction to stop before coordination scoped that earlier
+  extraction pass; it does not describe the current commission.
+- [Earlier source-cohort study](transfer/multi-target0.gpt61sxh.md): a complementary
+  independently progressing effectful composition with detach/reobserve. It is not
+  the coordinated frontier's scheduler or proof of its implementation.
+- [Walking specimen](../examples/walk/README.md): runnable continuation precedent.
+  Its simplified copy executor is distinct from the production sync kernels used
+  by the current rebuild. Its existence does not make production resumability
+  already delivered.
 
 ## Current execution and state
 
@@ -218,18 +245,18 @@ The [root specification](../README.md) owns the current public contract.
 ## Filesystem synchronization — separate optional consumer
 
 - [Early/late visitor API](../README.md#visitor-steered-planning) and
-  [visitor synchronization](../sync/README.md#visitor-steered-synchronization):
+  [visitor synchronization](../transfer/sync/README.md#visitor-steered-synchronization):
   implemented mutable premetadata name admission and late typed operation
   steering, immutable facts, coupled collisions, finalized child admission,
   recursive presets, logical staged paths, read-only joint preview and public
-  plan validation. [Core tests](../tests/visitor.rs) and
-  [sync tests](../sync/tests/visitor.rs) use tiny semantic fixtures, not a new
+  plan validation. [Core tests](../tree/api/tests/visitor.rs) and
+  [sync tests](../transfer/sync/tests/visitor.rs) use tiny semantic fixtures, not a new
   performance campaign. This extends the earlier gate's metadata boundary and
   editable-work authority while retaining the frontier's joined DFS guarantees.
   JW product/configuration/state-protocol integration remains outside this slice.
 - [Selected sync brief](sync/brief0.gpt6a.md): application direction, copy policy,
   metadata/replacement discipline, and the bounded scope without a runtime refactor.
-- [Maintained sync API](../sync/README.md): plain, caller-loop, and borrowed-pool
+- [Maintained sync API](../transfer/sync/README.md): plain, caller-loop, and borrowed-pool
   examples; root/record validation, staged replacement, partial progress, and
   stable-tree/nonhostile-alias contract.
 - [Sync implementation](sync/implementation0.sol61x.md): shared operation kernel,
