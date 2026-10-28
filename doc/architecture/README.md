@@ -1,12 +1,24 @@
 ---
 type: ArchitectureStatement
 title: Composable tree reconciliation
-description: Component ownership and contracts for immediate inspection, selected work, ordered progression, completion and optional continuation, including generated inputs and native workspace adapters.
+description: Current component ownership, coordinated source-to-many comparison and partial-frontier continuation, with production reconciliation integration and earlier research clearly distinguished.
 resource: /doc/architecture/README.md
-status: proposed-research-baseline
+status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-20 }
-updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-22 }
+updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-28 }
 sources:
+  - resource: "opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY"
+    title: Reorganizes the maintained architecture around delivered coordinated comparison, partial traversal and decision checkpoints, and the production reconciliation rebuild
+  - resource: "opencode://ses_e7ea319dfffeZci454IqpWo77c"
+    title: Implements coordinated memberships, independent lane returns, owned continuation and borrowed per-call policies
+  - resource: "opencode://ses_e7eb22fb2ffeH5O20EZV5nW4B5"
+    title: Implements shared source acquisition, original shared errors and validated-plan lowering
+  - resource: /design/architecture/rebuild0.gpt6a.md
+    title: Current commission, corrected checkpoint scope, implementation decisions and verified checkpoints
+  - resource: /tree/compare/README.md
+    title: Delivered coordinated APIs, partial frontier, controls and restoration contracts
+  - resource: /tree/inspect/README.md
+    title: Delivered source-once immediate inspection and already-admitted refresh seam
   - resource: /design/architecture/draft2.gpt6a.md
     title: Accepted domain-grouped crate decomposition and path-derived names; implementation authorized through extraction and relocation before coordinated comparison
   - resource: "opencode://ses_e9e45e9f4ffeZUWoZCK5VDjJvv"
@@ -64,63 +76,68 @@ sources:
 extensions:
   ticket: diffdir-tree-architecture-statement
 verification:
-  method: Synthesis of named independent returns, specification reading and targeted source inspection; document checks only, no new runtime tests or benchmarks
-  result: Local link and source-path, own-session provenance, fence and whitespace checks passed
+  method: Parent source review and integration of named implementation returns; runtime checks are attributed in the rebuild account; explicit document checks
+  result: Prior baseline checks passed; current revision checked with Rekon's document checker
 ---
 
 # Composable tree reconciliation
 
-Tree reconciliation composes **immediate inspection, pure assessment, selected
-work, ordered child progression and completion**. One shared inspection boundary
-supports read-only comparison, filesystem synchronization and caller-built
-assessment continuations. Their coverage and completion meanings remain distinct.
+Tree reconciliation composes **physical observation, pure decisions, ordered
+traversal and optional filesystem effects**. Coordinated comparison now shares one
+immediate source observation across destination lanes while retaining each lane's
+decisions, traversal membership, errors and coverage.
 
-This document states the architecture used as a **proposed research baseline**;
-it does not claim every mechanism is implemented or human-accepted. The
-[root specification](/README.md) and [sync specification](/transfer/sync/README.md) continue
-to govern delivered APIs. The [synthesis account](/design/architecture/synthesis0.gpt61sxh.md)
-records the independent evidence, integration choices and remaining tensions.
-The completed flight's [comparison](/design/architecture/comparison0.gpt61sxh.md)
-and [amended statement candidate](/design/architecture/statement1.gpt61sxh.md)
-preserve the original bets and distinguish supported composition from unselected
-production mechanisms and defaults.
-The subsequent [parent technical draft](/design/architecture/draft0.gpt6a.md)
-develops the overall design in detail: component dependencies, typed work,
-progression and construction contracts, resources, native flows and landing slices.
-It includes the newly selected runtime dirent-control direction; this maintained
-baseline does not thereby claim those interfaces or defaults are implemented.
+**A checkpoint saves partial traversal and decision state.** The root and active
+ancestors normally remain unfinished. One lane can wait for a later sibling while
+another is several levels deeper. Saving must retain those heads and return
+obligations; finishing an individual I/O call does not finish its parent directory.
+Opaque copy/removal operations keep their internal recursion private and complete
+their runtime scopes before returning. Their in-flight progress is not checkpoint
+state.
 
-The [coordinated comparison refinement](/design/architecture/draft1.gpt6a.md)
-develops one source against several destinations as a first-class read-only
-composition. One frontier owns ordered child edges carrying destination membership;
-source observations are shared, while policy, differences, errors and summaries
-remain per destination. This is the proposed response to the requested coordinated
-walk; independent effectful destination continuations remain a separate composition.
+## Current implementation and reading order
 
-The accepted [crate decomposition](/design/architecture/draft2.gpt6a.md) places
-observation, immediate inspection, traversal and the public facade under `tree/`,
-filesystem effects under `transfer/`, and the CLI under `app/`. Package names follow
-their full path (`diff-dirs-tree-inspect`, `diff-dirs-transfer-sync`, and so on).
-Extraction and relocation are the current implementation scope; the coordinated
-comparison capability follows that work.
+| Capability | Owner and standing |
+| --- | --- |
+| Physical observation and full-fact visitors | Delivered in [observation](/tree/observe/README.md) and [inspection](/tree/inspect/README.md). |
+| Shared-source immediate assessment | Delivered: source facts and physical errors are shared; unions, policy and error precedence remain per lane. |
+| Paired and coordinated traversal | Delivered in [comparison](/tree/compare/README.md): paired walks plus the coordinated membership frontier. |
+| Coordinated comparison continuation | Delivered: validated owned parts, partial heads, independent returns, control-token restoration and explicit runtime binding. |
+| Ordinary production filesystem effects | Delivered in [sync](/transfer/sync/README.md): staging, replacement, copy policy, timestamps, recursive policy and joined failures. |
+| Coordinated production sync and process transport | Current implementation stage; [rebuild checkpoints](/design/architecture/rebuild0.gpt6a.md) record its progress. |
+| Generated inputs and native workspace adapters | Wider research and bounded specimens, linked below; their standing is separate from the delivered comparison APIs. |
 
-Assume a good source. Concurrency, locking and stable path topology are caller
-concerns. Failure promises **no effects history, recovery guarantee or rollback**.
-Voluntary pause and continuation do not introduce a recovery transaction.
+The [root specification](/README.md) and [sync specification](/transfer/sync/README.md)
+own delivered behavior. For the design history, read:
 
-A **tip** is a scheduled logical unit with the bindings needed to inspect or
-execute it. **Completion** closes that unit's declared obligations, which differ
-between assessment, synchronization and output delivery.
+1. [Draft 0](/design/architecture/draft0.gpt6a.md): broad post-research component,
+   work, continuation and resource architecture.
+2. [Draft 1](/design/architecture/draft1.gpt6a.md): coordinated source-to-many
+   comparison and its projection, lifetime and failure obligations.
+3. [Draft 2](/design/architecture/draft2.gpt6a.md): accepted crate extraction,
+   already delivered. Its old stopping point scoped that extraction pass.
+4. [Rebuild](/design/architecture/rebuild0.gpt6a.md): the current implementation
+   commission, human corrections, selected composition and checkpoints.
+
+The [earlier source-cohort study](/design/transfer/multi-target0.gpt61sxh.md)
+examines independently progressing effectful destinations with detach/reobserve.
+That is a different scheduler from this coordinated group's deliberate barrier.
+The [research comparison](/design/architecture/comparison0.gpt61sxh.md) preserves
+the broader findings without turning every proposal into a delivered feature.
+
+Callers retain source stability, topology and concurrency responsibilities.
+Continuation is a saved route through accepted decisions, not a fresh scan or an
+effects recovery transaction.
 
 ## Components and ownership
 
 | Component | Contract and owner |
 | --- | --- |
 | Consumer binding | Caller selects roots, operation intent, logical coordinates and frozen parameters. Binding validates the required root/routing shape; a missing source root is not deletion authority. |
-| Physical observer | Core owns listing, cached hints, admitted no-follow metadata and needed literal links. Handles and platform details stay private. |
-| Immediate inspector and assessment | Core merges native names, supplies immutable facts and baseline comparisons, invokes pure caller policy, then validates the complete immediate batch. No mutation or recursive descent occurs here. |
-| Ordered driver | Owns active tips, child order, phases, accepted aggregates, coverage and completion. It admits children only after their dependencies are settled. |
-| Optional executor | Sync owns filesystem preparation, installation/removal, permission scopes and joined runtime work. Other operations need an explicitly bound implementation. |
+| Physical observer | `tree/observe` owns listing, cached hints, admitted no-follow metadata and literal links. Handles and platform details stay private. |
+| Immediate inspector and assessment | `tree/inspect` owns name unions, demand acquisition, immutable facts, comparison and finalized visitor decisions. Shared inspection acquires source facts once for the current group. |
+| Ordered driver | `tree/compare` owns paired and coordinated DFS, destination memberships, partial frames, accepted aggregates, controls and lane-local completion. |
+| Optional executor | `transfer/sync` owns filesystem preparation, installation/removal, permission scopes and joined runtime work. It consumes selected work under its effect binding. |
 | Completion reducer and output consumer | A reducer folds local/child results and can produce a logical value. The consumer separately owns delivery or selected installation of that value. |
 | Optional continuation transport | Encodes and validates owned continuation data. It owns neither tree semantics nor live runtime resources. |
 | Native adapter | JW owns repository/workspace identity, revision transitions, administrative metadata, command defaults and native finish obligations. These are not generic copy policy. |
@@ -191,8 +208,8 @@ force all jobs into the paired comparison walk:
 
 | Composition | Recursive owner and result |
 | --- | --- |
-| Read-only comparison | Core descends finalized admitted paired directories; one-sided directories remain opaque units. Only baseline-divergent batches are yielded. |
-| Proposed coordinated comparison | One core frontier merges per-destination admitted paired children into edges carrying destination membership. Joined directory groups share source facts and publish separate destination outcomes; one-sided regions remain opaque for each destination. |
+| Paired read-only comparison | Core descends finalized admitted paired directories; one-sided directories remain opaque units. Only baseline-divergent batches are yielded. |
+| Coordinated comparison | One delivered frontier merges per-destination admitted paired children into edges carrying destination membership. Joined directory groups include clean outcomes and lane-local failures; one-sided regions remain opaque per destination. |
 | Current sync | Paired walker owns matched-directory descent; sync recursively owns source-only copies, target-only removal and replacement interiors, using the same inspector/policy. |
 | Assessment continuation | Caller-built driver can select one-sided interiors and the directory side of collisions too. This assessment coverage does not split coupled mutation authority. |
 
@@ -209,7 +226,8 @@ serialize independent siblings, and parallel failure does not promise a serial
 mutation prefix. Started work joins before a supported return/pause boundary.
 
 Descendants stay sealed while unresolved parent work can replace or discard them.
-Today's divergence seals implement this for current actions. An extended work
+Paired divergence seals and the coordinated current-group control window implement
+the comparison boundaries. A broader generated-work
 driver must also publish **selected work or explicit control/finish obligations
 when baseline physical differences are empty**. Merely adding a generated action
 would lose it in today's clean-plan dropping/yielding path. The existing silent
@@ -226,14 +244,22 @@ not an exactly-once delivery receipt.
 ## Component-built continuation and pause
 
 A cursor is the ordered driver's **state for future progress**, not its runtime.
-Construct it from bindings, inspector/policy, child selection/reduction, optional
-executor/output handling, and initial or restored state. Executable components
-are supplied by the application; serialization is optional.
+The implemented `Coordinated::into_parts()` preserves partial ancestors, remaining
+child suffixes, lane memberships, accepted local evidence and the open control
+window. `prefix_summaries()` projects ancestor evidence without closing those
+frames. `from_parts` validates data; `bind` reconstructs root facts and checks lent
+policy descriptors. Accepted ancestors and root policy are not replayed.
+
+For example, if A admits `a/` and `b/`, and B admits only `b/`, a pause under
+`a/nested/` retains A's active return chain and B's root-level position waiting for
+`b/`. A's return from `a/` folds only its own result. Both root traversals can
+remain partial. Memberships encode the heads; `heads()` derives a diagnostic view
+without introducing a second authoritative cursor.
 
 | Owner | At a saved pause |
 | --- | --- |
-| Driver | Retain logical bindings, frames, selected pending children, positions/phases, local and child aggregates, coverage and unresolved tip/work. |
-| Stateful component | Represent behaviorally necessary state as validated data, reconstruct it from declared inputs, or prohibit pausing at that point. |
+| Driver | Retain bindings, partial frames, remaining children, destination memberships, local and child aggregates, coverage and control position. |
+| Decisions | Preserve selected work and its disposition when composing effects; accepted local work does not imply completed ancestor traversal. |
 | Inspector | Finish/drop listing buffers, handles and transient facts. Retained names need ownership or retained backing storage; a closed dirent stream cannot be borrowed. |
 | Executor/runtime | Join jobs and settle temporary preparation/permission scopes at the supported boundary. Open files, pools and live leases are not serialized as cursor data. |
 | Codec/receiver | Validate representation, lossless native coordinates, bindings, invariants and component compatibility; rebind implementations/resources. Byte validity is not execution authority or filesystem relocation. |
@@ -244,22 +270,28 @@ postorder completions can drain without another assessment. This is not a bound
 on entries, syscalls, bytes, memory, events or latency. `Iterator::next()` yielding
 only differences is not such a step: it may traverse arbitrarily much clean work.
 
-For effects, permit voluntary pauses **between joined effect units**, not inside
-live staging or permission scopes. A whole recursive one-sided operation is a
-valid initial unit but not a bounded directory step. Finer interruption requires
-explicit remaining-child/finish state; its granularity and aggregate protocol are
-still research questions, not an invented recovery mechanism.
+For effects, save between returned opaque operations. A source-only subtree copy,
+removal or replacement can perform substantial recursive work in one call. Closing
+its staging/permission scopes permits a pause; it does **not** close the partial
+ancestor frames. Do not serialize that operation's internal recursion, copied-file
+history or byte offsets.
 
-Retry re-establishes actual unresolved work as necessary; it neither replays stale
-facts nor assumes a failed effect did nothing. Skip abandons a declared remaining
-unit and immediately propagates incomplete coverage, without undoing prior
-effects. Repeated attempts must not double-fold an unaccepted local result.
-Assessed ancestors need not be relisted, so continuation is not a fresh scan after
-edits. Old cursor reuse can repeat outputs/effects; cursor publication and output
-delivery have no joint transaction. Historical bodies and completed-effect
-catalogs are not required state.
+The current reconciliation direction holds a directory group's control window
+while each destination's local application is accepted or terminated. Exact
+metadata-free decisions survive a pause; ephemeral plans do not. On restoration,
+only unstarted applications are refreshed together and checked against those
+decisions. Returned failures end their lane rather than introducing in-flight
+recovery or a retry log. Healthy lanes retain their heads and can continue.
+
+Old checkpoint reuse can repeat effects or output. Checkpoint publication and
+external delivery have no joint transaction. Trees and frozen policy must remain
+stable across voluntary pauses; resumed routing is checked structurally without
+reinterpreting previously accepted ancestor decisions.
 
 ## Physical, generated and mapped inputs
+
+This section records the wider design direction. General generated/mapped inputs
+are separate from the delivered physical comparison and its owned continuation.
 
 Keep **logical identity, physical source, physical target and private preparation
 locations** separate. Ordinary trees use coincident root-relative suffixes;
@@ -392,15 +424,18 @@ permission, replacement, provider or native-workspace continuation adapter.
 
 ## Delivered seams and next interface discriminators
 
-The public `inspect_directory` is the delivered immediate seam. `PlanWalk` and the
-parallel frontier deliver paired comparison; sync provides recursive execution,
-joint preview and separately revalidated public-plan application. Their current
-code boundaries are mapped in the [execution flow](/design/execution/flow0.gpt6a.md)
-and [state account](/design/execution/state0.gpt6a.md). No restored cursor makes an
-old physical plan fresh authorization. The extended work-publication, generated
-reconciliation and effectful cursor protocols above are **not delivered core/sync APIs**.
-The bounded example supplies evidence for those seams; it does not promote them
-to new core or sync APIs.
+`inspect_directory` and `SharedRoots::inspect_with` provide ordinary and shared
+immediate inspection. `inspect_admitted_with` refreshes an already-admitted
+coordinate without replaying structural-root policy. `PlanWalk` and the paired
+parallel frontier coexist with the implemented `coordinated::Coordinated` machine.
+Its `next_group_with` gives a consumer validated plans through the same traversal;
+the consumer's lowering payload never enters comparison `Parts`.
+
+Production sync provides recursive execution, joint preview and public-plan
+revalidation. Coordinated sync integration and fresh-process proof are the current
+build stage, recorded in the [rebuild account](/design/architecture/rebuild0.gpt6a.md).
+The following earlier research discriminators concern broader capabilities rather
+than prerequisites for using delivered coordinated comparison:
 
 | Research owner | Smallest next discriminator |
 | --- | --- |
