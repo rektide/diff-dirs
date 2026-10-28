@@ -12,6 +12,8 @@ sources:
     title: Independent design reconstruction identifies production retry ownership and distinguishes research completion from delivered capabilities
   - resource: "opencode://ses_e7eb22fb2ffeH5O20EZV5nW4B5"
     title: Independent source assessment identifies shared acquisition, lane reduction, ordered-error and resumable frontier obligations; commissioned for the first inspection implementation
+  - resource: "opencode://ses_e7ea319dfffeZci454IqpWo77c"
+    title: Fresh continuation review models partial destination heads and selects exact unstarted-decision refresh when opaque failures are terminal
   - resource: /design/architecture/draft0.gpt6a.md
     title: Broad component and continuation design after the research flight
   - resource: /design/architecture/draft1.gpt6a.md
@@ -192,6 +194,15 @@ child tickets from actual delivered scope and identified remaining work.
   The parent reviewed source acquisition, shared-error ownership and reduction.
   A successor seam will expose validated plans for action-decision lowering and
   already-admitted current-directory refresh, without replaying root policy.
+- `397ca37b` — validated-plan lowering and already-admitted inspection. The
+  generic `SharedRoots::inspect_with` hands each finalized plan to pure owned
+  lowering; `inspect_admitted_with` skips already-accepted structural-root policy
+  while retaining immediate-directory policy. `excluded_names()` exposes the
+  complete early-preserved name set for decision signatures. Full plans may be
+  retained by a runtime consumer but never contain acquisition handles. Reported
+  checks passed: 27 default and 30 all-feature inspection tests, four doctests,
+  strict clippy/Rustdoc, formatting and README checks. The inspection builder
+  handed off and rolled over at 293.5k context.
 
 ### Selected continuation composition
 
