@@ -654,6 +654,96 @@ fn a_lane_returns_before_its_peers_nested_work_and_its_ancestor_is_folded_once()
 }
 
 #[test]
+fn restoration_rejects_lost_already_folded_child_evidence() {
+    let s = Setup::new(1);
+    for root in [&s.bindings.source, &s.bindings.targets[0].root] {
+        for dir in ["a", "b"] {
+            fs::create_dir(root.join(dir)).unwrap();
+        }
+    }
+    file(&s.bindings.source.join("a/file"), b"source");
+    file(&s.bindings.targets[0].root.join("a/file"), b"different");
+    let mut run = s.run();
+    for expected in ["", "a", "b"] {
+        assert_eq!(run.next_group(&s.loans()).unwrap().unwrap().relative, Path::new(expected));
+    }
+    let mut parts = run.into_parts();
+    parts.validate().unwrap();
+    assert_eq!(parts.lanes[0].summary.changed_dirs, [PathBuf::from("a")]);
+    assert!(!parts.frames[0].lanes[0].direct_changed);
+    assert!(parts.frames[0].lanes[0].subtree_changed);
+    parts.frames[0].lanes[0].subtree_changed = false;
+    assert!(Coordinated::from_parts(parts, Execution::Sequential).is_err());
+}
+
+#[test]
+fn restoration_rejects_closed_reductions_inside_unstarted_children() {
+    let s = Setup::new(1);
+    for root in [&s.bindings.source, &s.bindings.targets[0].root] {
+        for dir in ["a", "b", "c/deep"] {
+            fs::create_dir_all(root.join(dir)).unwrap();
+        }
+    }
+    file(&s.bindings.source.join("a/file"), b"source");
+    file(&s.bindings.targets[0].root.join("a/file"), b"different");
+    let mut run = s.run();
+    for expected in ["", "a", "b"] {
+        assert_eq!(run.next_group(&s.loans()).unwrap().unwrap().relative, Path::new(expected));
+    }
+    let parts = run.into_parts();
+    parts.validate().unwrap();
+    assert_eq!(parts.lanes[0].summary.changed_dirs, [PathBuf::from("a")]);
+    for unstarted in ["c", "c/deep"] {
+        let mut corrupted = parts.clone();
+        corrupted.lanes[0].summary.changed_dirs[0] = unstarted.into();
+        assert!(Coordinated::from_parts(corrupted, Execution::Sequential).is_err());
+    }
+}
+
+#[test]
+fn partial_active_child_exempts_only_lanes_that_still_owe_its_return() {
+    for early_return in [false, true] {
+        let mut s = Setup::new(2);
+        for root in std::iter::once(&s.bindings.source).chain(s.bindings.targets.iter().map(|t| &t.root)) {
+            for dir in ["a/x", "a/y"] {
+                fs::create_dir_all(root.join(dir)).unwrap();
+            }
+        }
+        file(&s.bindings.source.join("a/x/file"), b"source");
+        for target in &s.bindings.targets {
+            file(&target.root.join("a/x/file"), b"different");
+        }
+        if early_return {
+            s.policies[0].preserve.push("a/y".into());
+        }
+        let expected: Vec<_> = (0..2).map(|i| independent(&s, i).2).collect();
+        let mut run = s.run();
+        for expected in ["", "a", "a/x", "a/y"] {
+            assert_eq!(run.next_group(&s.loans()).unwrap().unwrap().relative, Path::new(expected));
+        }
+        let parts = run.into_parts();
+        parts.validate().unwrap();
+        assert_eq!(parts.lanes[1].summary.changed_dirs, [PathBuf::from("a/x")]);
+        assert!(!parts.frames[0].lanes[1].subtree_changed, "a has not returned for lane 1");
+        assert!(parts.frames[1].lanes.iter().find(|l| l.target == 1).unwrap().subtree_changed);
+        if early_return {
+            assert_eq!(parts.frames[0].remaining[0].members, [1]);
+            assert_eq!(parts.lanes[0].summary.changed_dirs, [PathBuf::from("a/x"), "a".into()]);
+            assert!(parts.frames[0].lanes[0].subtree_changed, "a already returned for lane 0");
+        } else {
+            assert!(!parts.frames[0].lanes[0].subtree_changed);
+        }
+        let mut run = Coordinated::from_parts(parts, Execution::Sequential).unwrap();
+        run.bind(&s.loans()).unwrap();
+        while run.next_group(&s.loans()).unwrap().is_some() {}
+        for (i, (_, summary)) in run.prefix_summaries().into_iter().enumerate() {
+            assert_eq!(summary, expected[i]);
+        }
+        run.into_parts().validate().unwrap();
+    }
+}
+
+#[test]
 fn compact_live_rebind_keeps_noncontiguous_original_ids_and_binding_order() {
     let mut s = Setup::new(4);
     s.shape();
