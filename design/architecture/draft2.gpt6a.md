@@ -25,6 +25,15 @@ sources:
   - resource: /src/error.rs
     revision: e588cdd0
     title: Starting shared physical and policy-refusal error boundary
+  - resource: /tree/observe/README.md
+    revision: 3db92935
+    title: Delivered physical observation owner after step 3
+  - resource: /tree/inspect/README.md
+    revision: 3db92935
+    title: Delivered immediate inspection boundary and observation dependency
+  - resource: /tree/compare/README.md
+    revision: 3db92935
+    title: Delivered paired traversal and summary owner
   - resource: /sync/Cargo.toml
     revision: e588cdd0
     title: Existing filesystem effect package
@@ -258,6 +267,13 @@ changes invalidate them or a concrete concern needs verification.
   all-feature tests across the affected libraries/consumers; strict clippy,
   doctests, library Rustdoc and formatting also passed. Performance packages were
   checked, not benchmarked. Observation extraction and final relocation follow.
+- `3db92935`: a fresh Sol xhigh agent extracted `tree/observe`, including private
+  backend handles, owned entries, physical hints and explicit no-follow acquisition.
+  Inspection retains demands, policy and validated-plan construction; observation
+  I/O causes survive error mapping. Parent reviewed that dependency and error
+  boundary. Reported checks passed: 13 stable observation-owner tests, 155
+  all-feature workspace tests, 17 doctests, clippy, formatting, Rustdoc and the
+  new README provenance/link checks. Native enumeration remains opt-in.
 
 ## Connections
 

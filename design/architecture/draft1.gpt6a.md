@@ -152,7 +152,7 @@ caller-controlled stable source and destination trees throughout comparison.
 ## 3. One directory inspection
 
 The useful refactoring is inside immediate inspection. Today's
-[`inspect_directory_execution`](/src/visitor.rs) lists both sides, then privately
+[`inspect_directory_execution`](/tree/inspect/src/visitor.rs) lists both sides, then privately
 merges names, applies early admission, acquires facts and finalizes one plan.
 Reusing a sealed `DirectoryPlan` from A as B's plan is incorrect.
 

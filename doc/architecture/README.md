@@ -53,7 +53,7 @@ sources:
     title: Versioned native metadata creation evidence and sparse-empty Git-index limitation
   - resource: /README.md
     title: Governing delivered read-only comparison and visitor specification
-  - resource: /sync/README.md
+  - resource: /transfer/sync/README.md
     title: Governing delivered synchronization and failure specification
   - resource: /examples/cursor/README.md
     title: Delivered assessment-only continuation and generated-output boundaries
@@ -77,7 +77,7 @@ assessment continuations. Their coverage and completion meanings remain distinct
 
 This document states the architecture used as a **proposed research baseline**;
 it does not claim every mechanism is implemented or human-accepted. The
-[root specification](/README.md) and [sync specification](/sync/README.md) continue
+[root specification](/README.md) and [sync specification](/transfer/sync/README.md) continue
 to govern delivered APIs. The [synthesis account](/design/architecture/synthesis0.gpt61sxh.md)
 records the independent evidence, integration choices and remaining tensions.
 The completed flight's [comparison](/design/architecture/comparison0.gpt61sxh.md)
