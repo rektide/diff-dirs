@@ -55,6 +55,11 @@ The [root specification](../README.md) owns the current public contract.
 
 ## Start here: the rebuild and its design sequence
 
+Work anchor: `diffdir-tree-coordinated`; its readable child IDs track delivered
+capabilities and the remaining measurement follow-up. The current account below
+records commits and verification rather than treating old research closure as
+implementation completion.
+
 - [Current rebuild and checkpoints](architecture/rebuild0.gpt6a.md): the October 28
   commission, independently assessed scope, partial multi-destination heads and
   traversal/decision checkpoints. Shared immediate inspection and the coordinated

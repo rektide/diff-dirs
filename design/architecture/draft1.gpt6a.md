@@ -5,7 +5,10 @@ description: Refinement of the composable tree architecture with one coordinated
 resource: /design/architecture/draft1.gpt6a.md
 status: draft-for-design-selection
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-22 }
+updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-28 }
 sources:
+  - resource: "opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY"
+    title: Connects this preserved proposal to delivered coordinated comparison, continuation and production reconciliation
   - resource: "opencode://ses_e9e45e9f4ffeZUWoZCK5VDjJvv"
     title: Human requests coordinated comparison; develops its contracts and connects the subsequently accepted domain-owned crate decomposition
   - resource: /design/architecture/draft0.gpt6a.md
@@ -48,6 +51,15 @@ verification:
 ---
 
 # Coordinated source-to-many comparison
+
+**Implementation follow-through:** the [coordinated owner guide](/tree/compare/README.md#coordinated-comparison)
+now documents the delivered frontier and owned continuation. The
+[sync guide](/transfer/sync/README.md#coordinated-reconciliation-and-continuation)
+and [process consumer](/examples/reconcile/README.md) cover production effects and
+fresh-process traversal/decision checkpoints. The [rebuild account](rebuild0.gpt6a.md)
+records selected mechanisms and verification under `diffdir-tree-coordinated`.
+This document retains the earlier proposal, including resource/capacity ideas
+beyond the delivered APIs; consult those current homes for implemented contracts.
 
 **Accepted packaging refinement:** [Domain-owned crates](draft2.gpt6a.md) records
 the subsequent human-selected crate layout and path-derived names. Its extraction

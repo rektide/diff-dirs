@@ -3,9 +3,12 @@ type: ArchitectureDraft
 title: Domain-owned crates and the extraction sequence
 description: Accepted domain-grouped layout and path-derived package naming, with observation, immediate inspection, traversal and effects separated before coordinated comparison implementation.
 resource: /design/architecture/draft2.gpt6a.md
-status: accepted-direction-implementation-in-progress
+status: accepted-direction-extraction-complete
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-22 }
+updated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-28 }
 sources:
+  - resource: "opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY"
+    title: Marks extraction as delivered and connects the historical stopping point to the later coordinated and resumable implementation commission
   - resource: "opencode://ses_e9e45e9f4ffeZUWoZCK5VDjJvv"
     title: Human accepts path-derived domain crates and Sol xhigh extraction through relocation, then authorizes JW consumer integration without assuming it is a small mechanical repair; coordinated comparison remains deferred
   - resource: /design/architecture/draft0.gpt6a.md
@@ -63,6 +66,13 @@ verification:
 ---
 
 # Domain-owned crates
+
+**Completed foundation:** extraction and relocation landed through `46f61d30`,
+with archived-performance compatibility follow-up at `698bc983`. The subsequent
+[rebuild](rebuild0.gpt6a.md) implements coordinated comparison and production
+traversal/decision continuation. The stopping rule below records the earlier
+extraction commission, not the scope of that later work. Current architecture:
+[maintained home](/doc/architecture/README.md).
 
 ## Acceptance and stopping point
 

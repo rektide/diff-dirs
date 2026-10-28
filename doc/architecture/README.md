@@ -78,7 +78,8 @@ sources:
   - resource: /design/execution/state0.gpt6a.md
     title: Established observation, traversal, runtime and native-state lifetimes
 extensions:
-  ticket: diffdir-tree-architecture-statement
+  ticket: diffdir-tree-coordinated
+  related_work: [diffdir-tree, diffdir-tree-architecture-statement]
 verification:
   method: Parent source review and integration of named implementation returns; runtime checks are attributed in the rebuild account; explicit document checks
   result: Prior baseline checks passed; current revision checked with Rekon's document checker
@@ -100,6 +101,10 @@ their runtime scopes before returning. Their in-flight progress is not checkpoin
 state.
 
 ## Current implementation and reading order
+
+Work anchor: **`diffdir-tree-coordinated`**. Its child tickets record delivered
+inspection, traversal, continuation, sync and process capabilities, final review
+and documentation, and the separate workload-measurement follow-up.
 
 | Capability | Owner and standing |
 | --- | --- |

@@ -30,11 +30,19 @@ sources:
     title: Starting delivered pair comparison, visitors, coverage and synchronization boundary
   - resource: /transfer/sync/src/lib.rs
     title: Existing production root binding, record application and caller-owned traversal seam
+extensions:
+  ticket: diffdir-tree-coordinated
+  related_work: [diffdir-tree]
 ---
 
 # Coordinated comparison and resumable reconciliation rebuild
 
 ## Commission
+
+Work anchor: **`diffdir-tree-coordinated`**. The implementation tickets are
+`-inspection`, `-frontier`, `-continuation`, `-sync`, `-process`, `-validation` and
+`-docs`, under that full prefix. `-measure` separately tracks empirical comparison
+against independent walks; acquisition-count correctness is not a throughput claim.
 
 The October 28 commission prioritizes **one source compared/reconciled against
 multiple destinations**, and also asks that the resumable design be tackled.
