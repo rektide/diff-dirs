@@ -425,6 +425,41 @@ fn native_non_utf8_roots_rules_and_names_roundtrip_without_loss() {
 }
 
 #[test]
+fn transport_limit_includes_the_published_newline_and_preserves_the_previous_cursor() {
+    let f = Fixture::new();
+    f.invoke(f.start_args(0, 0), 0);
+    let previous = fs::read(&f.cursor).unwrap();
+    let (mut parts, mut config) = transport::read(&f.cursor).unwrap();
+    let size = |p: &_, c: &Vec<_>| serde_json::to_vec(&transport::Snapshot::new(p, c.clone()).unwrap()).unwrap().len();
+    let mut before = size(&parts, &config);
+    if (transport::MAX_BYTES as usize - before) % 2 != 0 {
+        // This data-only test need not bind the altered source. Changing the
+        // final native byte from 101 to 33 shortens its wire spelling by one.
+        parts.comparison.bindings.source.set_file_name("sourc!");
+        before = size(&parts, &config);
+    }
+    let extra = (transport::MAX_BYTES as usize - before) / 2;
+    let id = format!("A{}", "x".repeat(extra));
+    parts.comparison.bindings.targets[0].id.0 = id.clone();
+    config[0].target = id;
+    assert_eq!(size(&parts, &config) as u64, transport::MAX_BYTES);
+    assert!(
+        transport::write(&f.cursor, &parts, config.clone()).is_err(),
+        "the complete published file must fit the read limit"
+    );
+    assert_eq!(
+        fs::read(&f.cursor).unwrap(),
+        previous,
+        "oversize publication must not replace the old checkpoint"
+    );
+    parts.comparison.bindings.targets[0].id.0.pop();
+    config[0].target.pop();
+    transport::write(&f.cursor, &parts, config).unwrap();
+    assert!(fs::metadata(&f.cursor).unwrap().len() <= transport::MAX_BYTES);
+    assert_eq!(transport::read(&f.cursor).unwrap().0, parts);
+}
+
+#[test]
 fn wide_cumulative_counters_have_an_explicit_lossless_json_representation() {
     let f = Fixture::new();
     f.paired(Path::new("d"));
