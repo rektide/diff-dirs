@@ -298,8 +298,8 @@ impl SourceLease<'_> {
             self.counter.at().misses.fetch_add(1, Ordering::Relaxed);
             self.counter.at().listings.fetch_add(1, Ordering::Relaxed);
             let mut entries = acquire.list(path)?;
-            entries.sort_unstable_by(|a, b| a.file_name().as_encoded_bytes().cmp(b.file_name().as_encoded_bytes()));
-            if entries.windows(2).any(|p| p[0].file_name() == p[1].file_name()) {
+            entries.sort_unstable_by(|a, b| a.name().as_encoded_bytes().cmp(b.name().as_encoded_bytes()));
+            if entries.windows(2).any(|p| p[0].name() == p[1].name()) {
                 return Err(Error::io(
                     path.to_owned(),
                     "read directory entry",
