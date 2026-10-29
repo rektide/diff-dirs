@@ -64,7 +64,7 @@ fn binding_checks_run_once_in_order_and_preserved_root_is_not_listed() {
     assert_eq!(plan.excluded(), 1);
     assert_eq!(plan.retained(), 1);
     assert_eq!(plan.paired_children().count(), 0);
-    assert_eq!(plan.operations().entries()[0].action(), Some(Action::PreserveTree));
+    assert_eq!(plan.operations().entries().get(0).unwrap().action(), Some(Action::PreserveTree));
 }
 
 #[test]

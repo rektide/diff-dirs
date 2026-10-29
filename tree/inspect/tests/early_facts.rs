@@ -136,6 +136,6 @@ fn root_singletons_have_mandatory_metadata_provenance_on_each_present_side() {
     // Native-enabled and default visitors preserve the same baseline semantics.
     let plan = diff_dirs::inspect_root(&f.original, &f.target, Purpose::Compare, &NoVisitor).unwrap();
     assert!(plan.diff().is_empty());
-    assert!(plan.operations().entries()[0].descends());
+    assert!(plan.operations().entries().get(0).unwrap().descends());
     assert_eq!(plan.paired_children().count(), 0); // structural root, not a child listing
 }

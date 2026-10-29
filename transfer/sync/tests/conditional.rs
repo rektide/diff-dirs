@@ -303,19 +303,19 @@ fn saved_current_group_refresh_validates_conditional_action_without_new_paired_m
     parts.validate().unwrap();
     let decision = &parts.current.as_ref().unwrap().applications[0].decision;
     assert_eq!(
-        decision.entries[0].action,
+        decision.entry(diff_dirs_tree_inspect::SlotId(0)).action,
         Action::Directory {
             container: Container::CreateIfNeeded,
             descend: true
         }
     );
-    assert_eq!(decision.coverage.planned, 1, "immediate conditional obligation, not recursive actual work");
-    let mut invalid = parts.clone();
-    invalid.current.as_mut().unwrap().applications[0].decision.entries[0].action = Action::Directory {
+    assert_eq!(decision.coverage().planned, 1, "immediate conditional obligation, not recursive actual work");
+    let mut invalid = decision.to_parts();
+    invalid.entries[0].entry.action = Action::Directory {
         container: Container::CreateIfNeeded,
         descend: false,
     };
-    assert!(invalid.validate().is_err());
+    assert!(diff_dirs_tree_inspect::DirectorySelection::from_parts(invalid).is_err());
     let mut cursor = SyncCursor::from_parts(parts, Execution::Sequential).unwrap();
     cursor.bind(&runtime).unwrap();
     assert!(

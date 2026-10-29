@@ -119,7 +119,7 @@ impl Parts {
             })
             .collect();
         Ok(Self {
-            version: 1,
+            version: 2,
             bindings,
             lanes,
             root_pending: true,
@@ -131,7 +131,7 @@ impl Parts {
 
     /// Strict structural checks only; no stat, callbacks or root reconstruction.
     pub fn validate(&self) -> Result<(), Error> {
-        require(self.version == 1, "unsupported coordinated parts version")?;
+        require(self.version == 2, "unsupported coordinated parts version")?;
         self.bindings.validate()?;
         require(self.lanes.len() == self.bindings.targets.len(), "lane/binding count mismatch")?;
         require(self.next_sequence > 0, "zero group sequence")?;

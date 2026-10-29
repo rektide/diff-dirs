@@ -1,17 +1,19 @@
-//! Explicit version-one application DTOs. These are not derives on runtime
+//! Explicit version-two application DTOs. These are not derives on runtime
 //! objects or an archive of private Rust layouts. Decode, then validate meaning.
 
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use diff_dirs_transfer_sync::CopyPolicy;
-use diff_dirs_transfer_sync::coordinated::{
-    Application, ApplicationState, Barrier, DirectoryDecision, End, EntryDecision, Kind, LaneTotals, SyncParts, WorkTotals,
-};
+use diff_dirs_transfer_sync::coordinated::{Application, ApplicationState, Barrier, DirectoryDecision, End, Kind, LaneTotals, SyncParts, WorkTotals};
 use diff_dirs_tree_compare::coordinated::{Bindings, ChildEdge, ControlWindow, GroupFrame, LaneFrame, LaneState, LaneStatus, Parts, TargetBinding};
-use diff_dirs_tree_compare::{Action, Container, DirectoryCoverage, EntryCounts, Presence, Purpose, ScanState, Summary};
+use diff_dirs_tree_compare::{
+    Action, Container, DestinationGrant, DirectorySelection, EntryCounts, EntryParts, EntrySelection, InstallAuthority, InstallIntent, Interior, InteriorInput,
+    InteriorRole, Purpose, ScanState, SelectionDomain, SelectionParts, SemanticId, SourceObservation, Summary,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{PolicyConfig, Result, native::NativeString, native_path, validate_config};
@@ -160,10 +162,12 @@ pub struct Decision {
     pub relative: NativeString,
     pub purpose: String,
     pub structural_root: bool,
-    pub excluded: u64,
+    pub domain: String,
+    pub input_context: (),
+    pub policy: Meaning,
+    pub comparator: Meaning,
     pub scoped: bool,
-    pub planned: u64,
-    pub retained: u64,
+    pub root_excluded: bool,
     pub excluded_names: Vec<NativeString>,
     pub entries: Vec<Entry>,
 }
@@ -171,12 +175,53 @@ pub struct Decision {
 #[serde(deny_unknown_fields)]
 pub struct Entry {
     pub name: NativeString,
-    pub presence: String,
-    pub source: Option<String>,
+    pub source: String,
     pub target: Option<String>,
-    pub comparison: Option<bool>,
+    pub comparison: String,
+    pub comparison_code: Option<u32>,
     pub baseline: Option<String>,
     pub action: String,
+    pub install: Option<Installation>,
+    pub source_absent_removal: bool,
+    pub interior: Option<Inside>,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Meaning {
+    pub family: String,
+    pub version: u32,
+    pub parameters: Vec<u8>,
+}
+impl From<&SemanticId> for Meaning {
+    fn from(v: &SemanticId) -> Self {
+        Self {
+            family: v.family.clone(),
+            version: v.version,
+            parameters: v.parameters.clone(),
+        }
+    }
+}
+impl From<Meaning> for SemanticId {
+    fn from(v: Meaning) -> Self {
+        Self {
+            family: v.family,
+            version: v.version,
+            parameters: v.parameters,
+        }
+    }
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Installation {
+    pub intent: String,
+    pub destination: String,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Inside {
+    pub role: String,
+    pub input: String,
+    pub context: (),
 }
 
 macro_rules! vocabulary {
@@ -192,7 +237,9 @@ vocabulary!(end, parse_end, End, { End::ComparisonFailed => "comparison-failed",
 vocabulary!(application, parse_application, ApplicationState, { ApplicationState::Unstarted => "unstarted", ApplicationState::Accepted => "accepted", ApplicationState::Failed => "failed", ApplicationState::Abandoned => "abandoned" });
 vocabulary!(kind, parse_kind, Kind, { Kind::Directory => "directory", Kind::File => "file", Kind::Symlink => "symlink", Kind::Other => "other" });
 vocabulary!(purpose, parse_purpose, Purpose, { Purpose::Compare => "compare", Purpose::Copy => "copy", Purpose::Remove => "remove", Purpose::Audit => "audit" });
-vocabulary!(presence, parse_presence, Presence, { Presence::SourceOnly => "source-only", Presence::Both => "both", Presence::TargetOnly => "target-only" });
+vocabulary!(intent,parse_intent,InstallIntent,{ InstallIntent::ReconcileDifference=>"reconcile-difference",InstallIntent::Renew=>"renew" });
+vocabulary!(grant,parse_grant,DestinationGrant,{ DestinationGrant::AbsentOnly=>"absent-only",DestinationGrant::ReplaceLeaf=>"replace-leaf",DestinationGrant::ReplaceTree=>"replace-tree" });
+vocabulary!(role,parse_role,InteriorRole,{ InteriorRole::Paired=>"paired",InteriorRole::SourceOnly=>"source-only",InteriorRole::TargetOnly=>"target-only",InteriorRole::PrepareReplacement=>"prepare-replacement",InteriorRole::RemoveForReplacement=>"remove-for-replacement" });
 
 fn action(v: Action) -> String {
     match v {
@@ -200,6 +247,7 @@ fn action(v: Action) -> String {
         Action::KeepLeaf => "keep-leaf",
         Action::InstallLeaf => "install-leaf",
         Action::RemoveLeaf => "remove-leaf",
+        Action::ConfirmAbsent => "confirm-absent",
         Action::ReplaceWithLeaf => "replace-with-leaf",
         Action::ReplaceWithDirectory { descend: false } => "replace-with-directory/stop",
         Action::ReplaceWithDirectory { descend: true } => "replace-with-directory/descend",
@@ -244,6 +292,7 @@ fn parse_action(v: &str) -> Result<Action> {
         "keep-leaf" => Action::KeepLeaf,
         "install-leaf" => Action::InstallLeaf,
         "remove-leaf" => Action::RemoveLeaf,
+        "confirm-absent" => Action::ConfirmAbsent,
         "replace-with-leaf" => Action::ReplaceWithLeaf,
         "replace-with-directory/stop" => Action::ReplaceWithDirectory { descend: false },
         "replace-with-directory/descend" => Action::ReplaceWithDirectory { descend: true },
@@ -339,25 +388,49 @@ impl Observation {
 impl From<&DirectoryDecision> for Decision {
     fn from(v: &DirectoryDecision) -> Self {
         Self {
-            relative: native_path(&v.relative),
-            purpose: purpose(v.purpose),
-            structural_root: v.structural_root,
-            excluded: v.coverage.excluded,
-            scoped: v.coverage.scoped,
-            planned: v.coverage.planned,
-            retained: v.coverage.retained,
-            excluded_names: v.excluded_names.iter().map(|n| NativeString::new(n)).collect(),
+            relative: native_path(v.relative()),
+            purpose: purpose(v.purpose()),
+            structural_root: v.is_root(),
+            domain: "physical-union".into(),
+            input_context: (),
+            policy: v.policy().into(),
+            comparator: v.comparator().into(),
+            scoped: v.coverage().scoped,
+            root_excluded: v.is_root() && v.coverage().excluded != 0,
+            excluded_names: v.excluded_names().iter().map(|n| NativeString::new(n)).collect(),
             entries: v
-                .entries
-                .iter()
-                .map(|e| Entry {
-                    name: NativeString::new(&e.name),
-                    presence: presence(e.presence),
-                    source: e.source.map(kind),
-                    target: e.target.map(kind),
-                    comparison: e.comparison,
-                    baseline: e.baseline.map(action),
-                    action: action(e.action),
+                .entries()
+                .map(|e| {
+                    let (comparison, comparison_code) = match e.comparison {
+                        diff_dirs_tree_compare::Comparison::NotAssessed => ("not-assessed", None),
+                        diff_dirs_tree_compare::Comparison::Equal => ("equal", None),
+                        diff_dirs_tree_compare::Comparison::Different => ("different", None),
+                        diff_dirs_tree_compare::Comparison::Unsupported { code } => ("unsupported", Some(code)),
+                        diff_dirs_tree_compare::Comparison::Unresolved { code } => ("unresolved", Some(code)),
+                    };
+                    Entry {
+                        name: NativeString::new(e.name()),
+                        source: match e.source {
+                            SourceObservation::Present(k) => kind(k),
+                            SourceObservation::Absent => "absent".into(),
+                            SourceObservation::NotRequested => "not-requested".into(),
+                        },
+                        target: e.target.map(kind),
+                        comparison: comparison.into(),
+                        comparison_code,
+                        baseline: e.baseline.map(action),
+                        action: action(e.action),
+                        install: e.install.map(|a| Installation {
+                            intent: intent(a.intent),
+                            destination: grant(a.destination),
+                        }),
+                        source_absent_removal: e.removal == Some(diff_dirs_tree_compare::RemovalAuthority::SourceAbsent),
+                        interior: e.interior.as_ref().map(|i| Inside {
+                            role: role(i.role),
+                            input: "physical-directory".into(),
+                            context: (),
+                        }),
+                    }
                 })
                 .collect(),
         }
@@ -365,33 +438,76 @@ impl From<&DirectoryDecision> for Decision {
 }
 impl Decision {
     fn decode(self) -> Result<DirectoryDecision> {
-        Ok(DirectoryDecision {
+        if self.domain != "physical-union" {
+            return Err("example comparison codec only accepts physical unions".into());
+        }
+        let selected = DirectorySelection::from_parts(SelectionParts {
             relative: self.relative.into_os()?.into(),
             purpose: parse_purpose(&self.purpose)?,
             structural_root: self.structural_root,
-            coverage: DirectoryCoverage {
-                excluded: self.excluded,
-                scoped: self.scoped,
-                planned: self.planned,
-                retained: self.retained,
-            },
+            domain: SelectionDomain::PhysicalUnion,
+            input_context: (),
+            policy: self.policy.into(),
+            comparator: self.comparator.into(),
+            scoped: self.scoped,
+            root_excluded: self.root_excluded,
             excluded_names: self.excluded_names.into_iter().map(NativeString::into_os).collect::<Result<_>>()?,
             entries: self
                 .entries
                 .into_iter()
                 .map(|e| {
-                    Ok(EntryDecision {
+                    let comparison = match (e.comparison.as_str(), e.comparison_code) {
+                        ("equal", None) => diff_dirs_tree_compare::Comparison::Equal,
+                        ("different", None) => diff_dirs_tree_compare::Comparison::Different,
+                        ("not-assessed", None) => diff_dirs_tree_compare::Comparison::NotAssessed,
+                        ("unsupported", Some(code)) => diff_dirs_tree_compare::Comparison::Unsupported { code },
+                        ("unresolved", Some(code)) => diff_dirs_tree_compare::Comparison::Unresolved { code },
+                        _ => return Err("invalid comparison outcome/code".into()),
+                    };
+                    let interior = e
+                        .interior
+                        .map(|i| -> Result<_> {
+                            if i.input != "physical-directory" {
+                                return Err("invalid physical interior input".into());
+                            }
+                            Ok(Interior {
+                                role: parse_role(&i.role)?,
+                                context: (),
+                                input: InteriorInput::PhysicalDirectory,
+                            })
+                        })
+                        .transpose()?;
+                    let source = match e.source.as_str() {
+                        "absent" => SourceObservation::Absent,
+                        "not-requested" => SourceObservation::NotRequested,
+                        k => SourceObservation::Present(parse_kind(k)?),
+                    };
+                    Ok(EntryParts {
                         name: e.name.into_os()?,
-                        presence: parse_presence(&e.presence)?,
-                        source: e.source.as_deref().map(parse_kind).transpose()?,
-                        target: e.target.as_deref().map(parse_kind).transpose()?,
-                        comparison: e.comparison,
-                        baseline: e.baseline.as_deref().map(parse_action).transpose()?,
-                        action: parse_action(&e.action)?,
+                        entry: EntrySelection {
+                            source,
+                            target: e.target.as_deref().map(parse_kind).transpose()?,
+                            comparison,
+                            baseline: e.baseline.as_deref().map(parse_action).transpose()?,
+                            action: parse_action(&e.action)?,
+                            install: e
+                                .install
+                                .map(|a| -> Result<_> {
+                                    Ok(InstallAuthority {
+                                        intent: parse_intent(&a.intent)?,
+                                        destination: parse_grant(&a.destination)?,
+                                    })
+                                })
+                                .transpose()?,
+                            removal: e.source_absent_removal.then_some(diff_dirs_tree_compare::RemovalAuthority::SourceAbsent),
+                            desired: None,
+                            interior,
+                        },
                     })
                 })
                 .collect::<Result<_>>()?,
-        })
+        })?;
+        Ok(Arc::new(selected))
     }
 }
 
@@ -401,7 +517,7 @@ impl Snapshot {
         let p = &parts.comparison;
         Ok(Self {
             schema: "diff-dirs.reconcile-example".into(),
-            version: 1,
+            version: 2,
             policies,
             state: State {
                 version: parts.version,
@@ -490,7 +606,7 @@ impl Snapshot {
         })
     }
     pub fn decode(self) -> Result<(SyncParts, Vec<PolicyConfig>)> {
-        if self.schema != "diff-dirs.reconcile-example" || self.version != 1 {
+        if self.schema != "diff-dirs.reconcile-example" || self.version != 2 {
             return Err("unsupported reconcile transport schema/version".into());
         }
         let s = self.state;

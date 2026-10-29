@@ -488,9 +488,9 @@ fn rejects_overlap_forged_barrier_and_incompatible_runtime_before_effects() {
     let mut bad = parts.clone();
     bad.comparison.bindings.targets[1].root = bad.comparison.bindings.targets[0].root.clone();
     assert!(SyncCursor::from_parts(bad, Execution::Sequential).is_err());
-    let mut bad = parts.clone();
-    bad.current.as_mut().unwrap().applications[0].decision.entries[0].source = Some(Kind::Directory);
-    assert!(SyncCursor::from_parts(bad, Execution::Sequential).is_err());
+    let mut bad = parts.current.as_ref().unwrap().applications[0].decision.to_parts();
+    bad.entries[0].entry.source = diff_dirs_tree_inspect::SourceObservation::Present(Kind::Directory);
+    assert!(diff_dirs_tree_inspect::DirectorySelection::from_parts(bad).is_err());
     let mut runtime = runtime;
     runtime.targets[0].descriptor = "changed/v2".into();
     let mut run = SyncCursor::from_parts(parts, Execution::Sequential).unwrap();
@@ -512,6 +512,24 @@ fn rejects_overlap_forged_barrier_and_incompatible_runtime_before_effects() {
         },
     ]);
     assert!(SyncCursor::new(&runtime, Execution::Sequential).is_err());
+}
+
+#[test]
+fn plan_group_and_barrier_share_one_immutable_selection_body() {
+    let f = Setup::new();
+    for n in 0..96 {
+        file(f.source.join(format!("leaf-{n}")), b"source");
+    }
+    let runtime = f.runtime(vec![Rules::default(), Rules::default()]);
+    let mut cursor = SyncCursor::new(&runtime, Execution::Sequential).unwrap();
+    let group = cursor.next_group(&runtime).unwrap().unwrap();
+    for outcome in &group.outcomes {
+        let selection = &outcome.outcome.as_ref().unwrap().value;
+        let index = cursor.index(&outcome.target).unwrap();
+        let app = cursor.current.as_ref().unwrap().applications.iter().find(|a| a.target == index).unwrap();
+        assert!(Arc::ptr_eq(selection, &app.decision));
+        assert!(Arc::ptr_eq(selection, cursor.plans[index].as_ref().unwrap().selection()));
+    }
 }
 
 #[cfg(unix)]

@@ -380,7 +380,7 @@ fn malformed_parts_and_policy_descriptors_refuse_before_binding_io() {
     let parts = run.into_parts();
     let mut bad = Vec::new();
     let mut p = parts.clone();
-    p.version = 2;
+    p.version = 1;
     bad.push(p);
     let mut p = parts.clone();
     p.frames[0].remaining[0].members.push(100);

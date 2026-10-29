@@ -105,7 +105,7 @@ pub fn audit_with_visitor<V: Visitor>(root: impl AsRef<Path>, side: Side, visito
     let mut inspected = Audit::default();
     let result = (|| {
         let plan = crate::inspect_single_root(root, side, Purpose::Audit, visitor)?;
-        let entry = &plan.operations().entries()[0];
+        let entry = plan.operations().entries().get(0).expect("root entry");
         count(
             if side == Side::Original {
                 entry.source().unwrap()

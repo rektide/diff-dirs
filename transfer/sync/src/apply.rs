@@ -6,7 +6,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-use diff_dirs_tree_inspect::{Action, Check, Container, DirectoryPlan, Entry, NoCheck, NoScope, NoVisitor, Operation, Purpose, Scope, Side, Visitor};
+use diff_dirs_tree_inspect::{
+    Action, Check, Container, DirectoryPlan, Entry, NoCheck, NoScope, NoVisitor, PreparedOperation as Operation, Purpose, Scope, Side, Visitor,
+};
 
 use crate::model::merge;
 use crate::paths::{self, ADD_DIR, ADD_LEAF, CHANGED, REMOVE_DIR, REMOVE_LEAF};
@@ -49,7 +51,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
             let root = diff_dirs_tree_inspect::inspect_root(&self.original, &self.target, Purpose::Compare, &self.steering()).map_err(Failure::checked)?;
             context.excluded.fetch_add(root.excluded(), Ordering::Relaxed);
             context.retained.fetch_add(root.retained(), Ordering::Relaxed);
-            if !root.operations().entries()[0].descends() {
+            if !root.operations().entries().get(0).expect("root entry").descends() {
                 if expected.is_some() {
                     return Err(Failure::invalid("apply plan", &self.target, "root descent is not admitted"));
                 }
@@ -91,22 +93,14 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                 dir.push(component);
             }
             let plan = context.plan(&dir, Some(&self.original.join(&dir)), Some(&self.target.join(&dir)))?;
-            if let Some(expected) = expected {
-                let signature = |entry: &Operation| (entry.name().to_os_string(), entry.action(), entry.presence(), entry.comparison());
-                if plan.diff() != expected.diff()
-                    || plan
-                        .operations()
-                        .entries()
-                        .iter()
-                        .map(signature)
-                        .ne(expected.operations().entries().iter().map(signature))
-                {
-                    return Err(Failure::invalid(
-                        "apply plan",
-                        &dir,
-                        "batch projection does not match current classification and this binding's finalized visitor actions",
-                    ));
-                }
+            if let Some(expected) = expected
+                && plan.selection() != expected.selection()
+            {
+                return Err(Failure::invalid(
+                    "apply plan",
+                    &dir,
+                    "batch projection does not match current classification and this binding's finalized visitor actions",
+                ));
             }
             for (name, mask) in &names {
                 if let Ok(index) = plan
@@ -114,8 +108,8 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                     .entries()
                     .binary_search_by(|e| e.name().as_encoded_bytes().cmp(name.as_encoded_bytes()))
                 {
-                    let entry = &plan.operations().entries()[index];
-                    if shape(entry) != Some(*mask) {
+                    let entry = plan.operations().entries().get(index).expect("located entry");
+                    if shape(&entry) != Some(*mask) {
                         return Err(Failure::invalid("validate record", &dir.join(name), "entry type does not match record"));
                     }
                 } else if !plan.preserves(name) {
@@ -195,7 +189,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
             context.excluded.fetch_add(root.excluded(), Ordering::Relaxed);
             context.retained.fetch_add(root.retained(), Ordering::Relaxed);
             context.planned.fetch_add(unconditional_work(&root), Ordering::Relaxed);
-            context.preview_entry(&root.operations().entries()[0])?;
+            context.preview_entry(&root.operations().entries().get(0).expect("root entry"))?;
             Ok(Progress::default())
         })();
         context.finish(result)
@@ -233,7 +227,14 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
         context.planned.fetch_add(unconditional_work(&plan), Ordering::Relaxed);
         let arena = Staging::new(parent, std::iter::once(self.target.file_name().expect("root name")));
         let result = context
-            .execute_entry(&self.original, &self.target, &plan.operations().entries()[0], &arena, 0, true)
+            .execute_entry(
+                &self.original,
+                &self.target,
+                &plan.operations().entries().get(0).expect("root entry"),
+                &arena,
+                0,
+                true,
+            )
             .map(|(done, _)| done);
         context.finish(arena.finish(result, &context))
     }
@@ -272,7 +273,14 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
         context.planned.fetch_add(unconditional_work(&plan), Ordering::Relaxed);
         let arena = Staging::new(parent, std::iter::once(self.target.file_name().expect("leaf root has name")));
         let result = context
-            .execute_entry(&self.original, &self.target, &plan.operations().entries()[0], &arena, 0, true)
+            .execute_entry(
+                &self.original,
+                &self.target,
+                &plan.operations().entries().get(0).expect("root entry"),
+                &arena,
+                0,
+                true,
+            )
             .map(|(done, _)| done);
         let result = arena.finish(result, &context);
         context.finish(result)
@@ -528,7 +536,7 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
         self.retained.fetch_add(plan.retained(), Ordering::Relaxed);
         self.planned.fetch_add(unconditional_work(&plan), Ordering::Relaxed);
         for child in plan.operations().entries() {
-            needed |= self.preview_entry(child)?;
+            needed |= self.preview_entry(&child)?;
         }
         if conditional(entry) && needed {
             self.planned.fetch_add(1, Ordering::Relaxed);
@@ -549,6 +557,11 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
         tests::observe(to);
         let action = entry.action().expect("finalized entry has an action");
         match action {
+            Action::ConfirmAbsent => Err(Failure::invalid(
+                "apply physical plan",
+                entry.relative_path(),
+                "listed absence obligation in physical execution",
+            )),
             Action::PreserveTree | Action::KeepLeaf => Ok((Progress::default(), entry.target().is_some())),
             Action::InstallLeaf | Action::ReplaceWithLeaf => {
                 if action == Action::ReplaceWithLeaf {
@@ -710,7 +723,7 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
                     }
                     let from = from.join(entry.name());
                     let to = to.join(entry.name());
-                    let result = if conditional(entry) {
+                    let result = if conditional(&entry) {
                         self.copy_directory_pending(
                             &from,
                             &to,
@@ -724,7 +737,7 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
                             if entry.has_work() {
                                 materialize_pending(pending, parent)?;
                             }
-                            self.execute_entry(&from, &to, entry, &arena, index, true).map(|(done, _)| done)
+                            self.execute_entry(&from, &to, &entry, &arena, index, true).map(|(done, _)| done)
                         })()
                     };
                     match result {
@@ -776,7 +789,7 @@ impl<'a, C: Check, S: Scope, A: Absence, V: Visitor> Context<'a, C, S, A, V> {
         let result = (|| {
             for (index, entry) in plan.operations().entries().iter().enumerate() {
                 let from = source.unwrap_or(self.original).join(entry.name());
-                match self.execute_entry(&from, &path.join(entry.name()), entry, &arena, index, true) {
+                match self.execute_entry(&from, &path.join(entry.name()), &entry, &arena, index, true) {
                     Ok((done, retained)) => {
                         progress += done;
                         kept |= retained;
@@ -1195,7 +1208,7 @@ pub fn clear_with_visitor<V: Visitor>(target: impl AsRef<Path>, visitor: V) -> R
     context.excluded.fetch_add(root.excluded(), Ordering::Relaxed);
     context.retained.fetch_add(root.retained(), Ordering::Relaxed);
     let writable = Writable::new(target.parent().expect("bound parent"));
-    let result = if root.operations().entries()[0].descends() {
+    let result = if root.operations().entries().get(0).expect("root entry").descends() {
         context
             .reconcile_directory(None, &target, Path::new(""), false, &writable)
             .map(|(done, _)| done)

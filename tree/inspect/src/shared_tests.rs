@@ -1,4 +1,6 @@
+use diff_dirs_tree_observe as observe;
 use std::error::Error as _;
+use std::fmt;
 use std::fs;
 use std::io;
 use std::sync::{Mutex, Weak};
@@ -13,6 +15,7 @@ enum Call {
     List,
     Stat,
     Link,
+    Compare,
 }
 
 #[derive(Debug)]
@@ -66,22 +69,25 @@ impl Counted {
 impl Acquire for Counted {
     fn list(&self, path: &Path) -> Result<Vec<observe::Entry>, Error> {
         self.before(Call::List, path, "read directory")?;
-        Physical.list(path)
+        Physical(&ObservationResources::default()).list(path)
     }
     fn metadata(&self, entry: observe::Entry) -> Result<Metadata, Error> {
         self.before(Call::Stat, &entry.path(), "inspect entry")?;
-        Physical.metadata(entry)
+        Physical(&ObservationResources::default()).metadata(entry)
     }
     fn root_metadata(&self, path: &Path) -> Result<Metadata, Error> {
         self.before(Call::Root, path, "inspect root")?;
-        Physical.root_metadata(path)
+        Physical(&ObservationResources::default()).root_metadata(path)
     }
     fn link(&self, path: &Path) -> Result<PathBuf, Error> {
         self.before(Call::Link, path, "read symlink")?;
-        Physical.link(path)
+        Physical(&ObservationResources::default()).link(path)
     }
     fn source_acquired(&self, facts: &Arc<Facts>) {
         self.facts.lock().unwrap().push(Arc::downgrade(facts));
+    }
+    fn before_compare(&self, path: &Path) -> Result<(), Error> {
+        self.before(Call::Compare, path, "read modification time")
     }
 }
 
@@ -378,7 +384,7 @@ fn root_preservation_reuses_binding_metadata_and_does_not_demand_failed_listing(
         let preserved = results.next().unwrap().outcome.unwrap();
         assert!(preserved.is_root());
         assert_eq!(preserved.coverage().excluded, 1);
-        assert_eq!(preserved.coverage().retained, 1);
+        assert_eq!(preserved.coverage().deviated, 1);
         assert!(preserved.paired_children().is_empty());
         assert_eq!(results.next().unwrap().outcome.is_ok(), preserve_both);
         assert_eq!(counted.under(Call::List, &f.original), usize::from(!preserve_both));
@@ -572,7 +578,7 @@ fn unsupported_facts_reach_each_late_visitor_before_lane_local_validation() {
         .into_iter();
     let preserved = results.next().unwrap().outcome.unwrap();
     assert!(preserved.diff().is_empty());
-    assert_eq!(preserved.coverage().retained, 1);
+    assert_eq!(preserved.coverage().deviated, 1);
     assert_eq!(preserved.coverage().planned, 0);
     assert!(matches!(results.next().unwrap().outcome.unwrap_err().as_ref(), Error::UnsupportedEntry { path } if *path == f.original.join("special")));
     assert!(matches!(results.next().unwrap().outcome.unwrap_err().as_ref(), Error::Refused { path, .. } if *path == targets[2].join("special")));
@@ -724,7 +730,7 @@ fn caller_selected_full_plans_share_source_facts_until_the_caller_lowers_them() 
             .unwrap();
         assert_eq!(counted.count(Call::List, &f.original), 1);
         assert_eq!(counted.count(Call::Stat, &f.original.join("source")), 1);
-        let source = |index: usize| plans[index].outcome.as_ref().unwrap().operations().entries()[0].source().unwrap();
+        let source = |index: usize| plans[index].outcome.as_ref().unwrap().operations().entries().get(0).unwrap().source().unwrap();
         assert!(std::ptr::eq(source(0), source(1)));
         assert!(counted.facts.lock().unwrap().iter().all(|facts| facts.upgrade().is_some()));
         for plan in plans {
@@ -855,4 +861,583 @@ fn wide_group_metadata_uses_and_joins_the_callers_pool() {
     drop(roots);
     drop(pool);
     assert_eq!(counted.calls.lock().unwrap().len(), calls);
+}
+
+#[derive(Clone, Copy, Debug)]
+enum SparseMode {
+    KindOnly,
+    Attributes,
+    Link,
+    Renew,
+    Legacy,
+}
+struct SparsePolicy {
+    mode: SparseMode,
+    id: SemanticId,
+}
+impl SparsePolicy {
+    fn new(mode: SparseMode) -> Self {
+        Self {
+            mode,
+            id: SemanticId::new("test.sparse", 1, vec![mode as u8]),
+        }
+    }
+}
+impl crate::Policy for SparsePolicy {
+    type Context = u8;
+    fn identity(&self) -> &SemanticId {
+        &self.id
+    }
+    fn initial_context(&self) -> u8 {
+        0
+    }
+    fn scoped(&self) -> bool {
+        false
+    }
+    fn observation_profile(&self) -> ObservationProfile {
+        if matches!(self.mode, SparseMode::Legacy) {
+            ObservationProfile::LegacyFull
+        } else {
+            ObservationProfile::Staged
+        }
+    }
+    fn shape(&self, _: &u8, batch: &mut ShapeChoices<'_, u8>) -> Result<(), CheckError> {
+        for mut entry in batch.entries_mut() {
+            if !matches!(self.mode, SparseMode::Renew | SparseMode::Legacy) {
+                entry.omit_comparison();
+                entry.set_action(Action::PreserveTree);
+            }
+            if matches!(self.mode, SparseMode::Attributes) {
+                entry.request(SideDemands {
+                    source: Demand {
+                        attributes: true,
+                        literal_link: false,
+                    },
+                    target: Demand::NONE,
+                });
+            }
+            if matches!(self.mode, SparseMode::Link) {
+                entry.request(SideDemands {
+                    source: Demand {
+                        attributes: false,
+                        literal_link: true,
+                    },
+                    target: Demand::NONE,
+                });
+            }
+        }
+        Ok(())
+    }
+    fn select(&self, _: &u8, batch: &mut Choices<'_, u8>) -> Result<(), CheckError> {
+        for mut entry in batch.entries_mut() {
+            if matches!(self.mode, SparseMode::KindOnly) {
+                let facts = entry.facts().source.unwrap();
+                assert!(matches!(facts.attributes, Available::NotRequested));
+                assert!(matches!(facts.literal_link, Available::NotRequested));
+            }
+            if matches!(self.mode, SparseMode::Renew) && entry.shape().source.kind().is_some_and(Kind::is_leaf) {
+                entry.set_action(Action::InstallLeaf);
+                entry.set_install(InstallAuthority {
+                    intent: InstallIntent::Renew,
+                    destination: DestinationGrant::ReplaceLeaf,
+                });
+            }
+        }
+        Ok(())
+    }
+}
+fn sparse_requests<'a>(roots: &'a [PathBuf], policies: &'a [SparsePolicy], comparator: &'a StatKey) -> Vec<TargetInspection<'a, SparsePolicy, StatKey>> {
+    policies
+        .iter()
+        .enumerate()
+        .map(|(target, policy)| TargetInspection {
+            target,
+            logical_root: &roots[target],
+            physical_directory: Some(&roots[target]),
+            context: &7,
+            policy,
+            comparator,
+        })
+        .collect()
+}
+fn admitted_request(path: &Path) -> DirectoryRequest<'_> {
+    DirectoryRequest {
+        relative: Path::new(""),
+        source_directory: Some(path),
+        purpose: Purpose::Compare,
+        admission: DirectoryAdmission::AlreadyAdmitted,
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn stronger_link_demand_and_full_profile_faults_do_not_poison_kind_only_peer() {
+    for mode in [SparseMode::Link, SparseMode::Legacy] {
+        let f = Fixture::new();
+        let roots = targets(&f, 2);
+        std::os::unix::fs::symlink("literal//./missing", f.original.join("link")).unwrap();
+        let counted = Counted {
+            faults: vec![Fault::Raw(Call::Link, f.original.join("link"), 5)],
+            ..Counted::default()
+        };
+        let policies = [SparsePolicy::new(mode), SparsePolicy::new(SparseMode::KindOnly)];
+        let source = SourceSession::new(&f.original);
+        let result = inspect_group_using(
+            &source,
+            admitted_request(&f.original),
+            &sparse_requests(&roots, &policies, &StatKey),
+            &NoExecutionDemand,
+            Execution::Sequential,
+            &counted,
+            None,
+        )
+        .unwrap();
+        assert_eq!(result[0].outcome.as_ref().unwrap_err().path(), f.original.join("link"));
+        let peer = result[1].outcome.as_ref().unwrap();
+        assert_eq!(peer.selection().coverage().not_assessed, 1);
+        assert!(matches!(peer.facts(SlotId(0)).source.unwrap().literal_link, Available::NotRequested));
+        assert_eq!(
+            counted.count(Call::Stat, &f.original.join("link")),
+            usize::from(!cfg!(feature = "native-dirent") || matches!(mode, SparseMode::Legacy))
+        );
+        assert_eq!(counted.count(Call::Link, &f.original.join("link")), 1);
+    }
+}
+
+#[test]
+fn unknown_kind_attributes_are_reused_but_opportunistic_facts_stay_masked() {
+    let f = Fixture::new();
+    let roots = targets(&f, 2);
+    file(&f.original.join("leaf"), b"contents");
+    let policies = [SparsePolicy::new(SparseMode::Attributes), SparsePolicy::new(SparseMode::KindOnly)];
+    let source = SourceSession::new(&f.original);
+    let counted = Counted::default();
+    let result = inspect_group_using(
+        &source,
+        admitted_request(&f.original),
+        &sparse_requests(&roots, &policies, &StatKey),
+        &NoExecutionDemand,
+        Execution::Sequential,
+        &counted,
+        None,
+    )
+    .unwrap();
+    assert!(result.iter().all(|r| r.outcome.is_ok()));
+    assert_eq!(counted.count(Call::Stat, &f.original.join("leaf")), 1);
+    assert!(matches!(
+        result[0].outcome.as_ref().unwrap().facts(SlotId(0)).source.unwrap().attributes,
+        Available::Known(_)
+    ));
+    assert!(matches!(
+        result[1].outcome.as_ref().unwrap().facts(SlotId(0)).source.unwrap().attributes,
+        Available::NotRequested
+    ));
+}
+
+#[cfg(feature = "native-dirent")]
+#[test]
+fn failed_attributes_do_not_poison_a_known_listing_kind() {
+    let f = Fixture::new();
+    let roots = targets(&f, 2);
+    file(&f.original.join("leaf"), b"contents");
+    let policies = [SparsePolicy::new(SparseMode::Attributes), SparsePolicy::new(SparseMode::KindOnly)];
+    let counted = Counted {
+        faults: vec![Fault::Raw(Call::Stat, f.original.join("leaf"), 5)],
+        ..Counted::default()
+    };
+    let result = inspect_group_using(
+        &SourceSession::new(&f.original),
+        admitted_request(&f.original),
+        &sparse_requests(&roots, &policies, &StatKey),
+        &NoExecutionDemand,
+        Execution::Sequential,
+        &counted,
+        None,
+    )
+    .unwrap();
+    assert!(result[0].outcome.is_err());
+    assert!(result[1].outcome.is_ok());
+}
+
+#[test]
+fn equal_renewal_and_distinct_comparator_meanings_use_real_observation() {
+    let f = Fixture::new();
+    file(&f.original.join("leaf"), b"same");
+    file(&f.target.join("leaf"), b"same");
+    let source_time = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1000);
+    let target_time = source_time + std::time::Duration::from_secs(1);
+    fs::File::open(f.original.join("leaf")).unwrap().set_modified(source_time).unwrap();
+    fs::File::open(f.target.join("leaf")).unwrap().set_modified(target_time).unwrap();
+    let source = SourceSession::new(&f.original);
+    let policy = SparsePolicy::new(SparseMode::Renew);
+    let run = |comparator: &dyn Comparator| {
+        struct Borrowed<'a>(&'a dyn Comparator);
+        impl Comparator for Borrowed<'_> {
+            fn identity(&self) -> &SemanticId {
+                self.0.identity()
+            }
+            fn demand(&self, shape: Shape) -> SideDemands {
+                self.0.demand(shape)
+            }
+            fn compare(&self, input: ComparisonInput<'_>) -> Result<crate::Comparison, CheckError> {
+                self.0.compare(input)
+            }
+        }
+        let comparator = Borrowed(comparator);
+        inspect_group(
+            &source,
+            admitted_request(&f.original),
+            &[TargetInspection {
+                target: 0,
+                logical_root: &f.target,
+                physical_directory: Some(&f.target),
+                context: &7,
+                policy: &policy,
+                comparator: &comparator,
+            }],
+            &NoExecutionDemand,
+            &mut InspectionEpoch::new(),
+            Execution::Sequential,
+        )
+        .unwrap()
+        .pop()
+        .unwrap()
+        .outcome
+        .unwrap()
+    };
+    let strict = run(&StatKey);
+    let size = run(&SizeAndLink);
+    assert_eq!(strict.selection().coverage().different, 1);
+    assert_eq!(size.selection().coverage().equal, 1);
+    assert!(size.selection().diff().is_empty());
+    assert!(size.selection().coverage().is_clean());
+    assert_eq!(size.selection().coverage().application_need, ApplicationNeed::LocalOrOpaque);
+    assert_ne!(strict.selection().comparator(), size.selection().comparator());
+}
+
+#[test]
+fn root_derived_context_and_child_context_are_owned_and_validated() {
+    struct ContextPolicy(SemanticId);
+    impl crate::Policy for ContextPolicy {
+        type Context = u8;
+        fn identity(&self) -> &SemanticId {
+            &self.0
+        }
+        fn initial_context(&self) -> u8 {
+            0
+        }
+        fn validate_context(&self, site: ContextSite<'_>, context: &u8) -> Result<(), CheckError> {
+            if *context > 7 {
+                return Err("unknown context".into());
+            }
+            if *context == 0 && !site.structural_root {
+                return Err("initial input belongs only to root admission".into());
+            }
+            if site.role == Some(InteriorRole::TargetOnly) {
+                assert_eq!(*context, 7);
+            }
+            Ok(())
+        }
+        fn names(&self, context: &u8, names: &mut Names) -> Result<(), CheckError> {
+            assert_eq!(*context, if names.is_root() { 0 } else { 7 });
+            Ok(())
+        }
+        fn select(&self, context: &u8, batch: &mut Choices<'_, u8>) -> Result<(), CheckError> {
+            let root = batch.info().structural_root;
+            for mut entry in batch.entries_mut() {
+                if root {
+                    assert_eq!(*context, 0);
+                    entry.set_interior(Interior {
+                        role: InteriorRole::Paired,
+                        context: 7,
+                        input: InteriorInput::PhysicalDirectory,
+                    });
+                } else {
+                    assert_eq!(*context, 7);
+                }
+            }
+            Ok(())
+        }
+    }
+    let f = Fixture::new();
+    f.both_dir("paired");
+    fs::create_dir(f.target.join("stale")).unwrap();
+    let policy = ContextPolicy(SemanticId::new("context", 1, vec![]));
+    let result = inspect_group(
+        &SourceSession::new(&f.original),
+        DirectoryRequest {
+            admission: DirectoryAdmission::RootGated,
+            ..admitted_request(&f.original)
+        },
+        &[TargetInspection {
+            target: 0,
+            logical_root: &f.target,
+            physical_directory: Some(&f.target),
+            context: &0,
+            policy: &policy,
+            comparator: &StatKey,
+        }],
+        &NoExecutionDemand,
+        &mut InspectionEpoch::new(),
+        Execution::Sequential,
+    )
+    .unwrap()
+    .pop()
+    .unwrap()
+    .outcome
+    .unwrap();
+    assert_eq!(result.selection().input_context(), &7);
+    let children: Vec<_> = result
+        .selection()
+        .paired_children()
+        .map(|e| (e.name().to_owned(), e.interior.as_ref().unwrap().context))
+        .collect();
+    assert_eq!(children, [(OsString::from("paired"), 7)]);
+    let stale = result.selection().entry(SlotId(1));
+    assert_eq!(stale.interior.as_ref().unwrap().role, InteriorRole::TargetOnly);
+    assert_eq!(stale.interior.as_ref().unwrap().context, 7);
+}
+
+#[cfg(unix)]
+#[test]
+fn full_profile_earlier_readlink_precedes_later_kind_failure() {
+    for &execution in executions() {
+        let f = Fixture::new();
+        std::os::unix::fs::symlink("missing", f.original.join("a-link")).unwrap();
+        file(&f.original.join("z-leaf"), b"later");
+        let counted = Counted {
+            faults: vec![
+                Fault::Raw(Call::Link, f.original.join("a-link"), 5),
+                Fault::Raw(Call::Stat, f.original.join("z-leaf"), 13),
+            ],
+            ..Counted::default()
+        };
+        let roots = SharedRoots::bind_using(&f.original, vec![f.target.clone()], &counted).unwrap();
+        let result = roots
+            .inspect_using(
+                Path::new(""),
+                &[TargetVisitor {
+                    target: 0,
+                    visitor: &NoVisitor,
+                }],
+                execution,
+                &counted,
+            )
+            .unwrap();
+        assert_eq!(result[0].outcome.as_ref().unwrap_err().path(), f.original.join("a-link"));
+        assert_eq!(io_cause(result[0].outcome.as_ref().unwrap_err()).raw_os_error(), Some(5));
+    }
+}
+
+#[test]
+fn full_profile_earlier_comparison_error_precedes_later_acquisition_failure() {
+    for &execution in executions() {
+        let f = Fixture::new();
+        f.both_file("a-leaf", b"same");
+        file(&f.original.join("z-leaf"), b"later");
+        for index in 0..80 {
+            f.both_file(format!("m-{index:03}"), b"same");
+        }
+        let counted = Counted {
+            faults: vec![
+                Fault::Raw(Call::Compare, f.original.join("a-leaf"), 5),
+                Fault::Raw(Call::Stat, f.original.join("z-leaf"), 13),
+            ],
+            ..Counted::default()
+        };
+        let roots = SharedRoots::bind_using(&f.original, vec![f.target.clone()], &counted).unwrap();
+        let result = roots
+            .inspect_using(
+                Path::new(""),
+                &[TargetVisitor {
+                    target: 0,
+                    visitor: &NoVisitor,
+                }],
+                execution,
+                &counted,
+            )
+            .unwrap();
+        assert_eq!(result[0].outcome.as_ref().unwrap_err().path(), f.original.join("a-leaf"));
+        assert_eq!(io_cause(result[0].outcome.as_ref().unwrap_err()).raw_os_error(), Some(5));
+    }
+}
+
+#[test]
+fn execution_facts_are_finite_reuse_kind_metadata_and_gate_whole_publication() {
+    struct InstallationFacts;
+    impl ExecutionDemand for InstallationFacts {
+        fn for_entry<C>(&self, entry: EntrySelectionRef<'_, C>) -> SideDemands {
+            if entry.action == Action::InstallLeaf {
+                SideDemands {
+                    source: Demand {
+                        attributes: true,
+                        literal_link: false,
+                    },
+                    target: Demand::NONE,
+                }
+            } else {
+                SideDemands::default()
+            }
+        }
+    }
+    let f = Fixture::new();
+    file(&f.original.join("a"), b"source");
+    file(&f.original.join("z"), b"source");
+    let source = SourceSession::new(&f.original);
+    let lane = || TargetInspection {
+        target: 0,
+        logical_root: &f.target,
+        physical_directory: Some(f.target.as_path()),
+        context: &(),
+        policy: &Mirror,
+        comparator: &StatKey,
+    };
+    let counted = Counted::default();
+    let result = inspect_group_using(
+        &source,
+        admitted_request(&f.original),
+        &[lane()],
+        &InstallationFacts,
+        Execution::Sequential,
+        &counted,
+        None,
+    )
+    .unwrap()
+    .pop()
+    .unwrap()
+    .outcome
+    .unwrap();
+    for index in 0..2 {
+        assert!(matches!(result.facts(SlotId(index)).source.unwrap().attributes, Available::Known(_)));
+    }
+    assert_eq!(counted.count(Call::Stat, &f.original.join("a")), 1);
+    assert_eq!(counted.count(Call::Stat, &f.original.join("z")), 1);
+    let counted = Counted {
+        faults: vec![Fault::Raw(Call::Stat, f.original.join("z"), 5)],
+        ..Counted::default()
+    };
+    let result = inspect_group_using(
+        &source,
+        admitted_request(&f.original),
+        &[lane()],
+        &InstallationFacts,
+        Execution::Sequential,
+        &counted,
+        None,
+    )
+    .unwrap()
+    .pop()
+    .unwrap()
+    .outcome;
+    assert_eq!(result.unwrap_err().path(), f.original.join("z"));
+    assert!(fs::read_dir(&f.target).unwrap().next().is_none());
+}
+
+#[test]
+fn comparison_gaps_are_explicit_and_default_mirror_cannot_silently_keep_them() {
+    struct Outcome {
+        id: SemanticId,
+        result: crate::Comparison,
+    }
+    impl Comparator for Outcome {
+        fn identity(&self) -> &SemanticId {
+            &self.id
+        }
+        fn demand(&self, _: Shape) -> SideDemands {
+            SideDemands::default()
+        }
+        fn compare(&self, _: ComparisonInput<'_>) -> Result<crate::Comparison, CheckError> {
+            Ok(self.result)
+        }
+    }
+    let f = Fixture::new();
+    f.both_file("leaf", b"same");
+    let source = SourceSession::new(&f.original);
+    for outcome in [
+        crate::Comparison::Unsupported { code: 41 },
+        crate::Comparison::Unresolved { code: 42 },
+        crate::Comparison::NotAssessed,
+    ] {
+        let comparator = Outcome {
+            id: SemanticId::new("test.outcome", 1, vec![]),
+            result: outcome,
+        };
+        let mirror = TargetInspection {
+            target: 0,
+            logical_root: &f.target,
+            physical_directory: Some(f.target.as_path()),
+            context: &(),
+            policy: &Mirror,
+            comparator: &comparator,
+        };
+        assert!(
+            inspect_group(
+                &source,
+                admitted_request(&f.original),
+                &[mirror],
+                &NoExecutionDemand,
+                &mut InspectionEpoch::new(),
+                Execution::Sequential
+            )
+            .unwrap()
+            .pop()
+            .unwrap()
+            .outcome
+            .is_err()
+        );
+        let renewal = SparsePolicy::new(SparseMode::Renew);
+        let lane = TargetInspection {
+            target: 0,
+            logical_root: &f.target,
+            physical_directory: Some(f.target.as_path()),
+            context: &7,
+            policy: &renewal,
+            comparator: &comparator,
+        };
+        let result = inspect_group(
+            &source,
+            admitted_request(&f.original),
+            &[lane],
+            &NoExecutionDemand,
+            &mut InspectionEpoch::new(),
+            Execution::Sequential,
+        )
+        .unwrap()
+        .pop()
+        .unwrap()
+        .outcome;
+        if outcome == crate::Comparison::NotAssessed {
+            assert!(result.is_err());
+        } else {
+            let result = result.unwrap();
+            assert_eq!(result.selection().entry(SlotId(0)).comparison, outcome);
+            assert!(!result.selection().coverage().is_clean());
+            assert!(result.selection().diff().is_empty());
+        }
+    }
+}
+
+#[test]
+fn saved_selection_survives_without_pinning_acquired_facts() {
+    let f = Fixture::new();
+    file(&f.original.join("leaf"), b"source");
+    let counted = Counted::default();
+    let roots = SharedRoots::bind_using(&f.original, vec![f.target.clone()], &counted).unwrap();
+    let plans = roots
+        .inspect_lowered_using(
+            InspectionAt::AlreadyAdmitted(Path::new("")),
+            &[TargetVisitor {
+                target: 0,
+                visitor: &NoVisitor,
+            }],
+            Execution::Sequential,
+            &counted,
+            |_, plan| plan,
+        )
+        .unwrap();
+    let saved = Arc::clone(plans[0].outcome.as_ref().unwrap().selection());
+    assert!(counted.facts.lock().unwrap().iter().all(|f| f.upgrade().is_some()));
+    drop(plans);
+    counted.assert_released();
+    assert_eq!(saved.entry(SlotId(0)).name(), "leaf");
 }

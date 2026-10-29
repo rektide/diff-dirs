@@ -586,7 +586,7 @@ fn public_plan_cannot_override_binding_actions_or_install_supplied_metadata() {
     )
     .unwrap();
     assert_ne!(
-        fabricated.operations().entries()[0].source().unwrap().metadata().len(),
+        fabricated.operations().entries().get(0).unwrap().source().unwrap().metadata().len(),
         fs::metadata(f.source.join("new")).unwrap().len()
     );
     f.bind().apply_plan(&fabricated).unwrap();

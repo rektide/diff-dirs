@@ -354,12 +354,7 @@ impl Coordinated {
                 let target = runtime.original[index];
                 let local = Local {
                     diff: plan.diff().clone(),
-                    coverage: DirectoryCoverage {
-                        excluded: plan.excluded(),
-                        scoped: plan.steered(),
-                        planned: plan.work(),
-                        retained: plan.retained(),
-                    },
+                    coverage: plan.selection().coverage(),
                     children: plan.paired_children().map(std::ffi::OsStr::to_os_string).collect(),
                     root: plan.operations().is_root(),
                 };
@@ -414,7 +409,7 @@ impl Coordinated {
                     summary.excluded += local.coverage.excluded;
                     summary.scoped |= local.coverage.scoped;
                     summary.planned += local.coverage.planned;
-                    summary.retained += local.coverage.retained;
+                    summary.retained += local.coverage.deviated;
                     if changed && !ancestor {
                         summary.topmost_divergent.push(relative.clone());
                     }
@@ -735,7 +730,7 @@ fn preflight(summary: &Summary, local: &Local) -> Result<(), Error> {
     add(summary.examined_directories, 1)?;
     add(summary.excluded, local.coverage.excluded)?;
     add(summary.planned, local.coverage.planned)?;
-    add(summary.retained, local.coverage.retained)?;
+    add(summary.retained, local.coverage.deviated)?;
     let mut total = 0;
     for (before, names) in [
         (summary.counts.files.changed, &local.diff.files.changed),

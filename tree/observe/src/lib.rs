@@ -12,10 +12,14 @@ use std::path::{Path, PathBuf};
 mod error;
 mod facts;
 mod listing;
+mod names;
+mod resources;
 
 pub use error::Error;
 pub use facts::{EarlyFacts, FactOrigin, FileKind};
-pub use listing::{Entry, read_directory};
+pub use listing::{Entry, read_directory, read_directory_with};
+pub use names::{NameId, NameTable};
+pub use resources::{ObservationBackend, ObservationConfig, ObservationResources, ResourceError};
 
 /// Obtain metadata for the named entry itself, never following its final symlink.
 /// Ancestor confinement remains the caller's responsibility.

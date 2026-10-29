@@ -45,3 +45,12 @@ pub use diff_dirs_tree_inspect::{
     EntryCounts, Error, Execution, FactOrigin, Facts, FileKind, Name, Names, NoCheck, NoScope, NoVisitor, Operation, Operations, Presence, Purpose, Scope,
     ScopeRef, Side, Visit, Visitor, VisitorRef, inspect_directory, inspect_root, inspect_single_root, scope_includes,
 };
+pub use diff_dirs_tree_inspect::{
+    ApplicationNeed, Assessment, Available, BatchInfo, Choices, Comparator, Comparison, ComparisonInput, ContextSite, Coordinate, Demand, DesiredInput,
+    DestinationGrant, DirectoryAdmission, DirectoryCoverage, DirectoryRequest, DirectorySelection, EntryFacts, EntryParts, EntrySelection, EntrySelectionRef,
+    ExecutionDemand, FullVisitor, InspectionEpoch, InstallAuthority, InstallIntent, Interior, InteriorInput, InteriorRole, Kind, LeafExpectation, LeafId,
+    LeafKind, ManifestId, Mirror, NativePlatform, NoExecutionDemand, NodeId, ObservationBackend, ObservationConfig, ObservationProfile, ObservationResources,
+    Policy, PreparedDirectory, PreparedEntries, PreparedIter, PreparedOperation, PreparedOperations, RemovalAuthority, ResourceError, SelectionChoice,
+    SelectionDomain, SelectionError, SelectionParts, SemanticId, Shape, ShapeChoice, ShapeChoices, SideDemands, SideFacts, SizeAndLink, SlotId,
+    SourceCacheLimits, SourceObservation, SourceSession, StatKey, TargetInspection, inspect_group,
+};

@@ -203,7 +203,7 @@ fn fresh_processes_preserve_barrier_different_heads_returns_and_root_closure() {
     let current = p.current.unwrap();
     assert_eq!(current.applications[0].state, ApplicationState::Accepted);
     assert_eq!(current.applications[1].state, ApplicationState::Unstarted);
-    assert_eq!(current.applications[1].decision.entries[0].name, native_leaf);
+    assert_eq!(current.applications[1].decision.entry(diff_dirs_tree_compare::SlotId(0)).name(), native_leaf);
     assert!(!f.b.join("b").join(&native_leaf).exists());
 
     // Accept B but deliberately save before child/root closure.
@@ -411,7 +411,7 @@ fn native_non_utf8_roots_rules_and_names_roundtrip_without_loss() {
     let p = f.parts();
     assert_eq!(p.comparison.bindings.source.as_os_str().as_bytes(), f.source.as_os_str().as_bytes());
     let b = &p.current.as_ref().unwrap().applications[1].decision;
-    assert_eq!(b.excluded_names[0], leaf);
+    assert_eq!(b.excluded_names()[0], leaf);
     f.invoke(f.resume_args(100, 100), 0);
     assert_eq!(fs::read(f.a.join(&leaf)).unwrap(), b"native");
     assert!(!f.b.join(&leaf).exists());

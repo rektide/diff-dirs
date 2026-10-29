@@ -92,7 +92,7 @@ pub struct SyncParts {
 
 impl SyncParts {
     pub fn validate(&self) -> Result<(), Error> {
-        require(self.version == 1, "unsupported sync parts version")?;
+        require(self.version == 2, "unsupported sync parts version")?;
         self.comparison.validate().map_err(Error::Comparison)?;
         let n = self.comparison.bindings.targets.len();
         require(self.copy_policies.len() == n && self.lanes.len() == n, "sync binding/lane count mismatch")?;
@@ -128,8 +128,8 @@ impl SyncParts {
                 let mut active = Vec::new();
                 for app in &barrier.applications {
                     require(app.target < n, "unknown barrier target")?;
-                    app.decision.validate()?;
-                    require(app.decision.relative == frame.relative, "barrier coordinate mismatch")?;
+                    super::decision::validate_decision(&app.decision)?;
+                    require(app.decision.relative() == frame.relative, "barrier coordinate mismatch")?;
                     let lane = &self.lanes[app.target];
                     match app.state {
                         ApplicationState::Unstarted | ApplicationState::Accepted => {
@@ -148,16 +148,16 @@ impl SyncParts {
                         )?,
                         ApplicationState::Abandoned => require(lane.end == Some(End::Abandoned), "abandoned application without stopped lane")?,
                     }
-                    if app.decision.structural_root {
+                    if app.decision.is_root() {
                         let source = &self.comparison.bindings.source;
                         require(
-                            app.decision.entries[0].name == source.file_name().unwrap_or(source.as_os_str()),
+                            app.decision.entry(diff_dirs_tree_inspect::SlotId(0)).name() == source.file_name().unwrap_or(source.as_os_str()),
                             "structural root name mismatch",
                         )?;
                         require(
                             app.state != ApplicationState::Unstarted
                                 && matches!(
-                                    app.decision.entries[0].action,
+                                    app.decision.entry(diff_dirs_tree_inspect::SlotId(0)).action,
                                     diff_dirs_tree_inspect::Action::PreserveTree
                                         | diff_dirs_tree_inspect::Action::Directory {
                                             container: diff_dirs_tree_inspect::Container::Keep,
@@ -168,7 +168,7 @@ impl SyncParts {
                         )?;
                     }
                     if self.comparison.lanes[app.target].status == LaneStatus::Active {
-                        let children: Vec<_> = app.decision.paired_children().collect();
+                        let children: Vec<_> = app.decision.paired_children().map(|e| e.name()).collect();
                         let actual: Vec<_> = frame
                             .remaining
                             .iter()

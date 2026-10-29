@@ -16,7 +16,8 @@ use diff_dirs_tree_compare::coordinated::{
 use diff_dirs_tree_inspect::{Check, DirectoryPlan, Execution, NoCheck, NoScope, NoVisitor, Scope, SharedRoots, TargetVisitor, Visitor};
 
 use crate::{Absence, Applier, CopyPolicy, Failure, RemoveAll, Report, paths};
-pub use decision::{DirectoryDecision, EntryDecision, Kind};
+pub use decision::{DirectoryDecision, EntryDecision};
+pub use diff_dirs_tree_inspect::Kind;
 pub use state::{Application, ApplicationState, Barrier, End, LaneTotals, SyncParts, WorkTotals};
 
 #[derive(Debug)]
@@ -214,7 +215,7 @@ impl SyncCursor {
         let bindings = runtime.bindings()?;
         let n = bindings.targets.len();
         let parts = SyncParts {
-            version: 1,
+            version: 2,
             comparison: compare::Parts::fresh(bindings).map_err(Error::Comparison)?,
             copy_policies: runtime.targets.iter().map(|t| t.applier.policy).collect(),
             lanes: vec![LaneTotals::default(); n],
@@ -242,7 +243,7 @@ impl SyncCursor {
 
     pub fn parts(&self) -> SyncParts {
         SyncParts {
-            version: 1,
+            version: 2,
             comparison: self.comparison.parts().clone(),
             copy_policies: self.copy_policies.clone(),
             lanes: self.lanes.clone(),
@@ -251,7 +252,7 @@ impl SyncCursor {
     }
     pub fn into_parts(self) -> SyncParts {
         SyncParts {
-            version: 1,
+            version: 2,
             comparison: self.comparison.into_parts(),
             copy_policies: self.copy_policies,
             lanes: self.lanes,
@@ -407,7 +408,7 @@ impl SyncCursor {
                     Err(error)
                 }
                 Ok(compared) => {
-                    let decision = DirectoryDecision::of(&compared.value);
+                    let decision = Arc::clone(compared.value.selection());
                     let state = if compared.structural_root {
                         ApplicationState::Accepted
                     } else {
@@ -518,8 +519,8 @@ impl SyncCursor {
             .find(|a| a.state == ApplicationState::Unstarted)
             .expect("pending application")
             .decision
-            .relative
-            .clone();
+            .relative()
+            .to_owned();
         let mut issues = Vec::new();
         let mut ready = Vec::new();
         for i in pending {
@@ -574,7 +575,7 @@ impl SyncCursor {
                             .find(|a| a.target == i)
                             .expect("pending application")
                             .decision;
-                        if DirectoryDecision::of(&plan) != *expected {
+                        if plan.selection() != expected {
                             issues.push(RefreshIssue::Changed {
                                 target: self.comparison.parts().bindings.targets[i].id.clone(),
                                 relative: relative.clone(),
@@ -638,8 +639,8 @@ impl SyncCursor {
             .iter()
             .find(|a| a.target == i)
             .expect("pending target");
-        let retained = app.decision.coverage.retained;
-        let relative = app.decision.relative.clone();
+        let retained = app.decision.coverage().deviated;
+        let relative = app.decision.relative().to_owned();
         if let Err(failure) = self.route(i, &relative) {
             self.fail(i, End::ApplicationFailed);
             return Err(Error::Application {

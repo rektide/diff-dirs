@@ -1,40 +1,42 @@
 //! Single-pass listing with private backend handles and deferred metadata.
 //! Native entries share one parent descriptor.
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fs::Metadata;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::{EarlyFacts, Error, FactOrigin, FileKind};
+use crate::{EarlyFacts, Error, FactOrigin, FileKind, ObservationResources};
 
 #[cfg(all(target_os = "linux", feature = "native-dirent"))]
 mod backend {
     use super::*;
+    use crate::{NameId, NameTable};
     use std::fs::Dir;
     use std::mem::MaybeUninit;
     use std::os::unix::ffi::OsStrExt;
-    use std::sync::Arc;
+    use std::sync::{Arc, OnceLock};
 
     pub(super) struct Parent {
         dir: Dir,
         path: PathBuf,
+        names: OnceLock<NameTable>,
     }
 
     pub(super) struct Handle {
         parent: Arc<Parent>,
-        name: OsString,
+        name: NameId,
     }
 
     impl Handle {
-        pub(super) fn file_name(&self) -> OsString {
-            self.name.clone()
+        pub(super) fn name(&self) -> &OsStr {
+            self.parent.names.get().expect("completed native listing").get(self.name)
         }
         pub(super) fn path(&self) -> PathBuf {
-            self.parent.path.join(&self.name)
+            self.parent.path.join(self.name())
         }
         pub(super) fn metadata(self) -> io::Result<Metadata> {
-            self.parent.dir.symlink_metadata(&self.name)
+            self.parent.dir.symlink_metadata(self.name())
         }
     }
 
@@ -65,13 +67,15 @@ mod backend {
         Ok(())
     }
 
-    pub(super) fn read(path: &Path) -> Result<Vec<Entry>, Error> {
+    pub(super) fn read(path: &Path, resources: &ObservationResources) -> Result<Vec<Entry>, Error> {
         let parent = Arc::new(Parent {
             dir: Dir::open(path).map_err(|e| Error::io(path.to_path_buf(), "read directory", e))?,
             path: path.to_path_buf(),
+            names: OnceLock::new(),
         });
         let mut entries = Vec::new();
-        let mut buffer = vec![MaybeUninit::uninit(); 8192];
+        let mut names = Vec::new();
+        let mut buffer = resources.buffer();
         // RawDir owns parsing and returns cached d_type/ino without stat fallback.
         // On EINVAL grow up to MAX_BUFFER and continue from the same directory
         // offset, as its API specifies; never restart or pair with a std listing.
@@ -79,7 +83,10 @@ mod backend {
             let mut raw = rustix::fs::RawDir::new(&parent.dir, &mut buffer);
             let error = loop {
                 let entry = match raw.next() {
-                    None => return Ok(entries),
+                    None => {
+                        parent.names.set(NameTable::new(names)).expect("native listing finalized once");
+                        return Ok(entries);
+                    }
                     Some(Err(rustix::io::Errno::INTR)) => continue,
                     Some(Err(e @ rustix::io::Errno::INVAL)) => break e,
                     Some(Err(e)) => return Err(Error::io(path.to_path_buf(), "read directory entry", e.into())),
@@ -93,9 +100,11 @@ mod backend {
                     inode: Some(entry.ino()),
                     origin: FactOrigin::Listing,
                 };
+                let name = NameId(names.len());
+                names.push(std::ffi::OsStr::from_bytes(entry.file_name().to_bytes()).to_os_string());
                 let handle = Handle {
                     parent: Arc::clone(&parent),
-                    name: std::ffi::OsStr::from_bytes(entry.file_name().to_bytes()).to_os_string(),
+                    name,
                 };
                 entries.push(Entry::new(handle, hints));
             };
@@ -148,12 +157,13 @@ mod backend {
 
     pub(super) struct Handle {
         entry: fs::DirEntry,
+        name: OsString,
         #[cfg(windows)]
         cached: Metadata,
     }
     impl Handle {
-        pub(super) fn file_name(&self) -> OsString {
-            self.entry.file_name()
+        pub(super) fn name(&self) -> &OsStr {
+            &self.name
         }
         pub(super) fn path(&self) -> PathBuf {
             self.entry.path()
@@ -166,7 +176,7 @@ mod backend {
         }
     }
 
-    pub(super) fn read(path: &Path) -> Result<Vec<Entry>, Error> {
+    pub(super) fn read(path: &Path, _resources: &ObservationResources) -> Result<Vec<Entry>, Error> {
         fs::read_dir(path)
             .map_err(|e| Error::io(path.to_path_buf(), "read directory", e))?
             .map(|entry| {
@@ -195,6 +205,7 @@ mod backend {
                 };
                 Ok(Entry::new(
                     Handle {
+                        name: entry.file_name(),
                         entry,
                         #[cfg(windows)]
                         cached,
@@ -219,7 +230,11 @@ impl Entry {
     }
     /// Lossless basename returned by enumeration, without additional I/O.
     pub fn file_name(&self) -> OsString {
-        self.handle.file_name()
+        self.name().to_owned()
+    }
+    /// Borrow the native basename without cloning its batch storage.
+    pub fn name(&self) -> &OsStr {
+        self.handle.name()
     }
     /// Physical path as listed; not a guarantee against concurrent replacement.
     pub fn path(&self) -> PathBuf {
@@ -241,5 +256,10 @@ impl Entry {
 /// facts. Entry order is the backend's order; consumers own sorting/admission.
 /// The containing directory must be admitted and confined by the caller.
 pub fn read_directory(path: &Path) -> Result<Vec<Entry>, Error> {
-    backend::read(path)
+    read_directory_with(path, &ObservationResources::default())
+}
+
+/// Enumerate using caller-owned buffers. Leases end on EOF and every error path.
+pub fn read_directory_with(path: &Path, resources: &ObservationResources) -> Result<Vec<Entry>, Error> {
+    backend::read(path, resources)
 }

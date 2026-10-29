@@ -78,7 +78,7 @@ impl PairedRoots {
     pub fn inspect_visitor<V: Visitor>(&self, dir: PathBuf, execution: Execution, visitor: &V) -> Result<DirectoryPlan, Error> {
         if V::ENABLED && dir.as_os_str().is_empty() {
             let root = crate::visitor::inspect_bound_root(&self.original, &self.target, &self.original_metadata, &self.target_metadata, visitor)?;
-            if !root.operations().entries()[0].descends() {
+            if !root.operations().entries().get(0).expect("root entry").descends() {
                 return Ok(root);
             }
         }
