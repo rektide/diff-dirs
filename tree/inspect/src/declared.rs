@@ -213,11 +213,11 @@ fn inspect_using<L: DeclaredSelection, E: ExecutionDemand>(
                         } else {
                             None
                         };
+                        let sk = s.as_ref().map(|s| s.kind(acquire).map(|(k, _)| k)).transpose()?;
                         let t = target_parent
                             .map(|parent| lookup(&parent.join(name.name), acquire, epoch))
                             .transpose()?
                             .flatten();
-                        let sk = s.as_ref().map(|s| s.kind(acquire).map(|(k, _)| k)).transpose()?;
                         let tk = t.as_ref().map(|s| s.kind(acquire).map(|(k, _)| k)).transpose()?;
                         slots.push(Slot {
                             name: name.name.to_owned(),
@@ -292,11 +292,15 @@ fn inspect_using<L: DeclaredSelection, E: ExecutionDemand>(
             let mut entries = Vec::with_capacity(slots.len());
             for ((slot, mask), facts) in slots.iter().zip(&masks).zip(&facts) {
                 let candidate = slot.candidate(info, domain);
+                let entry_error = |cause: CheckError| match cause.downcast::<Error>() {
+                    Ok(error) => Arc::new(*error),
+                    Err(cause) => Arc::new(refusal(&lane.logical_root.join(at.relative).join(&slot.name), cause)),
+                };
                 check_expectation(slot.desired, facts, &source.root().join(at.relative).join(&slot.name))?;
                 lane.selection
                     .check(lane.context, DeclaredCandidate::Entry(candidate), facts.masked(*mask))
-                    .map_err(error)?;
-                let choice = lane.selection.select(lane.context, candidate).map_err(error)?;
+                    .map_err(entry_error)?;
+                let choice = lane.selection.select(lane.context, candidate).map_err(entry_error)?;
                 if let Some(interior) = &choice.interior {
                     lane.selection
                         .validate_context(
@@ -307,7 +311,7 @@ fn inspect_using<L: DeclaredSelection, E: ExecutionDemand>(
                             },
                             &interior.context,
                         )
-                        .map_err(error)?;
+                        .map_err(entry_error)?;
                 }
                 entries.push(EntryParts {
                     name: slot.name.clone(),

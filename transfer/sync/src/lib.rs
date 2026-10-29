@@ -3,8 +3,10 @@
 
 mod apply;
 mod authority;
+mod binding;
 pub mod coordinated;
 mod kernel;
+mod listed;
 mod model;
 mod opaque;
 mod paths;
@@ -14,7 +16,12 @@ mod visitor;
 
 pub use apply::{PhysicalExecutionDemand, clear, clear_with_visitor};
 pub use authority::{Absence, NeverRemove, RemoveAll};
+pub use binding::EffectBinding;
 pub use coordinated::{SyncCursor, SyncRuntime, SyncTarget};
+pub use listed::{
+    DesiredLeaf, LeafExpectation, LeafKind, ListedCandidate, ListedGuard, ListedIntent, ListedMode, ListedOutcome, ListedRelation, ListedReport, ListedTarget,
+    ManifestCoverage, ManifestId, NoListedGuard, OwnedLeafSet, PreparedLeafList, reconcile_listed,
+};
 pub use model::{CopyPolicy, Failure, Issue, Policy, Progress, Report};
 pub use seed::seed_leaves;
 pub use visitor::{Prune, Seed, Steering, Update};
@@ -22,7 +29,7 @@ pub use visitor::{Prune, Seed, Steering, Update};
 use diff_dirs_tree_inspect::{
     Check, Comparator, DirDiff, FullVisitor, NoCheck, NoScope, NoVisitor, Policy as SelectionPolicy, Scope, SourceSession, StatKey, Visitor,
 };
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 /// Owned compatibility interpretation, in check/scope/absence/late-visitor order.
@@ -32,12 +39,22 @@ pub type FullPolicy<C = NoCheck, S = NoScope, A = RemoveAll, V = NoVisitor> = Fu
 /// source resources belong to a run/cursor, never to serialized selections.
 #[derive(Debug)]
 pub struct Applier<P = FullPolicy, M = StatKey> {
-    original: PathBuf,
-    target: PathBuf,
-    policy: CopyPolicy,
+    binding: EffectBinding,
     selection: P,
     comparator: M,
     replace_root: bool,
+}
+
+impl<P, M> std::ops::Deref for Applier<P, M> {
+    type Target = EffectBinding;
+    fn deref(&self) -> &EffectBinding {
+        &self.binding
+    }
+}
+impl<P, M> Applier<P, M> {
+    pub fn binding(&self) -> &EffectBinding {
+        &self.binding
+    }
 }
 
 impl Applier {
@@ -84,15 +101,9 @@ impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
         Self::bind(original.as_ref(), target.as_ref(), copy, policy, comparator, true)
     }
     fn bind(original: &Path, target: &Path, copy: CopyPolicy, policy: P, comparator: M, replace_root: bool) -> Result<Self, Failure> {
-        let original = paths::root(original, false)?;
-        let target = paths::root_with_leaf(target, true, replace_root)?;
-        if original.starts_with(&target) || target.starts_with(&original) {
-            return Err(Failure::invalid("bind roots", &target, "source and target roots overlap"));
-        }
+        let binding = EffectBinding::bind(original, target, copy, replace_root)?;
         Ok(Self {
-            original,
-            target,
-            policy: copy,
+            binding,
             selection: policy,
             comparator,
             replace_root,
@@ -250,9 +261,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<FullPolicy<C, S, A, V>>
     pub fn scope<T: Scope>(self, scope: T) -> Applier<FullPolicy<C, T, A, V>> {
         let Steering { check, absence, visitor, .. } = self.selection.0;
         Applier {
-            original: self.original,
-            target: self.target,
-            policy: self.policy,
+            binding: self.binding,
             selection: FullVisitor(Steering {
                 check,
                 scope,
@@ -266,9 +275,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<FullPolicy<C, S, A, V>>
     pub fn absence<B: Absence>(self, absence: B) -> Applier<FullPolicy<C, S, B, V>> {
         let Steering { check, scope, visitor, .. } = self.selection.0;
         Applier {
-            original: self.original,
-            target: self.target,
-            policy: self.policy,
+            binding: self.binding,
             selection: FullVisitor(Steering {
                 check,
                 scope,
@@ -282,9 +289,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<FullPolicy<C, S, A, V>>
     pub fn visitor<W: Visitor>(self, visitor: W) -> Applier<FullPolicy<C, S, A, W>> {
         let Steering { check, scope, absence, .. } = self.selection.0;
         Applier {
-            original: self.original,
-            target: self.target,
-            policy: self.policy,
+            binding: self.binding,
             selection: FullVisitor(Steering {
                 check,
                 scope,

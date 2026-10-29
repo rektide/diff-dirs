@@ -355,11 +355,11 @@ fn seed_installs_only_listed_absent_leaves_with_fresh_metadata_literal_links_and
     assert_eq!(source.mode() & 0o777, target.mode() & 0o777);
     assert_ne!(source.ino(), target.ino());
     let failure = seed_leaves(&f.source, &f.target, ["listed/deep/file"], policy, NoCheck).unwrap_err();
-    assert_eq!(failure.primary.operation, "seed destination exists");
+    assert_eq!(failure.primary.path, f.target.join("listed/deep/file"));
     let failure = seed_leaves(&f.source, &f.target, ["missing"], policy, NoCheck).unwrap_err();
-    assert_eq!(failure.primary.operation, "seed source missing");
+    assert_eq!(failure.primary.path, f.source.join("missing"));
     let failure = seed_leaves(&f.source, &f.target, ["listed"], policy, NoCheck).unwrap_err();
-    assert_eq!(failure.primary.operation, "seed source type");
+    assert_eq!(failure.primary.path, f.source.join("listed"));
     let guard = |entry: Entry<'_>| -> Result<(), CheckError> { if entry.name == "link" { Err("refuse listed link".into()) } else { Ok(()) } };
     fs::remove_file(f.target.join("listed/link")).unwrap();
     assert!(seed_leaves(&f.source, &f.target, ["listed/link"], policy, guard).is_err());
@@ -432,7 +432,7 @@ fn seed_parent_batches_share_verified_prefixes_for_files_links_and_nested_groups
 }
 
 #[test]
-fn seed_sorted_batch_failures_retain_only_actual_prefix_work_and_reject_duplicate_names_upfront() {
+fn seed_declared_batch_failures_retain_earlier_batches_not_the_current_leaf_prefix() {
     for existing in [false, true] {
         let f = Fixture::new();
         file(f.source.join("root-leaf"), b"earlier parent batch");
@@ -442,31 +442,28 @@ fn seed_sorted_batch_failures_retain_only_actual_prefix_work_and_reject_duplicat
             file(f.target.join("p/z"), b"existing sentinel");
         }
         let failure = seed_leaves(&f.source, &f.target, ["p/z", "root-leaf", "p/a"], CopyPolicy::Copy, NoCheck).unwrap_err();
-        assert_eq!(
-            failure.primary.operation,
-            if existing { "seed destination exists" } else { "seed source missing" }
-        );
-        assert_eq!(failure.completed.files_copied, 2); // earlier group plus current prefix
+        assert_eq!(failure.primary.path, if existing { f.target.join("p/z") } else { f.source.join("p/z") });
+        assert_eq!(failure.completed.files_copied, 1); // earlier root batch, not the refused p batch
         assert_eq!(failure.completed.directories_created, u64::from(!existing));
-        assert_eq!(fs::read(f.target.join("p/a")).unwrap(), b"first installed");
+        assert!(!f.target.join("p/a").exists());
         assert_eq!(fs::read(f.target.join("root-leaf")).unwrap(), b"earlier parent batch");
         if existing {
             assert_eq!(fs::read(f.target.join("p/z")).unwrap(), b"existing sentinel");
         } else {
             assert!(!f.target.join("p/z").exists());
         }
-        assert_eq!(fs::read_dir(f.target.join("p")).unwrap().count(), if existing { 2 } else { 1 });
+        assert_eq!(fs::read_dir(f.target.join("p")).unwrap().count(), usize::from(existing));
     }
     let f = Fixture::new();
     file(f.source.join("p/a"), b"not installed");
     for paths in [["p/a", "p/a"], ["p/a", "p/./a"]] {
         let failure = seed_leaves(&f.source, &f.target, paths, CopyPolicy::Copy, NoCheck).unwrap_err();
-        assert_eq!(failure.primary.operation, "seed duplicate path");
+        assert_eq!(failure.primary.operation, "prepare manifest");
         assert_eq!(failure.completed, Progress::default());
         assert!(!f.target.join("p").exists());
     }
     let failure = seed_leaves(&f.source, &f.target, ["p/a", "../invalid"], CopyPolicy::Copy, NoCheck).unwrap_err();
-    assert_eq!(failure.primary.operation, "seed relative path");
+    assert_eq!(failure.primary.operation, "prepare manifest");
     assert_eq!(failure.completed, Progress::default());
     assert!(!f.target.join("p").exists());
 }

@@ -377,9 +377,11 @@ pub fn clear<S: Scope, C: Check>(target: impl AsRef<Path>, scope: S, check: C) -
 pub fn clear_with_visitor<V: Visitor>(target: impl AsRef<Path>, visitor: V) -> Result<Report, Failure> {
     let target = paths::root(target.as_ref(), false)?;
     let binding = Applier {
-        original: target.clone(),
-        target: target.clone(),
-        policy: CopyPolicy::Copy,
+        binding: crate::EffectBinding {
+            original: target.clone(),
+            target: target.clone(),
+            policy: CopyPolicy::Copy,
+        },
         selection: FullVisitor(visitor),
         comparator: diff_dirs_tree_inspect::StatKey,
         replace_root: false,
