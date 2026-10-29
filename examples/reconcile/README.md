@@ -7,11 +7,13 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 sources:
   - resource: opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4
-    title: Documents explicit v2 selection transport, then promotes generic context and fresh-process frontier evidence while distinguishing pending contextual effects
+    title: Promotes explicit v2 selected semantics, generic contextual frontier transport and actual fresh-process resumed-effect evidence
   - resource: /design/architecture/execution0.sol61x.md
     title: Provider 0.3 adoption, common semantic validation and 15 passing process cases
   - resource: /design/architecture/execution1.sol61x.md
     title: Generic v2 transport, fresh-process contextual comparison and 18 passing reconcile cases
+  - resource: /design/architecture/execution2.sol61x.md
+    title: Actual contextual A-accepted/B-unstarted process continuation and 20 passing reconcile cases
   - resource: "opencode://ses_e7be6b24fffeDISpWdV1xNbqhD"
     title: Adopts exact 0.2 library pins and locks and extends the example's action vocabulary for source-only conditional routing
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
@@ -130,8 +132,9 @@ The 0.4 transport is generic over context, including initial bindings, active fr
 queued members and selected inputs/interiors. `Comparison<C>` supports comparison-only
 checkpoints; `Snapshot<C>` supports contextual application data. Fresh-process tests
 verify deep independent heads and pre-I/O interpretation refusal. The production
-effectful CLI still uses unit context; actual contextual A-accepted/B-unstarted
-execution awaits the effect-runtime slice. Earlier incomplete unit-only v2 documents
+effectful CLI still uses unit context; additional production-runtime subprocess
+tests now verify actual contextual A-accepted/B-unstarted execution, second-comparator
+effects and rejected changed opaque residuals. Earlier incomplete unit-only v2 documents
 missing the now-required fields refuse; no silent migration is provided.
 
 The 0.2 library adoption adds `directory/create-if-needed/descend` to this

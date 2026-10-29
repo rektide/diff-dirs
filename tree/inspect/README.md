@@ -99,9 +99,11 @@ reuse their exact supplied input without root-policy replay. The
 [foundation account](/design/architecture/execution0.sol61x.md) records tested
 immediate behavior. The [next checkpoint](/design/architecture/execution1.sol61x.md)
 delivers generic contextual frontiers and fresh-process comparison transport;
-contextual opaque effects remain the next integration boundary. Source cells currently share
-within one joined call; bounded cross-call retention and route-epoch reuse are
-pending. No cache or epoch placeholder supplies lasting route authority.
+the [0.5 runtime](/design/architecture/execution2.sol61x.md) now executes contextual
+opaque effects and resumed applications. Source cells currently share
+within one joined call; bounded cross-call retention remains pending. Route epochs
+now provide actual no-follow admission and invalidation within a returned call,
+with no lasting cross-call route authority.
 
 ## Shared immediate inspection
 

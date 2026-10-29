@@ -7,6 +7,10 @@ status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 sources:
+  - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
+    title: Reviews and promotes the contextual production runtime, direct prepared effects, shared kernel and real fresh-process continuation checkpoint
+  - resource: /design/architecture/execution2.sol61x.md
+    title: Verified 0.5 P/M runtime, recursive context, sparse execution inputs and call-local route ownership
   - resource: "opencode://ses_e7be6b24fffeDISpWdV1xNbqhD"
     title: Implements conditional source-only routing containers with runtime pending ancestry, postorder modes, preview and saved-decision integration; verifies focused production cases
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
@@ -286,8 +290,11 @@ of restatting every selected leaf. Exact old per-entry callback interleaving and
 purpose labeling are not an additional compatibility promise; the core specifies
 listing → early → metadata → late → validation failure order.
 
-`Applier<C = NoCheck, S = NoScope, A = RemoveAll, V = NoVisitor>` retains old
-construction/checked mirror APIs. New `Summary` and `Report`/`Failure` count fields
+`Applier<P = FullPolicy, M = StatKey>` owns policy and comparator. The convenience
+constructors and checked/scope/absence/visitor methods compose
+`FullPolicy<C,S,A,V> = FullVisitor<Steering<C,S,A,V>>`, preserving existing hook order.
+Explicit predecessor four-parameter type annotations must migrate. New `Summary`
+and `Report`/`Failure` count fields
 require updating exhaustive literals; native Rust performance consumers compile
 with this change, but no performance campaign was run. This generic library
 work does not select JW transfer defaults, migrate its configuration, move `.jj`
@@ -295,11 +302,44 @@ metadata, or settle its paused working-copy protocol.
 
 ## Coordinated reconciliation and continuation
 
-`coordinated::SyncCursor` composes the comparison frontier with the **same
+`coordinated::SyncCursor<C>` composes the comparison frontier with the **same
 production application kernel**. `SyncRuntime` separately owns the appliers and
 their executable policies. Temporary composite visitor loans last only for each
 inspection call: policies need neither cloning nor serialization, and the objects
 are not self-referential.
+
+### Contextual production execution
+
+The 0.5 runtime accepts `Applier::new_policy(source, target, copy_policy, policy,
+comparator)` and `SyncRuntime<P,M>` directly. `new_replacing_policy` separately
+authorizes a leaf-root transition. The existing full-visitor constructors remain
+convenient adapters. Source sessions and observation resources can be shared with
+`bind_with_source`; runtime handles never enter saved parts.
+
+Initial group inspection receives `PhysicalExecutionDemand` and returns
+`PreparedDirectory<C>` directly. The entire immediate batch's required facts and
+fallible source-field extraction complete before effects. The kernel uses actual
+sparse inputs without fallback metadata/readlink calls or invented full facts.
+Group, barrier and live preparation share the same selected Arc, including after
+fresh restored inspection establishes whole-selection equality.
+
+Selected contexts reach source-only population, conditional ancestry, inherited
+target-only removal, both replacement passes and preview. Logical paths stay final
+while staging paths remain private. Comparison owns paired recursion; each opaque
+call owns its entire interior. Immediate fact arenas release before promoted child
+jobs run. One containing-directory lease spans children, staging cleanup and
+postorder finish; private progress becomes visible installation only on publication.
+
+`InspectionEpoch` now reuses admitted no-follow routes within a returned call and
+invalidates namespace/permission changes. Internal refresh and apply share its
+epoch; separately returned calls admit routes afresh. Refresh validates **all**
+pending decisions before resumed effects; accepted lanes and ancestors do not replay.
+Actual contextual A-accepted/B-unstarted execution has passed fresh-process tests,
+including a second comparator and residual-context rejection before filesystem I/O.
+
+The [runtime checkpoint](/design/architecture/execution2.sol61x.md) records checks
+and exact interfaces. Grouped opaque execution, bounded cross-call source retention
+and desired/owned manifest renewal remain subsequent slices of the active delivery.
 
 ```rust,no_run
 # fn main() -> Result<(), Box<dyn std::error::Error>> {

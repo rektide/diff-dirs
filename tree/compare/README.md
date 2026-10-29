@@ -193,10 +193,12 @@ replaces the old action-deviation field `retained` and is not a completeness vet
 
 Paired walkers retain one shared `SourceSession` across listings. `bind_with_source`
 can lend the same owner to another composition. Resource identity is runtime-only;
-route reuse and bounded cross-call source retention are subsequent work. Generic
+the effect runtime has call-local route reuse, while bounded cross-call source
+retention remains subsequent work. Generic
 v2 comparison transport and fresh-process partial-head tests are verified in the
-[frontier checkpoint](/design/architecture/execution1.sol61x.md). Contextual opaque
-effects and actual contextual A-accepted/B-unstarted execution remain the next slice.
+[frontier checkpoint](/design/architecture/execution1.sol61x.md). The subsequent
+[runtime checkpoint](/design/architecture/execution2.sol61x.md) verifies contextual
+opaque effects and actual contextual A-accepted/B-unstarted execution.
 
 Inter-group traversal is sequential. `Execution::Parallel` uses the current Rayon
 pool only for the shared inspector's within-group metadata work; callers can use

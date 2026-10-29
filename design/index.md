@@ -71,6 +71,12 @@ implementation completion.
   semantic selections, contextual traversal, staged facts, explicit comparison and
   authority, v2 restoration, runtime resources, grouped opaque execution and complete
   desired/owned manifests. The delivery account records acceptance and build receipts.
+- [Contextual production runtime](architecture/execution2.sol61x.md): delivered
+  0.5 P/M effects, direct prepared batches, inherited opaque context, shared kernel,
+  route epochs and actual fresh-process A-accepted/B-unstarted continuation. Builds
+  on the [inspection foundation](architecture/execution0.sol61x.md) and
+  [typed frontier](architecture/execution1.sol61x.md); grouped/cache/manifest work
+  remains in the active delivery.
 - [Annealing architecture into the next delivery](architecture/annealing0.gpt6ax.md):
   selected integration of JW's trajectory1 and subsequent human steering.
   Recommends real inherited region context and explicit comparison composition in

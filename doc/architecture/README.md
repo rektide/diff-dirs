@@ -8,13 +8,15 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-20 }
 updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
   - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
-    title: Commissions and reviews the joined delivery, promotes the verified selection and inspection foundation, and tracks pending contextual execution
+    title: Commissions and reviews the joined delivery, promotes verified selection, frontier and contextual effect ownership, and tracks grouped and manifest integration
   - resource: /design/architecture/delivery0.gpt6ax.md
     title: Active execution account and architectural review boundaries
   - resource: /design/architecture/execution0.sol61x.md
     title: Verified shared selections, common validation, staged facts, resource ownership and v2 unit-context migration
   - resource: /design/architecture/execution1.sol61x.md
     title: Delivered contextual planning, partial frames, initial execution demand and generic v2 data
+  - resource: /design/architecture/execution2.sol61x.md
+    title: Delivered contextual production effects, shared physical kernel, route epochs and fresh-process application continuation
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
     title: Connects the human-directed architectural integration assessment and its proposed next-build ownership changes to the maintained architecture
   - resource: /design/architecture/annealing0.gpt6ax.md
@@ -183,8 +185,12 @@ body; inspection owns its semantic validator. The subsequent
 [0.4 frontier checkpoint](/design/architecture/execution1.sol61x.md) carries typed
 context through paired frames/memberships, publishes selected work independently
 of diff, threads execution demand before publication and provides generic v2
-transport with fresh-process comparison evidence. Contextual opaque effects and
-actual resumed contextual application remain the next build boundary.
+transport with fresh-process comparison evidence. The
+[0.5 runtime checkpoint](/design/architecture/execution2.sol61x.md) completes
+contextual opaque effects and actual resumed application, using direct prepared
+batches, shared policy-free primitives, call-local route epochs and one source
+owner. Grouped opaque execution, bounded source retention and declared manifest
+renewal are the active subsequent build boundaries.
 The [inspection guide](/tree/inspect/README.md#contextual-inspection-and-shared-selections)
 owns the delivered API; the wider design also selects grouped opaque execution and
 complete desired/owned manifest renewal for subsequent integration.

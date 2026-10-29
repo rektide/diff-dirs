@@ -36,6 +36,8 @@ sources:
     title: Verified 0.4 contextual frontier/planning/data checkpoint and exact remaining effect-runtime handoff
   - resource: /design/architecture/declared-handoff0.gpt6a.md
     title: Accepted inspect-owned declared lookup and target census, actual manifest binding, missing-owned-route coverage and sparse-cache completeness
+  - resource: /design/architecture/execution2.sol61x.md
+    title: Verified contextual production runtime and concrete shared-kernel/epoch handoff for consumer adoption and grouped/listed execution
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -109,9 +111,12 @@ specific unresolved concern.
 | JW foundation adoption and remaining native checks | Sol xhigh, `opencode://ses_e79dd6eaeffeNFNkKJzrJKre9x` | Returned through `3a9602b2`; 20 native cases and 5 focused error cases passed. |
 | Shared effect-kernel design handoff | Astra xhigh (requested high), `opencode://ses_e79da1717ffeKJmKkEcTiGUEZa` | Returned at `1c36cbc9`; private runtime/kernel interfaces and enclosing listed-slice interpretation accepted. |
 | Contextual frontier/planning/data | Sol xhigh, `opencode://ses_e79d26e21ffestzkMAfQRZS702` | Returned through `c14abc87`; frontier complete, contextual effects handed off explicitly. |
-| Contextual effect runtime | Sol xhigh, `opencode://ses_e79941441ffeOpOYowx1qFCZXY` | Active: P/M executable owners, direct prepared effects, all recursive contexts, shared kernel and actual resumed-effect proof. |
+| Contextual effect runtime | Sol xhigh, `opencode://ses_e79941441ffeOpOYowx1qFCZXY` | Returned through `08f9df12`; complete physical-union runtime and actual contextual resumed effects verified. |
 | Declared-input preparation design | Explicit Astra high, `opencode://ses_e799075e5ffeLWmQqtFubr3wPE` | Returned at `5643527f`; accepted for the subsequent manifest implementation. Completed runtime report confirms `#high`. |
 | Reused two-route evidence adapter | Sol xhigh, `opencode://ses_e79d11c23ffeYmXANCjX2wAB34` | Returned through `06a2ffb9`; report binding and actual route runs await public CLI. |
+| JW contextual ordinary cohort | Sol xhigh, `opencode://ses_e79561af9ffecPXhjLCL1J5Mcl` | Active: provider adoption, inherited Search/SelectedMirror and one real N1/N2 ordinary runtime. |
+| Grouped opaque execution and source retention | Sol xhigh, `opencode://ses_e795502d3ffeuJ2kcDootC5FFb` | Active: real grouped recursion and bounded generation-owned cache. |
+| Effect-report accounting correction design | Explicit Astra high, `opencode://ses_e7951c1b6ffeyQeGeqQnqwkKil` | Active narrow review of deviation being reported as retention. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -349,6 +354,29 @@ The later source cache must distinguish sparse successful lookup cells from a
 complete original listing. Exact lookup cannot make unqueried names absent or
 strengthen later early hints. These constraints were sent to the effect owner for
 interface compatibility; actual declared preparation remains the later slice.
+
+### Contextual effects reviewed; consumer adoption begins
+
+Code `1e0d2917`, `0ab85584`, `82e09786` and `c42fd4e1` completes the contextual
+physical-union effect loop; [handoff](execution2.sol61x.md) `08f9df12` names the
+usable 0.5 surface. Parent inspected direct runtime ownership, kernel placement and
+lease primitives, context/recursion boundaries and the real route epoch.
+Initial and restored preparations retain the authoritative selection Arc and
+complete required inputs before effects. Actual contextual A-accepted/B-unstarted
+resume now has fresh-process evidence.
+
+Sol reports 258 workspace, 161 feature-disabled and 20 reconcile cases passed,
+real required-reflink controls, strict Clippy/Rustdoc/doctests/formatting, and focused
+checks for final identity and serial-recursion corrections. No repeated test run
+was commissioned merely to confirm those receipts. Maintained guides now expose
+the verified runtime. JW ordinary-region/cohort adoption and provider grouped/cache
+execution proceed independently against this boundary; manifest renewal follows.
+
+Parent source review found a remaining report issue: effect `retained` counters
+still consume comparison `deviated`, so proactive renewal may be mislabeled as
+retention alongside genuinely retained containers. A targeted Astra-high accounting
+review is active before public report/schema cutover; the grouped implementer has
+been alerted to preserve that correction seam.
 
 ## Work ownership and navigation
 
