@@ -674,14 +674,13 @@ records backend capabilities and bounded call-count/syscall verification; the
 [`EarlyFacts` visitor example](tree/inspect/src/visitor.rs) shows type filtering with explicit
 Unknown handling and `.jj` preservation independent of type.
 
-jj-waltz is a prospective consumer, not changed by this library implementation.
-Its integration must preserve selected payload roots through earlier cleanup
-before an incremental final payload loop can help; changing only that final
-loop does not establish end-to-end benefit. The optional sync crate handles
-absent-target initialization, exact deletions, type transitions, staged
-leaf replacement, copied permissions/mtime, and caller-pool application. It adds
-no jj-waltz integration or CLI mutation mode. Confinement, alias stability,
-repository-specific policy, and final verification remain consumer concerns.
+jj-waltz now adopts these components for its public coordinated reseed command,
+including inherited ordinary regions, explicit native manifest renewal and optional
+native-dirent forwarding. The [consumer account](doc/consumer/jj-waltz.md) records
+actual adoption and its evidence. Native revision/cache meaning, confinement,
+topology and finish verification remain consumer-owned. The generic sync crate
+provides initialization, exact removal, coupled transitions, private installation,
+metadata and borrowed-pool effects; the standalone diff-dirs CLI remains read-only.
 
 ### Optional filesystem synchronization
 

@@ -23,6 +23,12 @@ sources:
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/context-validation1.sol61x.md"
     revision: a11befca
     title: Reviewed pure restored-reference correction, resealed corruption evidence and receiving verification boundary
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution2.sol61x.md"
+    revision: 31d2e5ff
+    title: Actual complete manifest integration and both native renewal routes
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution3.sol61x.md"
+    revision: 4802125b
+    title: Public0.11 shared command, source-only preparation, schema1 and retirement of old orchestration
   - resource: /design/architecture/delivery0.gpt6ax.md
     title: Active joined delivery, review corrections and remaining manifest/public-command work
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
@@ -70,6 +76,14 @@ commissioned broader scope and actual implementation receipts.
 
 ## Current contextual adoption
 
+**Public delivery is now JW 0.11 / provider 0.7.** Both native renewal routes use
+complete manifest coverage, the real contextual ordinary cohort and loaded finish.
+Reseed and source-only prepare expose application-owned schema1 and nonmutating
+PLANNED preview; the old driver is retired. Clear-first remains the default.
+[Public evidence](file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution3.sol61x.md)
+records actual subprocess successes/failures and migrated creation guards. The
+bounded release-artifact route comparison is the remaining active delivery gate.
+
 JW's [contextual cohort checkpoint](file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution1.sol61x.md)
 (`9c810953`, `d5432070`, `12b8335a`) delivers immutable Search/SelectedMirror
 authority, one real fail-fast ordinary runtime for N1/N2 and actual partial cursor
@@ -77,9 +91,8 @@ reports. Qualifying Q is admitted once; descendants inherit it through paired an
 opaque work. Frozen selector/ignore/index state advances incrementally. Residual
 administration, supported-kind and device guards remain active.
 
-The clear-first callable command now uses this cohort and loaded finish. Public
-CLI dispatch still awaits both-route integration. JW is 0.9.0 and its receiving
-pins are provider 0.6/schema3. The earlier receiving runs used an in-progress
+That earlier clear-first callable checkpoint used JW 0.9.0 and provider
+0.6/schema3. Its receiving runs used an in-progress
 reporting snapshot; the [final provider receipt](/design/architecture/execution3.sol61x.md)
 now records its committed correction and verification. Reported cohort evidence:
 44 default cases, 21 native-dirent feature cases and strict checks passed.
@@ -94,10 +107,9 @@ It passed 71 default and 23 feature cases, including 29 deliberately resealed ma
 contexts. A later extra rebuild was stopped by the new manifest owner's unfinished
 code; its eventual receiving adoption needs fresh checks rather than stale binaries.
 
-Remaining native work is complete prepared S/O manifest renewal, ReplaceAuthorized,
-public reseed/prepare/JSON cutover and bounded route comparison. Library grouped
-opaque/cache work, distinct retention/deviation reporting and declared manifest
-execution are delivered; native adoption of the manifest executor is active.
+Both complete S/O native renewal and public cutover have since landed. Library
+grouped/cache work, truthful reporting and declared execution are delivered and
+adopted. Bounded matched route comparison remains active.
 The following assessment sequence retains its original
 revision-bound claims rather than describing those old costs as still universal.
 

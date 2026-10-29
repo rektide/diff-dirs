@@ -207,7 +207,8 @@ retention/deviation accounting with schema3 continuation. The
 manifest renewal through inspect-owned actual lookup, exact sync-owned manifest
 binding and the shared physical kernel. JW has adopted the contextual ordinary
 cohort and retains ordered fail-fast application; both native routes and public
-cutover are the active integration boundary.
+cutover are now delivered in JW0.11. Its [consumer account](/doc/consumer/jj-waltz.md)
+links public integration evidence and the remaining bounded route comparison.
 The [inspection guide](/tree/inspect/README.md#contextual-inspection-and-shared-selections)
 owns the delivered API; the wider design also selects grouped opaque execution and
 complete desired/owned manifest renewal, now available for native integration.

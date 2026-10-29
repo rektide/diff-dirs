@@ -56,6 +56,8 @@ sources:
     title: Measured exact predecessor/current wide clean ownership, clone allocations, fact release and negative transient/retained-memory findings
   - resource: /design/performance/cache-charge1.sol61x.md
     title: Verified private control-group/alignment charge correction with matched original fixture and unchanged source/lifetime behavior
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution3.sol61x.md"
+    title: Reviewed public schema1 dispatch, typed captured outcomes, old-driver retirement and actual public subprocess evidence
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -139,9 +141,10 @@ specific unresolved concern.
 | Complete declared/manifest execution | Sol xhigh, `opencode://ses_e792612b5ffeyFb3DWg7x3JxVt` | Returned through `23c18da7`; complete provider0.7 API and coverage reviewed. |
 | Both production native renewal routes | Sol xhigh, `opencode://ses_e78f3a386ffeEoMW921VWMAzPe` | Returned through `31d2e5ff`; working two-route boundary accepted for public cutover. |
 | Public command/wire design | Explicit Astra high, `opencode://ses_e78f2e0eaffejn7gBDnYKJ2RhA` | Returned at `044b6471`; schema1/cutover/measurement-profile contract accepted. |
-| Public reseed/prepare cutover | Sol xhigh, `opencode://ses_e779f1a9affejTLMoRyE5Nv4xW` | Active: actual dispatch, source/selection outcome data, schema1, old-driver retirement and operative docs. |
+| Public reseed/prepare cutover | Sol xhigh, `opencode://ses_e779f1a9affejTLMoRyE5Nv4xW` | Returned through `4802125b`; public path and schema accepted for final bounded evidence. |
 | Bounded selected-state ownership evidence | Sol xhigh, `opencode://ses_e779e67c4ffep3LwYT7qpuVLbK` | Returned at `2c892dad`; exact small full-visitor allocator/lifetime receipt reviewed. |
 | Source cache charge correction | Sol xhigh, `opencode://ses_e77885cc0ffeFqE7lKAwqkV7Oa` | Returned through `10faca4a`; fix `48e8fd10` and actual allocator regression reviewed. |
+| Final public-command evidence | Sol xhigh, `opencode://ses_e77662b15ffe213doiBhCq3TnF` | Active: actual schema parser, preserved release candidate, eight acceptance cases and predeclared bounded route samples/counts. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -602,6 +605,31 @@ cases and 11 focused owner/group checks, strict affected lint, formatting and
 document checks passed. The envelope is explicitly tied to the reviewed current
 std implementation, not a stable HashMap allocation ABI or RSS bound. The broader
 allocation tradeoff remains unchanged and visible.
+
+### Public cutover accepted for final evidence
+
+JW `ea51595b`, `6540bae9` and `4802125b`, with
+[handoff](file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution3.sol61x.md),
+deliver public reseed/prepare at 0.11/provider0.7. Parent reviewed actual dispatch,
+early return around post-error hint discovery, pure DTO projections, null/decimal/
+path representation, typed captured outcomes, schema and the retired caller chain.
+Both commands now use the shared implementation. Creation-owned callers remain.
+
+Parent accepts the documented manifest-capture additions and explicit comparator
+spelling. Reported public subprocess evidence covers both routes/default, real N2,
+source/goal distinction, final-only preparation, nonmutating preview, partial and
+shared failures, byte paths and distinct retention/deviation. All surfaced affected
+migration failures have named successful follow-ups; final targeted checks were
+8/8 and report checks 5/5, with strict workspace lint and owned docs/formatting.
+These are attributed selections, not an invented single whole-workspace test pass.
+
+The final evidence owner is binding the existing adapter to the actual schema,
+then preserving one default-feature release candidate. Acceptance covers the four
+existing shapes on both routes. Timing is predeclared as four mirrored native
+samples each for clean N1, paired N2 with small distinct deltas, and mixed N2,
+plus two separate count probes per case. D≠S is an acceptance case, not an added
+timing campaign. One donor/two receiver roots are reused under the existing bounds.
+The profile is live-asserted-source; clear-first remains default.
 
 ## Work ownership and navigation
 
