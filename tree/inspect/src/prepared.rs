@@ -40,6 +40,20 @@ impl<C> PreparedDirectory<C> {
     }
 }
 
+impl<C: Eq> PreparedDirectory<C> {
+    /// Reuse an already-published immutable body only when the entire freshly
+    /// inspected selection is equal. Facts, roots and generation remain exactly
+    /// those of this preparation. This cannot construct preparation from saved
+    /// data, supply missing execution facts, or authorize any output mapping.
+    pub fn share_selection(mut self, selected: Arc<DirectorySelection<C>>) -> Result<Self, crate::SelectionError> {
+        if self.selected != selected {
+            return Err(crate::SelectionError("fresh selection differs from published body"));
+        }
+        self.selected = selected;
+        Ok(self)
+    }
+}
+
 impl PreparedDirectory<()> {
     /// Compatibility projection only. Sparse/custom selections cannot manufacture
     /// full metadata. No observation or policy finalization is performed here.

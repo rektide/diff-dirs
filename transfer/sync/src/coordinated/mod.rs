@@ -679,15 +679,7 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
                             });
                             self.fail(i, End::DecisionChanged);
                         } else {
-                            self.current
-                                .as_mut()
-                                .expect("barrier")
-                                .applications
-                                .iter_mut()
-                                .find(|a| a.target == i)
-                                .expect("pending")
-                                .decision = Arc::clone(plan.selection());
-                            self.plans[i] = Some(plan);
+                            self.plans[i] = Some(plan.share_selection(Arc::clone(expected)).expect("complete fresh selection was compared"));
                         }
                     }
                 }

@@ -538,12 +538,20 @@ fn plan_group_and_barrier_share_one_immutable_selection_body() {
     let runtime = f.runtime(vec![Rules::default(), Rules::default()]);
     let mut cursor = SyncCursor::new(&runtime, Execution::Sequential).unwrap();
     let group = cursor.next_group(&runtime).unwrap().unwrap();
-    for outcome in &group.outcomes {
-        let selection = &outcome.outcome.as_ref().unwrap().value;
-        let index = cursor.index(&outcome.target).unwrap();
-        let app = cursor.current.as_ref().unwrap().applications.iter().find(|a| a.target == index).unwrap();
-        assert!(Arc::ptr_eq(selection, &app.decision));
-        assert!(Arc::ptr_eq(selection, cursor.plans[index].as_ref().unwrap().selection()));
+    for rebound in [false, true] {
+        if rebound {
+            cursor.bind(&runtime).unwrap();
+            cursor.refresh(&runtime).unwrap();
+        }
+        for outcome in &group.outcomes {
+            let selection = &outcome.outcome.as_ref().unwrap().value;
+            let index = cursor.index(&outcome.target).unwrap();
+            let app = cursor.current.as_ref().unwrap().applications.iter().find(|a| a.target == index).unwrap();
+            assert!(Arc::ptr_eq(selection, &app.decision));
+            let prepared = cursor.plans[index].as_ref().unwrap();
+            assert!(Arc::ptr_eq(selection, prepared.selection()));
+            assert_eq!(prepared.source_generation(), cursor.source_session().unwrap().generation());
+        }
     }
 }
 
