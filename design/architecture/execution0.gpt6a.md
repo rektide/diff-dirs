@@ -4,12 +4,12 @@ title: Contextual selections and shared acquisition for production execution
 description: Provider-side Rust contracts, persisted-schema transition, recursive ownership and build gates for the October 29 coordinated execution commission.
 resource: /design/architecture/execution0.gpt6a.md
 status: proposed-for-implementation
-generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-29 }
+generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
   - resource: "opencode://ses_e7a2675f8ffe76VJT5Lt1Lwe5l"
     title: Designs and reviews provider contracts, then integrates the authorized native handoff into complete desired/owned manifest renewal with coupled transition ownership
   - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
-    title: Parent commissions detailed Astra design and Sol implementation with broader future architecture included in this delivery
+    title: Parent commissions detailed Astra design and Sol implementation with broader future architecture, then corrects generated model provenance from the completed session's measured xhigh execution
   - resource: /design/architecture/annealing0.gpt6ax.md
     title: Selected integration assessment and proactive renewal requirements
   - resource: /design/architecture/rebuild0.gpt6a.md

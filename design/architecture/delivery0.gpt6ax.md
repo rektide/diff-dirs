@@ -28,6 +28,8 @@ sources:
     title: Verified shared-selection and contextual-inspection foundation, version migration and exact next execution slice
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/native-checkpoint1.sol61x.md"
     title: Fresh 0.3 receiving adoption, completed native gates and compact causal failure-report correction
+  - resource: /design/architecture/kernel-handoff0.gpt6a.md
+    title: Accepted concrete effect-call, lane, coordinate, demand, lease and provisional-progress handoff
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -93,13 +95,13 @@ specific unresolved concern.
 
 | Work | Owner / session | Standing |
 | --- | --- | --- |
-| Provider contract design | Astra high, `opencode://ses_e7a2675f8ffe76VJT5Lt1Lwe5l` | Returned and accepted through commit `1132c5c1`, including the native manifest handoff. |
-| Native and command design | Astra high, `opencode://ses_e7a26147bffeOIk9jHWPYXJrHI` | Returned and reviewed; commit `2d2dfa2b`, six bounded native cases. |
+| Provider contract design | Astra xhigh (requested high), `opencode://ses_e7a2675f8ffe76VJT5Lt1Lwe5l` | Returned and accepted through commit `1132c5c1`, including the native manifest handoff. |
+| Native and command design | Astra xhigh (requested high), `opencode://ses_e7a26147bffeOIk9jHWPYXJrHI` | Returned and reviewed; commit `2d2dfa2b`, six bounded native cases. |
 | Bounded verification preparation | Sol xhigh, `opencode://ses_e7a2227e7ffeTQH5TWAkgiaxOz` | Returned: native trace count command and concrete integration handoff. |
 | Shared native command implementation | Sol xhigh, `opencode://ses_e7a14b1afffe7eRp0y0L0JssYC` | Returned through `deb7fb75`; final native integration checks await the active provider rewrite. |
 | Provider selection/inspection foundation | Sol xhigh, `opencode://ses_e7a064cf8ffeJhoqfCnySR4Q6l` | Returned through `509e2704`; reviewed selection, policy, preparation and resource ownership. |
 | JW foundation adoption and remaining native checks | Sol xhigh, `opencode://ses_e79dd6eaeffeNFNkKJzrJKre9x` | Returned through `3a9602b2`; 20 native cases and 5 focused error cases passed. |
-| Shared effect-kernel design handoff | Astra high, `opencode://ses_e79da1717ffeKJmKkEcTiGUEZa` | Active targeted design for contextual, grouped and listed kernel reuse. |
+| Shared effect-kernel design handoff | Astra xhigh (requested high), `opencode://ses_e79da1717ffeKJmKkEcTiGUEZa` | Returned at `1c36cbc9`; private runtime/kernel interfaces and enclosing listed-slice interpretation accepted. |
 | Contextual traversal/effects | Sol xhigh, `opencode://ses_e79d26e21ffestzkMAfQRZS702` | Active: generic frontier/bindings, selected-work publication, contextual execution and v2 process continuation. |
 | Reused two-route evidence adapter | Sol xhigh, `opencode://ses_e79d11c23ffeYmXANCjX2wAB34` | Active independent tool build; actual route measurement awaits production correctness and CLI. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
@@ -108,6 +110,13 @@ Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
 `22a8224e`. The JW working copy also contained unrelated research drafts at
 `design/reseed-locking/lock-contention0.glm53max.md` and
 `design/up-performance/handoff0.glm53m.md`; those belong to their existing work.
+
+**Dispatch correction:** the Astra calls relied on the advertised high agent
+default, but completed-session readouts report `openai/gpt-6-astra#xhigh` for all
+three design sessions above. The parent informed the human and corrected generated
+model provenance. Future Astra design calls explicitly pin `#high`. Sol calls have
+been explicitly pinned to `openai/gpt-6.1-sol#xhigh` throughout. This records actual
+execution separately from the requested model policy.
 
 ### Verification preparation
 
@@ -254,6 +263,24 @@ their public dispatch remains with the CLI cutover. The independent evidence too
 slice prepares reused fixtures and route command handling while the provider's
 contextual traversal/effect work proceeds. Actual two-route timing remains after
 production semantic acceptance.
+
+### Effect-kernel handoff accepted
+
+The [targeted kernel handoff](kernel-handoff0.gpt6a.md) (`1c36cbc9`) makes the next
+refactor reusable by contextual single-lane, grouped opaque and listed execution.
+Parent accepts its effect-call/lane/location separation, explicit recursive owner,
+policy-free physical primitives, one containing-directory lease through cleanup
+and finish, and local provisional progress promoted only on publication.
+
+Execution demand must enter **initial comparison publication**, and a prepared
+batch must pass whole-batch required-input extraction before opening an effect
+scope. No late fallback acquisition may replace that boundary. Route epochs stay
+call-local and invalidate physical namespace and permission changes.
+
+For later listed execution, an interior node identifies an enclosing desired slice,
+not a claim that every O-only target descendant has a desired node. The actual
+desired lookup may be empty; exact removal authority remains with the owned input.
+This interpretation was reviewed and sent to the active contextual implementer.
 
 ## Work ownership and navigation
 
