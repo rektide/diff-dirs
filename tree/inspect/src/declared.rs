@@ -152,6 +152,10 @@ fn inspect_using<L: DeclaredSelection, E: ExecutionDemand>(
         {
             return Err(SharedInputError::InvalidDeclared("declared names must be ordered distinct native basenames"));
         }
+        if let DeclaredNames::Exact(names) = lane.names
+            && names.iter().any(|n| matches!(n.desired, Some(DesiredInput::Leaf { expected: LeafExpectation::Exact { kind, executable: Some(_) }, .. }) if kind != LeafKind::RegularFile || !cfg!(unix))) {
+            return Err(SharedInputError::InvalidDeclared("unsupported executable expectation"));
+        }
     }
     // Lazy checkout: an O-only/census group does not even enter the source cache.
     let needs_source = lanes
@@ -775,5 +779,117 @@ mod tests {
             .unwrap();
             assert_eq!(results[0].outcome.is_ok(), valid);
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn optional_peer_link_failure_and_later_execution_failure_keep_masks_causes_and_source_once() {
+        use std::os::unix::fs::symlink;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        struct Fault<'a> {
+            physical: Physical<'a>,
+            links: AtomicUsize,
+        }
+        impl Acquire for Fault<'_> {
+            fn list(&self, path: &Path) -> Result<Vec<diff_dirs_tree_observe::Entry>, Error> {
+                self.physical.list(path)
+            }
+            fn metadata(&self, entry: diff_dirs_tree_observe::Entry) -> Result<std::fs::Metadata, Error> {
+                self.physical.metadata(entry)
+            }
+            fn root_metadata(&self, path: &Path) -> Result<std::fs::Metadata, Error> {
+                self.physical.root_metadata(path)
+            }
+            fn path_metadata(&self, path: &Path) -> Result<std::fs::Metadata, Error> {
+                self.physical.path_metadata(path)
+            }
+            fn link(&self, path: &Path) -> Result<PathBuf, Error> {
+                self.links.fetch_add(1, Ordering::Relaxed);
+                Err(Error::io(
+                    path.to_owned(),
+                    "test declared readlink",
+                    std::io::Error::new(std::io::ErrorKind::PermissionDenied, "original declared cause"),
+                ))
+            }
+        }
+        struct LinkExecution;
+        impl ExecutionDemand for LinkExecution {
+            fn for_entry<C>(&self, entry: EntrySelectionRef<'_, C>) -> SideDemands {
+                SideDemands {
+                    source: Demand {
+                        attributes: false,
+                        literal_link: entry.desired.is_some(),
+                    },
+                    target: Demand::NONE,
+                }
+            }
+        }
+        let f = Fixture::new();
+        file(&f.original.join("a"), b"earlier");
+        symlink("literal", f.original.join("z")).unwrap();
+        let source = SourceSession::with_cache_limits(
+            &f.original,
+            ObservationResources::default(),
+            SourceCacheLimits {
+                batches: 0,
+                charged_capacity: 0,
+            },
+        );
+        let names = [
+            DeclaredName {
+                name: OsStr::new("a"),
+                desired: desired(LeafExpectation::SupportedLeaf),
+            },
+            DeclaredName {
+                name: OsStr::new("z"),
+                desired: desired(LeafExpectation::SupportedLeaf),
+            },
+        ];
+        let old = [DeclaredName {
+            name: OsStr::new("z"),
+            desired: None,
+        }];
+        let strong = Select { link: true };
+        let weak = Select { link: false };
+        let lanes = [
+            lane(0, &f.target, None, DeclaredNames::Exact(&names), &strong),
+            lane(1, &f.target, None, DeclaredNames::Exact(&names), &strong),
+            lane(2, &f.target, None, DeclaredNames::Exact(&names), &weak),
+            lane(3, &f.target, None, DeclaredNames::Exact(&old), &weak),
+        ];
+        let fault = Fault {
+            physical: Physical(source.resources()),
+            links: AtomicUsize::new(0),
+        };
+        let at = DeclaredRequest {
+            relative: Path::new(""),
+            purpose: Purpose::Copy,
+        };
+        let outcomes = inspect_using(&source, at, &lanes, &NoExecutionDemand, &InspectionEpoch::new(), Execution::Sequential, &fault).unwrap();
+        assert!(Arc::ptr_eq(
+            outcomes[0].outcome.as_ref().unwrap_err(),
+            outcomes[1].outcome.as_ref().unwrap_err()
+        ));
+        assert!(
+            matches!(outcomes[0].outcome.as_ref().unwrap_err().as_ref(),Error::Io{operation:"test declared readlink",source,..} if source.kind()==std::io::ErrorKind::PermissionDenied)
+        );
+        assert!(outcomes[2].outcome.is_ok());
+        assert!(outcomes[3].outcome.is_ok());
+        assert_eq!(fault.links.load(Ordering::Relaxed), 1);
+        assert_eq!(source.diagnostics().declared.metadata_acquisitions, 2);
+        assert_eq!(source.diagnostics().declared.listings, 0);
+        let execution = inspect_using(
+            &source,
+            at,
+            &[lane(0, &f.target, None, DeclaredNames::Exact(&names), &weak)],
+            &LinkExecution,
+            &InspectionEpoch::new(),
+            Execution::Sequential,
+            &fault,
+        )
+        .unwrap();
+        assert!(execution[0].outcome.is_err());
+        assert_eq!(fault.links.load(Ordering::Relaxed), 2);
+        assert_eq!(std::fs::read_dir(&f.target).unwrap().count(), 0);
     }
 }

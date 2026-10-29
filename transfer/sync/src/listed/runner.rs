@@ -47,23 +47,28 @@ impl<G: ListedGuard> Lane<'_, G> {
         self.policy.retained += coverage.retained;
     }
 }
-#[derive(Default)]
 struct Work {
-    result: ResultProgress,
+    result: Result<Progress, Failure>,
     installed: u64,
 }
-#[derive(Default)]
-struct ResultProgress(Option<Result<Progress, Failure>>);
+impl Default for Work {
+    fn default() -> Self {
+        Self {
+            result: Ok(Progress::default()),
+            installed: 0,
+        }
+    }
+}
 impl Work {
     fn good(&self) -> bool {
-        self.result.0.as_ref().is_none_or(Result::is_ok)
+        self.result.is_ok()
     }
     fn take(&mut self) -> Result<Progress, Failure> {
-        self.result.0.take().unwrap_or_else(|| Ok(Progress::default()))
+        std::mem::replace(&mut self.result, Ok(Progress::default()))
     }
     fn add(&mut self, result: Result<Progress, Failure>) {
         let old = self.take();
-        self.result.0 = Some(merge([old, result]));
+        self.result = merge([old, result]);
     }
     fn join(&mut self, mut other: Work) {
         self.installed += other.installed;
@@ -91,7 +96,7 @@ enum ChildEnd {
         slot: StageSlot,
         donor: Permissions,
         old_kind: Kind,
-        old_attributes: Option<Metadata>,
+        old_attributes: Option<Box<Metadata>>,
         old_leaf: LeafId,
     },
 }
@@ -237,10 +242,10 @@ fn inspect<G: ListedGuard>(
         .collect();
     let at = DeclaredRequest {
         relative: &jobs[0].place.relative,
-        purpose: if matches!(jobs[0].place.context.mode, Mode::Coupled { .. }) {
-            Purpose::Remove
-        } else {
+        purpose: if declarations.iter().any(|names| names.iter().any(|(_, desired)| desired.is_some())) {
             Purpose::Copy
+        } else {
+            Purpose::Remove
         },
     };
     let result = if effects {
@@ -400,7 +405,7 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
                                 slot: staged,
                                 donor,
                                 old_kind: entry.target.unwrap(),
-                                old_attributes: facts.target.and_then(|f| f.attributes.known()).cloned(),
+                                old_attributes: facts.target.and_then(|f| f.attributes.known()).cloned().map(Box::new),
                                 old_leaf: leaf,
                             },
                         });
@@ -468,7 +473,7 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
             };
             let good = result.good();
             let progress = result.take();
-            result.result.0 = Some(child_scope.finish(progress, directory_end, good, epoch));
+            result.result = child_scope.finish(progress, directory_end, good, epoch);
             match end {
                 ChildEnd::Keep | ChildEnd::Created { .. } => frames[parent].work.join(result),
                 ChildEnd::Expand {
@@ -485,7 +490,7 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
                         let to = lanes[frame.job.lane].selector.target.binding.target().join(&relative);
                         let publication = (|| {
                             frame.scope.ensure_writable(epoch)?;
-                            let removed = kernel::remove_leaf_kind(&to, old_kind, old_attributes.as_ref(), epoch)?;
+                            let removed = kernel::remove_leaf_kind(&to, old_kind, old_attributes.as_deref(), epoch)?;
                             frame.work.add(Ok(removed));
                             lanes[frame.job.lane].retire_leaf(old_leaf);
                             let mut destination = BoundDestination::new(&to, &frame.scope, DestinationGrant::ReplaceLeaf, Some(old_kind))?;
@@ -524,7 +529,7 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
                 let complete = result.is_ok();
                 result = parent.finish(result, DirectoryEnd::Retained, complete, epoch);
             }
-            frame.work.result.0 = Some(result);
+            frame.work.result = result;
             frame.work
         })
         .collect()
@@ -583,36 +588,65 @@ fn remove_tree<G: ListedGuard>(
         let batch = prepared?;
         bind_listed_batch(&batch, source, &lanes[lane].selector, &job.place, true)?;
         lanes[lane].count(&batch);
-        for slot in 0..batch.selection().len() {
-            let slot = SlotId(slot);
-            let entry = batch.selection().entry(slot);
-            let path = job.place.output.join(entry.name());
-            if entry.action == Action::RemoveLeaf {
-                scope.ensure_writable(epoch)?;
-                work.add(kernel::remove_leaf(&path, batch.facts(slot).target.unwrap(), epoch));
-                if !work.good() {
-                    return Ok(false);
+        enum Removal {
+            Leaf {
+                kind: Kind,
+                attributes: Option<Box<Metadata>>,
+                owned: LeafId,
+            },
+            Directory(Context),
+        }
+        // Runtime child continuations retain only the actual unlink inputs or
+        // selected interior. No ancestor fact/name arena survives recursion.
+        let children: Vec<_> = (0..batch.selection().len())
+            .map(|slot| {
+                let slot = SlotId(slot);
+                let entry = batch.selection().entry(slot);
+                let removal = if entry.action == Action::RemoveLeaf {
+                    let facts = batch.facts(slot).target.unwrap();
+                    let Some(RemovalAuthority::OwnedLeaf { leaf, .. }) = entry.removal else {
+                        unreachable!("bound leaf removal")
+                    };
+                    Removal::Leaf {
+                        kind: facts.kind,
+                        attributes: facts.attributes.known().cloned().map(Box::new),
+                        owned: leaf,
+                    }
+                } else {
+                    Removal::Directory(entry.interior.as_ref().unwrap().context.clone())
+                };
+                (entry.name().to_owned(), removal)
+            })
+            .collect();
+        drop(batch);
+        for (name, removal) in children {
+            let path = job.place.output.join(&name);
+            match removal {
+                Removal::Leaf { kind, attributes, owned } => {
+                    scope.ensure_writable(epoch)?;
+                    work.add(kernel::remove_leaf_kind(&path, kind, attributes.as_deref(), epoch));
+                    if !work.good() {
+                        return Ok(false);
+                    }
+                    lanes[lane].retire_leaf(owned);
                 }
-                if let Some(RemovalAuthority::OwnedLeaf { leaf, .. }) = entry.removal {
-                    lanes[lane].retire_leaf(leaf);
-                }
-            } else {
-                let interior = entry.interior.as_ref().unwrap();
-                work.join(remove_tree(
-                    source,
-                    epoch,
-                    lanes,
-                    lane,
-                    Scope {
-                        relative: job.place.relative.join(entry.name()),
-                        context: interior.context.clone(),
-                        observed: Some(path.clone()),
-                        output: path,
-                    },
-                    &scope,
-                ));
-                if !work.good() {
-                    return Ok(false);
+                Removal::Directory(context) => {
+                    work.join(remove_tree(
+                        source,
+                        epoch,
+                        lanes,
+                        lane,
+                        Scope {
+                            relative: job.place.relative.join(&name),
+                            context,
+                            observed: Some(path.clone()),
+                            output: path,
+                        },
+                        &scope,
+                    ));
+                    if !work.good() {
+                        return Ok(false);
+                    }
                 }
             }
         }
@@ -633,6 +667,6 @@ fn remove_tree<G: ListedGuard>(
     };
     let complete = work.good();
     let progress = work.take();
-    work.result.0 = Some(scope.finish(progress, if removed { DirectoryEnd::Removed } else { DirectoryEnd::Retained }, complete, epoch));
+    work.result = scope.finish(progress, if removed { DirectoryEnd::Removed } else { DirectoryEnd::Retained }, complete, epoch);
     work
 }

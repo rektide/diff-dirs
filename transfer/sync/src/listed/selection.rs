@@ -50,22 +50,35 @@ impl<G: ListedGuard> Selector<'_, G> {
         }
     }
     pub fn declarations(&self, at: &Path, context: &Context) -> Vec<(OsString, Option<DesiredInput>)> {
-        let mut names = Vec::new();
-        if !matches!(context.mode, Mode::Coupled { .. })
-            && let Some(node) = self.desired.index.find(at).and_then(|id| self.desired.index.node(id))
-        {
-            for (name, child) in &node.children {
-                names.push((name.clone(), Some(self.desired.index.input(*child))));
-            }
+        let desired = if matches!(context.mode, Mode::Coupled { .. }) {
+            &[][..]
+        } else {
+            self.desired
+                .index
+                .find(at)
+                .and_then(|id| self.desired.index.node(id))
+                .map_or(&[][..], |n| n.children.as_slice())
+        };
+        let owned = context
+            .owned_node
+            .and_then(|id| self.target.owned.index.node(id))
+            .map_or(&[][..], |n| n.children.as_slice());
+        let mut names = Vec::with_capacity(desired.len() + owned.len());
+        let mut desired = desired.iter().peekable();
+        let mut owned = owned.iter().peekable();
+        while desired.peek().is_some() || owned.peek().is_some() {
+            let order = match (desired.peek(), owned.peek()) {
+                (Some((a, _)), Some((b, _))) => a.as_encoded_bytes().cmp(b.as_encoded_bytes()),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                _ => std::cmp::Ordering::Greater,
+            };
+            let d = (order != std::cmp::Ordering::Greater).then(|| desired.next().unwrap());
+            let o = (order != std::cmp::Ordering::Less).then(|| owned.next().unwrap());
+            names.push((
+                d.map_or_else(|| o.unwrap().0.clone(), |(name, _)| name.clone()),
+                d.map(|(_, node)| self.desired.index.input(*node)),
+            ));
         }
-        if let Some(node) = context.owned_node.and_then(|id| self.target.owned.index.node(id)) {
-            for (name, _) in &node.children {
-                if !names.iter().any(|(n, _)| n == name) {
-                    names.push((name.clone(), None));
-                }
-            }
-        }
-        names.sort_unstable_by(|a, b| a.0.as_encoded_bytes().cmp(b.0.as_encoded_bytes()));
         names
     }
     fn guard_candidate<'a>(&self, context: &Context, observed: DeclaredCandidate<'a>) -> ListedCandidate<'a> {
@@ -389,4 +402,230 @@ pub(super) fn bind_listed_batch<'a, G: ListedGuard>(
         crate::apply::require_execution_inputs(batch)?;
     }
     Ok(BoundBatch { batch })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    struct Corrupt<'a> {
+        selector: Selector<'a, NoListedGuard>,
+        alter: u8,
+    }
+    impl DeclaredSelection for Corrupt<'_> {
+        type Context = Context;
+        fn identity(&self) -> &SemanticId {
+            self.selector.identity()
+        }
+        fn validate_context(&self, at: ContextSite<'_>, context: &Context) -> Result<(), CheckError> {
+            self.selector.validate_context(at, context)
+        }
+        fn demand(&self, _: &Context, _: DeclaredCandidate<'_>) -> SideDemands {
+            SideDemands::default()
+        }
+        fn check(&self, _: &Context, _: DeclaredCandidate<'_>, _: EntryFacts<'_>) -> Result<(), CheckError> {
+            Ok(())
+        }
+        fn select(&self, context: &Context, mut at: DeclaredEntryCandidate<'_>) -> Result<DeclaredChoice<Context>, CheckError> {
+            if self.alter == 1 || self.alter == 2 {
+                at.desired = self.selector.relation(context, &at.coordinate.to_path_buf()).desired;
+            }
+            let mut choice = self.selector.lower(context, at)?;
+            if self.alter == 3 {
+                choice.install.as_mut().unwrap().destination = DestinationGrant::ReplaceTree;
+            }
+            if self.alter == 4 && choice.removal.is_some() {
+                choice.removal = Some(RemovalAuthority::OwnedLeaf {
+                    owned: self.selector.target.owned.id(),
+                    leaf: LeafId(1),
+                });
+            }
+            if self.alter == 5 {
+                choice.removal = Some(RemovalAuthority::CoupledOwned {
+                    owned: self.selector.target.owned.id(),
+                    subtree: NodeId(0),
+                });
+            }
+            if self.alter == 6
+                && let Some(interior) = choice.interior.as_mut()
+            {
+                interior.input = InteriorInput::Listed {
+                    desired: self.selector.desired.id(),
+                    subtree: NodeId(0),
+                };
+            }
+            Ok(choice)
+        }
+    }
+    #[test]
+    fn actual_bind_rejects_wrong_ids_expectations_omitted_slots_and_overbroad_grants_before_effects() {
+        let scratch = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.test-agent/listed-binding");
+        std::fs::create_dir_all(&scratch).unwrap();
+        for alter in 0..7 {
+            let temp = tempfile::tempdir_in(std::fs::canonicalize(&scratch).unwrap()).unwrap();
+            let source_root = temp.path().join("source");
+            let target_root = temp.path().join("target");
+            std::fs::create_dir(&source_root).unwrap();
+            std::fs::create_dir(&target_root).unwrap();
+            let paths = if alter == 5 {
+                vec!["q"]
+            } else if alter == 6 {
+                vec!["q/a"]
+            } else {
+                vec!["a", "z"]
+            };
+            for path in &paths {
+                std::fs::create_dir_all(source_root.join(path).parent().unwrap()).unwrap();
+                std::fs::write(source_root.join(path), b"real").unwrap();
+            }
+            let desired = PreparedLeafList::new(&paths).unwrap();
+            let clone = desired.clone();
+            assert!(Arc::ptr_eq(&desired.index, &clone.index));
+            let owned = OwnedLeafSet::new(if alter == 5 { vec!["q/a"] } else { vec!["a", "z"] }).unwrap();
+            let owned_clone = owned.clone();
+            assert!(Arc::ptr_eq(&owned.index, &owned_clone.index));
+            if alter == 4 {
+                std::fs::write(target_root.join("a"), b"owned").unwrap();
+            }
+            if alter == 5 {
+                std::fs::create_dir(target_root.join("q")).unwrap();
+                std::fs::write(target_root.join("q/a"), b"owned").unwrap();
+            }
+            let binding = EffectBinding::new(&source_root, &target_root, crate::CopyPolicy::Copy).unwrap();
+            let target_id = TargetId("binding".into());
+            let target = ListedTarget {
+                id: &target_id,
+                binding: &binding,
+                owned: &owned,
+                intent: if alter == 3 { ListedIntent::CreateAbsent } else { ListedIntent::RenewOwned },
+                guard: &NoListedGuard,
+            };
+            let selector = Selector {
+                desired: &desired,
+                target: &target,
+            };
+            let context = selector.root();
+            let mut declarations = selector.declarations(Path::new(""), &context);
+            if alter == 0 {
+                declarations.pop();
+            }
+            if alter == 1 {
+                declarations[0].1 = Some(DesiredInput::Leaf {
+                    leaf: LeafId(999),
+                    expected: LeafExpectation::SupportedLeaf,
+                });
+            }
+            if alter == 2 {
+                declarations[0].1 = Some(DesiredInput::Leaf {
+                    leaf: LeafId(0),
+                    expected: LeafExpectation::Exact {
+                        kind: LeafKind::RegularFile,
+                        executable: None,
+                    },
+                });
+            }
+            let names: Vec<_> = declarations.iter().map(|(name, desired)| DeclaredName { name, desired: *desired }).collect();
+            let evil = Corrupt { selector, alter };
+            let source = SourceSession::new(&source_root);
+            let request = DeclaredInspection {
+                target: 0,
+                logical_root: &target_root,
+                physical_directory: Some(&target_root),
+                desired: desired.id(),
+                owned: owned.id(),
+                context: &context,
+                names: DeclaredNames::Exact(&names),
+                selection: &evil,
+            };
+            let prepared = inspect_declared_group(
+                &source,
+                DeclaredRequest {
+                    relative: Path::new(""),
+                    purpose: Purpose::Copy,
+                },
+                &[request],
+                &crate::PhysicalExecutionDemand,
+                &InspectionEpoch::new(),
+                Execution::Sequential,
+            )
+            .unwrap()
+            .remove(0)
+            .outcome
+            .unwrap();
+            let scope = Scope {
+                relative: PathBuf::new(),
+                context,
+                observed: Some(target_root.clone()),
+                output: target_root.clone(),
+            };
+            assert!(
+                bind_listed_batch(&prepared, &source, &evil.selector, &scope, true).is_err(),
+                "corruption {alter} passed actual binding"
+            );
+            assert_eq!(std::fs::read_dir(&target_root).unwrap().count(), usize::from(alter == 4 || alter == 5));
+        }
+    }
+    #[test]
+    fn no_execution_demand_preparation_is_not_an_executable_manifest() {
+        let scratch = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.test-agent/listed-binding");
+        std::fs::create_dir_all(&scratch).unwrap();
+        let temp = tempfile::tempdir_in(std::fs::canonicalize(scratch).unwrap()).unwrap();
+        let source_root = temp.path().join("source");
+        let target_root = temp.path().join("target");
+        std::fs::create_dir(&source_root).unwrap();
+        std::fs::create_dir(&target_root).unwrap();
+        std::fs::write(source_root.join("required"), b"real").unwrap();
+        let desired = PreparedLeafList::new(["required"]).unwrap();
+        let owned = OwnedLeafSet::new(Vec::<PathBuf>::new()).unwrap();
+        let binding = EffectBinding::new(&source_root, &target_root, crate::CopyPolicy::Copy).unwrap();
+        let id = TargetId("ready".into());
+        let target = ListedTarget {
+            id: &id,
+            binding: &binding,
+            owned: &owned,
+            intent: ListedIntent::CreateAbsent,
+            guard: &NoListedGuard,
+        };
+        let selector = Selector {
+            desired: &desired,
+            target: &target,
+        };
+        let context = selector.root();
+        let declarations = selector.declarations(Path::new(""), &context);
+        let names: Vec<_> = declarations.iter().map(|(name, desired)| DeclaredName { name, desired: *desired }).collect();
+        let source = SourceSession::new(&source_root);
+        let prepared = inspect_declared_group(
+            &source,
+            DeclaredRequest {
+                relative: Path::new(""),
+                purpose: Purpose::Copy,
+            },
+            &[DeclaredInspection {
+                target: 0,
+                logical_root: &target_root,
+                physical_directory: Some(&target_root),
+                desired: desired.id(),
+                owned: owned.id(),
+                context: &context,
+                names: DeclaredNames::Exact(&names),
+                selection: &selector,
+            }],
+            &NoExecutionDemand,
+            &InspectionEpoch::new(),
+            Execution::Sequential,
+        )
+        .unwrap()
+        .remove(0)
+        .outcome
+        .unwrap();
+        let scope = Scope {
+            relative: PathBuf::new(),
+            context,
+            observed: Some(target_root.clone()),
+            output: target_root.clone(),
+        };
+        assert!(bind_listed_batch(&prepared, &source, &selector, &scope, false).is_ok());
+        assert!(bind_listed_batch(&prepared, &source, &selector, &scope, true).is_err());
+        assert_eq!(std::fs::read_dir(target_root).unwrap().count(), 0);
+    }
 }

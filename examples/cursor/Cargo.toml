@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-diff-dirs-tree-api = { path = "../../tree/api", version = "=0.6.0" }
+diff-dirs-tree-api = { path = "../../tree/api", version = "=0.7.0" }
 facet = "=0.50.0-rc.5"
 kopacetic-core = { path = "../../../kopacetic/crates/kopacetic-core", default-features = false }
 kopacetic-rkyv = { path = "../../../kopacetic/crates/kopacetic-rkyv" }

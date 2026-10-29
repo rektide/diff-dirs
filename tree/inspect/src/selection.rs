@@ -152,7 +152,12 @@ pub enum LeafKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LeafExpectation {
     SupportedLeaf,
-    Exact { kind: LeafKind, executable: Option<bool> },
+    /// Unix executable means at least one of mode bits 0o111. Other platforms
+    /// refuse an executable requirement; symlinks cannot carry one.
+    Exact {
+        kind: LeafKind,
+        executable: Option<bool>,
+    },
 }
 /// A desired obligation at this slot. A missing donor cannot become preservation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -308,10 +308,12 @@ impl SourceLease<'_> {
                 let cell = batch.cells[index].1.clone();
                 // Preserve original listing hints even when lookup metadata is
                 // stronger; only explicit kind/fact stages see the stronger fact.
-                let hints = batch
-                    .complete_names
-                    .as_ref()
-                    .and_then(|l| l.names.iter().find(|(n, _)| n == name).map(|(_, h)| *h));
+                let hints = batch.complete_names.as_ref().and_then(|l| {
+                    l.names
+                        .binary_search_by(|(n, _)| n.as_encoded_bytes().cmp(name.as_encoded_bytes()))
+                        .ok()
+                        .map(|index| l.names[index].1)
+                });
                 let hints = match hints {
                     Some(hints) => hints,
                     None => cell.lookup_hints(),

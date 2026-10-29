@@ -409,3 +409,177 @@ fn absent_retained_and_staged_lanes_share_real_source_lookup_once_with_zero_cach
     assert_eq!(diagnostic.active_batches, 0);
     assert_eq!(diagnostic.retained_batches, 0);
 }
+
+#[test]
+fn absent_structural_proof_has_zero_retention_but_complete_owned_retirement() {
+    let f = Fixture::new(1);
+    let outcome = run(
+        &f,
+        &PreparedLeafList::new(Vec::<PathBuf>::new()).unwrap(),
+        &OwnedLeafSet::new(["missing/a", "missing/deep/b"]).unwrap(),
+        ListedIntent::RenewOwned,
+    );
+    assert!(outcome.coverage.complete);
+    assert_eq!(outcome.coverage.owned_retired, 2);
+    let report = outcome.outcome.unwrap();
+    assert_eq!(report.policy.retained, 0);
+    assert_eq!(report.completed, Progress::default());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn actual_clone_failure_keeps_known_retirement_and_healthy_peer_complete() {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    let mut f = Fixture::new(2);
+    file(f.source.join("z"), b"actual required reflink");
+    let external = tempfile::tempdir_in("/tmp/opencode").unwrap();
+    f.targets[0] = external.path().join("receiver");
+    fs::create_dir(&f.targets[0]).unwrap();
+    assert_ne!(
+        fs::metadata(&f.source).unwrap().dev(),
+        fs::metadata(&f.targets[0]).unwrap().dev(),
+        "real distinct filesystems required"
+    );
+    for target in &f.targets {
+        file(target.join("a"), b"obsolete");
+        fs::set_permissions(target, fs::Permissions::from_mode(0o555)).unwrap();
+    }
+    let bindings = f.bindings(CopyPolicy::ReflinkRequired);
+    let ids = [TargetId("bad".into()), TargetId("good".into())];
+    let owned = OwnedLeafSet::new(["a", "already-absent"]).unwrap();
+    let desired = PreparedLeafList::new(["z"]).unwrap();
+    let targets: Vec<_> = (0..2)
+        .map(|i| ListedTarget {
+            id: &ids[i],
+            binding: &bindings[i],
+            owned: &owned,
+            intent: ListedIntent::RenewOwned,
+            guard: &NoListedGuard,
+        })
+        .collect();
+    let report = reconcile_listed(&SourceSession::new(&f.source), &desired, &targets).unwrap();
+    let failed = &report.outcomes[0];
+    assert!(!failed.coverage.complete);
+    assert_eq!(failed.coverage.installed, 0);
+    assert_eq!(failed.coverage.owned_retired, 2);
+    let failure = failed.outcome.as_ref().unwrap_err();
+    assert_eq!(failure.primary.operation, "prepare reflink");
+    assert_eq!(failure.completed.files_removed, 1);
+    assert!(failure.primary.cause.downcast_ref::<std::io::Error>().unwrap().raw_os_error().is_some());
+    assert!(report.outcomes[1].coverage.complete);
+    assert_eq!(report.outcomes[1].outcome.as_ref().unwrap().completed.files_reflinked, 1);
+    for target in &f.targets {
+        assert_eq!(fs::metadata(target).unwrap().permissions().mode() & 0o777, 0o555);
+        clean(target);
+        fs::set_permissions(target, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+}
+
+// Deliberately impure test-only fault injection at the pure guard seam. Production
+// guards must not mutate trees; these force genuine cleanup/publication I/O errors
+// after known effects, without adding a production fault API or post-failure scan.
+struct Fault {
+    target: PathBuf,
+    cleanup: bool,
+    seen: std::sync::atomic::AtomicUsize,
+}
+impl ListedGuard for Fault {
+    fn check(&self, at: ListedCandidate<'_>, _: EntryFacts<'_>) -> Result<(), CheckError> {
+        if let DeclaredCandidate::Entry(entry) = at.observed {
+            let trigger = if self.cleanup {
+                entry.coordinate.parent == Path::new("z")
+            } else {
+                at.mode == ListedMode::CoupledRemoval
+            };
+            if trigger {
+                let call = self.seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if self.cleanup || call == 1 {
+                    let arena = fs::read_dir(&self.target)
+                        .unwrap()
+                        .map(Result::unwrap)
+                        .find(|e| e.file_name().as_encoded_bytes().starts_with(b".diff-dirs-sync-"))
+                        .unwrap()
+                        .path();
+                    if self.cleanup {
+                        fs::write(arena.join("unexpected-private-artifact"), b"force cleanup error").unwrap();
+                    } else {
+                        fs::remove_file(arena.join("0")).unwrap();
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+#[test]
+fn cleanup_failure_cannot_complete_even_when_all_desired_renames_succeeded() {
+    let f = Fixture::new(1);
+    file(f.source.join("a"), b"a");
+    file(f.source.join("z/b"), b"b");
+    let bindings = f.bindings(CopyPolicy::Copy);
+    let id = TargetId("cleanup".into());
+    let desired = PreparedLeafList::new(["a", "z/b"]).unwrap();
+    let owned = OwnedLeafSet::new(Vec::<PathBuf>::new()).unwrap();
+    let guard = Fault {
+        target: f.targets[0].clone(),
+        cleanup: true,
+        seen: Default::default(),
+    };
+    let report = reconcile_listed(
+        &SourceSession::new(&f.source),
+        &desired,
+        &[ListedTarget {
+            id: &id,
+            binding: &bindings[0],
+            owned: &owned,
+            intent: ListedIntent::CreateAbsent,
+            guard: &guard,
+        }],
+    )
+    .unwrap();
+    let outcome = &report.outcomes[0];
+    assert_eq!(outcome.coverage.installed, 2);
+    assert!(!outcome.coverage.complete);
+    let failure = outcome.outcome.as_ref().unwrap_err();
+    assert_eq!(failure.primary.operation, "clean private staging directory");
+    assert_eq!(failure.completed.files_copied, 2);
+    assert_eq!(fs::read(f.targets[0].join("z/b")).unwrap(), b"b");
+}
+#[test]
+fn coupled_old_retirement_survives_later_publication_failure_without_postfailure_census() {
+    let f = Fixture::new(1);
+    file(f.source.join("q"), b"new");
+    file(f.targets[0].join("q/a"), b"old");
+    let bindings = f.bindings(CopyPolicy::Copy);
+    let id = TargetId("publication".into());
+    let desired = PreparedLeafList::new(["q"]).unwrap();
+    let owned = OwnedLeafSet::new(["q/a", "q/absent"]).unwrap();
+    let guard = Fault {
+        target: f.targets[0].clone(),
+        cleanup: false,
+        seen: Default::default(),
+    };
+    let report = reconcile_listed(
+        &SourceSession::new(&f.source),
+        &desired,
+        &[ListedTarget {
+            id: &id,
+            binding: &bindings[0],
+            owned: &owned,
+            intent: ListedIntent::RenewOwned,
+            guard: &guard,
+        }],
+    )
+    .unwrap();
+    let outcome = &report.outcomes[0];
+    assert!(!outcome.coverage.complete);
+    assert_eq!(outcome.coverage.installed, 0);
+    assert_eq!(outcome.coverage.owned_retired, 2);
+    let failure = outcome.outcome.as_ref().unwrap_err();
+    assert_eq!(failure.primary.operation, "install prepared node");
+    assert_eq!(failure.completed.files_removed, 1);
+    assert_eq!(failure.completed.directories_removed, 1);
+    assert_eq!(guard.seen.load(std::sync::atomic::Ordering::Relaxed), 2);
+    assert!(!f.targets[0].join("q").exists());
+    clean(&f.targets[0]);
+}
