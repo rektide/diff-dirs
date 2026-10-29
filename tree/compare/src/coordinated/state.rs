@@ -160,7 +160,7 @@ impl<C: Clone + Eq> Parts<C> {
             })
             .collect();
         Ok(Self {
-            version: 2,
+            version: 3,
             bindings,
             lanes,
             root_pending: true,
@@ -172,7 +172,7 @@ impl<C: Clone + Eq> Parts<C> {
 
     /// Strict structural checks only; no stat, callbacks or root reconstruction.
     pub fn validate(&self) -> Result<(), Error> {
-        require(self.version == 2, "unsupported coordinated parts version")?;
+        require(self.version == 3, "unsupported coordinated parts version")?;
         self.bindings.validate()?;
         require(self.lanes.len() == self.bindings.targets.len(), "lane/binding count mismatch")?;
         require(self.next_sequence > 0, "zero group sequence")?;
@@ -211,6 +211,11 @@ impl<C: Clone + Eq> Parts<C> {
                 s.counts.dirs.removed,
             ];
             counts.into_iter().try_fold(0u64, add)?;
+            let slots = [s.equal, s.different, s.not_assessed, s.unsupported, s.unresolved]
+                .into_iter()
+                .map(u128::from)
+                .sum::<u128>();
+            require(u128::from(s.retained) <= slots, "retention exceeds assessed slot boundaries")?;
             if s.examined_directories == 0 {
                 require(
                     counts == [0; 5]
@@ -218,6 +223,7 @@ impl<C: Clone + Eq> Parts<C> {
                         && s.excluded == 0
                         && s.planned == 0
                         && s.deviated == 0
+                        && s.retained == 0
                         && s.equal == 0
                         && s.different == 0
                         && s.not_assessed == 0

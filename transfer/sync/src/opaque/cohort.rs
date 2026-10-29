@@ -65,11 +65,9 @@ struct Staged<'a, P: SelectionPolicy, M: Comparator> {
     kept: bool,
 }
 type BatchResult = Result<(Progress, bool), Failure>;
+type ReadyApplication<'a, P, M> = (&'a Applier<P, M>, PreparedDirectory<<P as SelectionPolicy>::Context>);
 
-pub(crate) fn apply_cohort<P: SelectionPolicy, M: Comparator>(
-    call: &EffectCall<'_>,
-    applications: Vec<(&Applier<P, M>, PreparedDirectory<P::Context>)>,
-) -> Vec<Result<Report, Failure>> {
+pub(crate) fn apply_cohort<P: SelectionPolicy, M: Comparator>(call: &EffectCall<'_>, applications: Vec<ReadyApplication<'_, P, M>>) -> Vec<ApplicationResult> {
     let lanes: Vec<_> = applications.iter().map(|(binding, _)| LaneCall::new(*binding)).collect();
     let mut scopes = Vec::with_capacity(lanes.len());
     let inputs = applications
@@ -103,7 +101,7 @@ pub(crate) fn apply_cohort<P: SelectionPolicy, M: Comparator>(
         .map(|((scope, lane), result)| {
             let complete = result.is_ok() && !lane.stopped.load(Ordering::Acquire);
             let scope = Arc::try_unwrap(scope).ok().expect("joined cohort containing scope");
-            lane.finish(scope.finish(result.map(|(p, _)| p), DirectoryEnd::Retained, complete, call.epoch))
+            lane.finish_accounted(scope.finish(result.map(|(p, _)| p), DirectoryEnd::Retained, complete, call.epoch))
         })
         .collect()
 }
@@ -121,8 +119,8 @@ fn batches<P: SelectionPolicy, M: Comparator>(call: &EffectCall<'_>, inputs: Vec
                 pending,
             } = input;
             let result = (|| {
+                lane.count(&batch, owner == RecursionOwner::PairedFrontier);
                 lane.gate(call, &batch, &place.borrowed())?;
-                lane.count(&batch);
                 let slots: Vec<_> = (0..batch.selection().len()).map(SlotId).collect();
                 lane.planned.fetch_add(
                     slots
@@ -194,15 +192,12 @@ fn batches<P: SelectionPolicy, M: Comparator>(call: &EffectCall<'_>, inputs: Vec
         .collect();
     // A lane's promoted jobs remain in native-name order. Join compatible next
     // children across lanes BEFORE any of those children's source inspections.
-    loop {
-        let Some(relative) = staged
-            .iter()
-            .filter_map(|s| s.children.front().map(|(_, c)| &c.relative))
-            .min_by(|a, b| a.as_os_str().as_encoded_bytes().cmp(b.as_os_str().as_encoded_bytes()))
-            .cloned()
-        else {
-            break;
-        };
+    while let Some(relative) = staged
+        .iter()
+        .filter_map(|s| s.children.front().map(|(_, c)| &c.relative))
+        .min_by(|a, b| a.as_os_str().as_encoded_bytes().cmp(b.as_os_str().as_encoded_bytes()))
+        .cloned()
+    {
         let mut owners = Vec::new();
         let mut children = Vec::new();
         for (index, stage) in staged.iter_mut().enumerate() {
@@ -293,9 +288,11 @@ fn run_children<P: SelectionPolicy, M: Comparator>(call: &EffectCall<'_>, jobs: 
                 }
                 Ok((!descend).then_some((Progress::default(), false)))
             })();
-            let conditional = if scope.is_some() && matches!(job.child.work, ChildWork::Conditional { .. }) {
+            let conditional = if let Some(active) = &scope
+                && matches!(job.child.work, ChildWork::Conditional { .. })
+            {
                 Some(Arc::new(Conditional {
-                    scope: scope.as_ref().unwrap().clone(),
+                    scope: active.clone(),
                     previous: job.pending.clone(),
                     parent: job.parent.clone(),
                     created: AtomicBool::new(false),
@@ -462,7 +459,6 @@ fn finish_child<P: SelectionPolicy, M: Comparator>(call: &EffectCall<'_>, frame:
         _ => (DirectoryEnd::Retained, false),
     };
     drop(conditional);
-    // A source-less job already ran/finalized through the established owner.
     let scope = Arc::try_unwrap(scope).ok().expect("joined child scope");
     let mut result = scope.finish(result.map(|(p, _)| p), end, complete, call.epoch);
     if credit {
@@ -495,9 +491,6 @@ fn finish_child<P: SelectionPolicy, M: Comparator>(call: &EffectCall<'_>, frame:
     }
     if result.is_err() {
         lane.stopped.store(true, Ordering::Release);
-    }
-    if result.is_ok() && matches!(job.child.work, ChildWork::Reconcile { .. }) {
-        lane.retained.fetch_add(1, Ordering::Relaxed);
     }
     result.map(|p| (p, matches!(job.child.work, ChildWork::Reconcile { .. })))
 }

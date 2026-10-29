@@ -166,6 +166,9 @@ fn sparse_live_runtime_keeps_original_indices_through_pending_refresh() {
     assert_eq!(run.parts().comparison.lanes[0].status, LaneStatus::Complete);
     let group = run.next_group(&runtime).unwrap().unwrap();
     assert_eq!(group.relative, Path::new("paired"));
+    assert!(run.pending().is_empty(), "clean routing autoaccepts without an application");
+    let group = run.next_group(&runtime).unwrap().unwrap();
+    assert_eq!(group.relative, Path::new("paired/deep"));
     run.apply(&runtime, &group.token, &"lane-1".into()).unwrap();
     let parts = run.into_parts();
     parts.validate().unwrap();
@@ -185,7 +188,7 @@ fn sparse_live_runtime_keeps_original_indices_through_pending_refresh() {
     assert_eq!(reports[2].totals.end, Some(End::ComparisonFailed));
     for i in [1, 3] {
         assert!(reports[i].satisfied);
-        assert_eq!(reports[i].totals.applications, 3);
+        assert_eq!(reports[i].totals.applications, 2);
         assert_eq!(reports[i].totals.completed.files_copied, 2);
         assert_eq!(fs::read(f.targets[i].join("paired/deep/file")).unwrap(), b"nested");
     }
@@ -212,7 +215,11 @@ fn opaque_replacement_does_not_join_later_paired_traversal_after_becoming_a_dire
         assert_eq!(group.relative, Path::new(expected));
         assert_eq!(group.outcomes.len(), 1);
         assert_eq!(group.outcomes[0].target, TargetId::from("lane-1"));
-        run.apply(&runtime, &group.token, &"lane-1".into()).unwrap();
+        if run.pending().contains(&TargetId::from("lane-1")) {
+            run.apply(&runtime, &group.token, &"lane-1".into()).unwrap();
+        } else {
+            assert_eq!(run.current().unwrap().applications[0].state, ApplicationState::Accepted);
+        }
     }
     run.settle().unwrap();
     let reports = run.reports();
@@ -405,7 +412,7 @@ fn zero_work_count_still_reconciles_opaque_kept_target_container() {
     let r = run.reports().remove(0);
     assert!(r.satisfied);
     assert_eq!(r.totals.completed.files_removed, 1);
-    assert_eq!(r.retained, 2);
+    assert_eq!(r.retained, 1);
     assert!(f.targets[0].join("old").is_dir());
     assert!(!f.targets[0].join("old/stale").exists());
     run.parts().validate().unwrap();

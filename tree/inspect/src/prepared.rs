@@ -107,8 +107,11 @@ impl DirectoryPlan {
     pub fn steered(&self) -> bool {
         self.selection().coverage().scoped
     }
-    /// Compatibility name for action deviation, not actual retention.
+    /// Selected preservation boundaries, not an inventory of surviving entries.
     pub fn retained(&self) -> u64 {
+        self.selection().coverage().retained
+    }
+    pub fn deviated(&self) -> u64 {
         self.selection().coverage().deviated
     }
     pub fn work(&self) -> u64 {

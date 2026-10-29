@@ -17,6 +17,8 @@ struct Rules {
     hide: Option<PathBuf>,
     conditional: bool,
     refuse: Option<PathBuf>,
+    fact_fault: Option<PathBuf>,
+    preserve_link: bool,
 }
 impl Policy for Rules {
     type Context = u8;
@@ -52,6 +54,26 @@ impl Policy for Rules {
                 }
             }
         }
+        if self.preserve_link && batch.info().relative == Path::new("q") {
+            for mut entry in batch.entries_mut() {
+                entry.omit_comparison();
+                entry.set_action(Action::PreserveTree);
+                if self.fact_fault.is_some() {
+                    entry.request(diff_dirs_tree_inspect::SideDemands {
+                        source: diff_dirs_tree_inspect::Demand {
+                            attributes: false,
+                            literal_link: true,
+                        },
+                        target: diff_dirs_tree_inspect::Demand::NONE,
+                    });
+                }
+            }
+            // Test-only loss between kind resolution and an optional stronger
+            // fact request. Production policies remain pure.
+            if let Some(path) = &self.fact_fault {
+                fs::remove_file(path).unwrap();
+            }
+        }
         Ok(())
     }
     fn select(&self, _: &u8, batch: &mut Choices<'_, u8>) -> Result<(), diff_dirs_tree_inspect::CheckError> {
@@ -63,6 +85,52 @@ impl Policy for Rules {
         }
         Ok(())
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_failed_stronger_source_fact_does_not_poison_the_kind_only_group_peer() {
+    let f = Fixture::new();
+    fs::create_dir(f.source.join("q")).unwrap();
+    std::os::unix::fs::symlink("literal/missing", f.source.join("q/link")).unwrap();
+    let runtime = f.runtime([
+        Rules {
+            context: 1,
+            preserve_link: true,
+            fact_fault: Some(f.source.join("q/link")),
+            ..Default::default()
+        },
+        Rules {
+            context: 2,
+            preserve_link: true,
+            ..Default::default()
+        },
+    ]);
+    let mut run = f.cursor(
+        &runtime,
+        SourceCacheLimits {
+            batches: 0,
+            charged_capacity: 0,
+        },
+        Execution::Sequential,
+    );
+    let group = run.next_group(&runtime).unwrap().unwrap();
+    let report = run.apply_many(&runtime, &group.token, &run.pending()).unwrap();
+    let failure = report.outcomes[0].outcome.as_ref().unwrap_err();
+    assert_eq!(failure.primary.path, f.source.join("q/link"));
+    assert!(failure.to_string().contains("No such file"));
+    let healthy = report.outcomes[1].outcome.as_ref().unwrap();
+    assert_eq!(healthy.completed.files_copied, 0);
+    assert_eq!(healthy.completed.symlinks_created, 0);
+    assert_eq!(healthy.policy.retained, 1);
+    let diagnostics = run.source_session().unwrap().diagnostics();
+    assert_eq!(diagnostics.opaque.listings, 1);
+    assert_eq!(diagnostics.opaque.link_acquisitions, 1);
+    assert_eq!(diagnostics.active_batches, 0);
+    for target in &f.targets {
+        no_staging(target);
+    }
+    run.parts().validate().unwrap();
 }
 struct Fixture {
     _owned: tempfile::TempDir,
@@ -177,9 +245,14 @@ fn joint_both_missing_and_private_expansion_are_source_once_with_zero_retention(
         assert!(f.targets[1].join("q/protected/leaf").exists());
         let diagnostics = run.source_session().unwrap().diagnostics();
         assert_eq!(diagnostics.paired.listings, 1);
+        assert_eq!(diagnostics.paired.metadata_acquisitions, 1);
         assert_eq!(
             diagnostics.opaque.listings, 82,
             "q + 40*(d,nested) + protected; never lane-A's entire tree then B's"
+        );
+        assert_eq!(
+            diagnostics.opaque.metadata_acquisitions, 122,
+            "entry attributes acquired once across both lanes, not once per receiver"
         );
         assert_eq!(diagnostics.retained_batches, 0);
         assert_eq!(diagnostics.retained_charged_capacity, 0);

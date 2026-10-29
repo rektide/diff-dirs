@@ -179,6 +179,7 @@ pub struct LaneReport {
     pub totals: LaneTotals,
     pub observed: diff_dirs_tree_compare::Summary,
     pub retained: u128,
+    pub deviated: u128,
     pub satisfied: bool,
 }
 
@@ -236,7 +237,7 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
         let bindings = runtime.bindings()?;
         let n = bindings.targets.len();
         let parts = SyncParts {
-            version: 2,
+            version: 3,
             comparison: compare::Parts::fresh(bindings).map_err(Error::Comparison)?,
             copy_policies: runtime.targets.iter().map(|t| t.applier.policy).collect(),
             lanes: vec![LaneTotals::default(); n],
@@ -264,7 +265,7 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
 
     pub fn parts(&self) -> SyncParts<C> {
         SyncParts {
-            version: 2,
+            version: 3,
             comparison: self.comparison.parts().clone(),
             copy_policies: self.copy_policies.clone(),
             lanes: self.lanes.clone(),
@@ -273,7 +274,7 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
     }
     pub fn into_parts(self) -> SyncParts<C> {
         SyncParts {
-            version: 2,
+            version: 3,
             comparison: self.comparison.into_parts(),
             copy_policies: self.copy_policies,
             lanes: self.lanes,
@@ -430,7 +431,8 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
             .enumerate()
             .map(|(i, (target, observed))| LaneReport {
                 target,
-                retained: self.lanes[i].recursive_retained + u128::from(observed.deviated),
+                retained: self.lanes[i].additional_retained + u128::from(observed.retained),
+                deviated: self.lanes[i].opaque_deviated + u128::from(observed.deviated),
                 satisfied: self.comparison.parts().lanes[i].status == LaneStatus::Complete && self.lanes[i].end.is_none() && !self.lanes[i].pruned,
                 totals: self.lanes[i].clone(),
                 observed,
@@ -484,7 +486,7 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
                 }
                 Ok(compared) => {
                     let decision = Arc::clone(compared.value.selection());
-                    let state = if compared.structural_root {
+                    let state = if decision.coverage().application_need == diff_dirs_tree_inspect::ApplicationNeed::None {
                         ApplicationState::Accepted
                     } else {
                         self.plans[i] = Some(compared.value);
@@ -781,7 +783,6 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
                 .iter()
                 .find(|a| a.target == i)
                 .expect("validated pending application");
-            let retained = app.decision.coverage().deviated;
             let relative = app.decision.relative().to_owned();
             if let Err(failure) = self.route(i, &relative, &epoch) {
                 self.fail(i, End::ApplicationFailed);
@@ -791,16 +792,16 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
             self.lanes[i].applications += 1;
             let target = &self.comparison.parts().bindings.targets[i].id;
             applications.push((&runtime.target(target)?.applier, self.plans[i].take().expect("fresh validated plan")));
-            dispatched.push((position, i, retained));
+            dispatched.push((position, i));
         }
         let call = crate::opaque::EffectCall {
             source: &source,
             epoch: &epoch,
             execution: self.execution,
         };
-        for ((position, i, retained), result) in dispatched.into_iter().zip(crate::opaque::apply_cohort(&call, applications)) {
-            self.record_application(i, retained, &result);
-            results[position] = Some(result);
+        for ((position, i), result) in dispatched.into_iter().zip(crate::opaque::apply_cohort(&call, applications)) {
+            self.record_application(i, result.additions, &result.result);
+            results[position] = Some(result.result);
         }
         Ok(ApplicationsReport {
             outcomes: indices
@@ -816,7 +817,7 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
 
     // Isolated accounting boundary: policy deviation/retention correction can
     // change this contract independently of the runtime cohort/cache scheduler.
-    fn record_application(&mut self, i: usize, retained: u64, result: &Result<Report, Failure>) {
+    fn record_application(&mut self, i: usize, additions: crate::opaque::Additions, result: &Result<Report, Failure>) {
         let totals = &mut self.lanes[i];
         let (planned, completed, policy) = match result {
             Ok(r) => (r.planned, &r.completed, &r.policy),
@@ -825,12 +826,8 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
         totals.planned += u128::from(planned);
         totals.completed.add(completed);
         totals.excluded += u128::from(policy.excluded);
-        totals.recursive_retained += u128::from(
-            policy
-                .retained
-                .checked_sub(retained)
-                .expect("kernel counts immediate retention before execution"),
-        );
+        totals.opaque_deviated += u128::from(additions.deviated);
+        totals.additional_retained += u128::from(additions.retained);
         match result {
             Ok(_) => {
                 self.current

@@ -175,6 +175,8 @@ pub struct DirectoryCoverage {
     pub scoped: bool,
     pub planned: u64,
     pub deviated: u64,
+    /// Selected preservation boundaries, not surviving filesystem entries.
+    pub retained: u64,
     pub equal: u64,
     pub different: u64,
     pub not_assessed: u64,
@@ -225,6 +227,25 @@ impl<C> EntrySelection<C> {
         } else {
             ApplicationNeed::None
         }
+    }
+}
+fn retained<C>(domain: SelectionDomain, entry: &EntrySelection<C>) -> bool {
+    match entry.action {
+        Action::PreserveTree => {
+            !(matches!(domain, SelectionDomain::Listed { .. })
+                && entry.source == SourceObservation::NotRequested
+                && entry.target.is_none()
+                && entry.desired.is_none()
+                && entry.interior.is_none()
+                && entry.install.is_none()
+                && entry.removal.is_none())
+        }
+        Action::KeepLeaf => entry.baseline != Some(Action::KeepLeaf),
+        Action::Directory {
+            container: Container::Keep,
+            descend,
+        } => !descend || entry.source != SourceObservation::Present(Kind::Directory),
+        _ => false,
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -318,6 +339,7 @@ impl<C: Clone + Eq> DirectorySelection<C> {
             let e = &item.entry;
             coverage.planned += u64::from(e.has_work());
             coverage.deviated += u64::from(Some(e.action) != e.baseline);
+            coverage.retained += u64::from(retained(parts.domain, e));
             match e.comparison {
                 Comparison::Equal => coverage.equal += 1,
                 Comparison::Different => coverage.different += 1,

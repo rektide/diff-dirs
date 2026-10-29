@@ -140,6 +140,11 @@ fn contextual_effect_worker() -> Result<()> {
         let (mut parts, _) = transport::read_context::<Context>(&saved)?;
         assert_eq!(parts.current.as_ref().unwrap().applications[0].state, ApplicationState::Accepted);
         assert_eq!(parts.current.as_ref().unwrap().applications[1].state, ApplicationState::Unstarted);
+        assert_eq!(parts.version, 3);
+        assert_eq!(parts.lanes[0].additional_retained, 1, "already accepted opaque outside/keep preservation");
+        assert_eq!(parts.lanes[0].opaque_deviated, 1);
+        assert_eq!(parts.lanes[1].additional_retained, 0);
+        let accepted_totals = parts.lanes[0].clone();
         let a_before = fs::metadata(base.join("target-0/root"))?;
         if mode == "bad-context" {
             // Alter an opaque child context without changing the comparator or
@@ -168,6 +173,7 @@ fn contextual_effect_worker() -> Result<()> {
         assert!(policies.iter().all(|p| p.events.lock().unwrap().is_empty()));
         let token = cursor.current_token().unwrap();
         cursor.apply(&runtime, &token, &"lane-1".into())?;
+        assert_eq!(cursor.parts().lanes[0], accepted_totals, "a fresh process must not add A's counters again");
         assert_eq!(cursor.current().unwrap().applications[0].state, ApplicationState::Accepted);
         let drive = cursor.drive(
             &runtime,

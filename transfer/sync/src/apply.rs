@@ -111,13 +111,33 @@ pub(crate) fn execution(parallel: bool) -> Execution {
 }
 
 impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
-    pub(crate) fn apply_ready(
+    pub(crate) fn apply_walk_ready(
         &self,
         source: &SourceSession,
         epoch: &InspectionEpoch,
         prepared: PreparedDirectory<P::Context>,
         parallel: bool,
     ) -> Result<Report, Failure> {
+        if prepared.selection().coverage().application_need == diff_dirs_tree_inspect::ApplicationNeed::None {
+            return Ok(Report {
+                planned: 0,
+                completed: Progress::default(),
+                policy: crate::Policy {
+                    satisfied: true,
+                    ..crate::Policy::default()
+                },
+                observed: None,
+            });
+        }
+        self.apply_ready_accounted(source, epoch, prepared, parallel).only_additions()
+    }
+    pub(crate) fn apply_ready_accounted(
+        &self,
+        source: &SourceSession,
+        epoch: &InspectionEpoch,
+        prepared: PreparedDirectory<P::Context>,
+        parallel: bool,
+    ) -> crate::opaque::ApplicationResult {
         let lane = LaneCall::new(self);
         let call = EffectCall {
             source,
@@ -139,7 +159,7 @@ impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
             RecursionOwner::PairedFrontier,
             None,
         );
-        lane.finish(result)
+        lane.finish_accounted(result)
     }
     pub fn apply_report(&self, diff: &diff_dirs_tree_inspect::DirDiff) -> Result<Report, Failure> {
         self.apply_public(diff, false, None)
@@ -462,7 +482,12 @@ mod readiness_tests {
         .unwrap();
         assert!(prepared.facts(SlotId(0)).source.unwrap().attributes.known().is_none());
         let binding = Applier::new_policy(&from, &to, CopyPolicy::Copy, Renew, SizeAndLink).unwrap();
-        let f = binding.apply_ready(&source, &epoch, prepared, false).unwrap_err();
+        let result = binding.apply_ready_accounted(&source, &epoch, prepared, false);
+        assert_eq!(result.additions.deviated, 0);
+        assert_eq!(result.additions.retained, 0);
+        let f = result.result.unwrap_err();
+        assert_eq!(f.policy.deviated, 2);
+        assert_eq!(f.policy.retained, 0);
         assert_eq!(f.primary.operation, "require execution inputs");
         assert_eq!(f.completed, Progress::default());
         assert_eq!(std::fs::read_dir(to).unwrap().count(), 0);

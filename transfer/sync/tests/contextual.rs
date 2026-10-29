@@ -219,7 +219,11 @@ fn inherited_regions_root_derivation_paired_and_missing_lanes_restore_without_re
     let runtime = f.runtime(&rules);
     let mut run = SyncCursor::new(&runtime, Execution::Sequential).unwrap();
     let source = Arc::clone(run.source_session().unwrap());
+    let root = run.next_group(&runtime).unwrap().unwrap();
+    assert!(root.relative.as_os_str().is_empty());
+    assert!(run.pending().is_empty(), "clean routing retains its control window but has no application");
     let first = run.next_group(&runtime).unwrap().unwrap();
+    assert_eq!(first.relative, Path::new("region"));
     let a = first.outcomes[0].outcome.as_ref().unwrap();
     assert!(Arc::ptr_eq(&a.value, &run.current().unwrap().applications[0].decision));
     run.apply(&runtime, &first.token, &"lane-0".into()).unwrap();

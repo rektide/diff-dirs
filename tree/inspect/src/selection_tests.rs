@@ -196,6 +196,30 @@ fn manifest(byte: u8) -> ManifestId {
         digest: [byte; 32],
     }
 }
+
+#[test]
+fn absent_owned_structural_proof_is_not_a_preservation_boundary() {
+    let mut p = parts(EntrySelection {
+        source: SourceObservation::NotRequested,
+        target: None,
+        comparison: Comparison::NotAssessed,
+        baseline: None,
+        action: Action::PreserveTree,
+        install: None,
+        removal: None,
+        desired: None,
+        interior: None,
+    });
+    p.domain = SelectionDomain::Listed {
+        desired: manifest(1),
+        owned: manifest(2),
+    };
+    let selection = DirectorySelection::from_parts(p).unwrap();
+    assert_eq!(selection.coverage().retained, 0);
+    assert_eq!(selection.coverage().deviated, 1, "no baseline remains a distinct action diagnostic");
+    let source_only = DirectorySelection::from_parts(parts(physical(Some(Kind::File), None, Comparison::Different, Action::PreserveTree))).unwrap();
+    assert_eq!(source_only.coverage().retained, 1);
+}
 #[test]
 fn listed_obligations_never_fabricate_absence_or_escape_their_input() {
     let desired = manifest(1);

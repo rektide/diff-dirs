@@ -26,9 +26,37 @@ pub(crate) struct EffectCall<'a> {
 pub(crate) struct LaneCall<'a, P, M> {
     pub(crate) binding: &'a Applier<P, M>,
     stopped: AtomicBool,
+    immediate: Counts,
+    opaque: Counts,
+    necessary: AtomicU64,
+    planned: AtomicU64,
+}
+#[derive(Default)]
+struct Counts {
+    deviated: AtomicU64,
     retained: AtomicU64,
     excluded: AtomicU64,
-    planned: AtomicU64,
+}
+/// Constant-size returned accounting, never persisted as an operation receipt.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct Additions {
+    pub(crate) deviated: u64,
+    pub(crate) retained: u64,
+}
+pub(crate) struct ApplicationResult {
+    pub(crate) result: Result<Report, Failure>,
+    pub(crate) additions: Additions,
+}
+impl ApplicationResult {
+    pub(crate) fn only_additions(mut self) -> Result<Report, Failure> {
+        let policy = match &mut self.result {
+            Ok(r) => &mut r.policy,
+            Err(f) => f.policy.as_mut(),
+        };
+        policy.deviated = self.additions.deviated;
+        policy.retained = self.additions.retained;
+        self.result
+    }
 }
 pub(crate) struct BatchPlace<'a> {
     pub(crate) relative: &'a Path,
@@ -100,19 +128,21 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
         Self {
             binding,
             stopped: AtomicBool::new(false),
-            retained: AtomicU64::new(0),
-            excluded: AtomicU64::new(0),
+            immediate: Counts::default(),
+            opaque: Counts::default(),
+            necessary: AtomicU64::new(0),
             planned: AtomicU64::new(0),
         }
     }
     pub(crate) fn add_excluded(&self, count: u64) {
-        self.excluded.fetch_add(count, Ordering::Relaxed);
+        self.immediate.excluded.fetch_add(count, Ordering::Relaxed);
     }
     pub(crate) fn finish(&self, result: Result<Progress, Failure>) -> Result<Report, Failure> {
         let policy = Policy {
             satisfied: result.is_ok(),
-            retained: self.retained.load(Ordering::Relaxed),
-            excluded: self.excluded.load(Ordering::Relaxed),
+            deviated: self.immediate.deviated.load(Ordering::Relaxed) + self.opaque.deviated.load(Ordering::Relaxed),
+            retained: self.immediate.retained.load(Ordering::Relaxed) + self.opaque.retained.load(Ordering::Relaxed) + self.necessary.load(Ordering::Relaxed),
+            excluded: self.immediate.excluded.load(Ordering::Relaxed) + self.opaque.excluded.load(Ordering::Relaxed),
         };
         match result {
             Ok(completed) => Ok(Report {
@@ -128,10 +158,21 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             }
         }
     }
-    fn count(&self, batch: &PreparedDirectory<P::Context>) {
+    fn count(&self, batch: &PreparedDirectory<P::Context>, immediate: bool) {
         let c = batch.selection().coverage();
-        self.retained.fetch_add(c.deviated, Ordering::Relaxed);
-        self.excluded.fetch_add(c.excluded, Ordering::Relaxed);
+        let counts = if immediate { &self.immediate } else { &self.opaque };
+        counts.deviated.fetch_add(c.deviated, Ordering::Relaxed);
+        counts.retained.fetch_add(c.retained, Ordering::Relaxed);
+        counts.excluded.fetch_add(c.excluded, Ordering::Relaxed);
+    }
+    pub(crate) fn finish_accounted(&self, result: Result<Progress, Failure>) -> ApplicationResult {
+        ApplicationResult {
+            result: self.finish(result),
+            additions: Additions {
+                deviated: self.opaque.deviated.load(Ordering::Relaxed),
+                retained: self.opaque.retained.load(Ordering::Relaxed) + self.necessary.load(Ordering::Relaxed),
+            },
+        }
     }
     pub(crate) fn inspect(
         &self,
@@ -227,6 +268,7 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
         owner: RecursionOwner,
         selected: Option<&[(std::ffi::OsString, u8)]>,
     ) -> Result<Progress, Failure> {
+        self.count(&batch, true);
         self.gate(call, &batch, &place)?;
         let scope = DirectoryScope::new(
             if batch.selection().is_root() {
@@ -236,7 +278,7 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             },
             batch.selection().entries().map(|e| e.name()),
         );
-        let result = self.dispatch(call, batch, &place, &scope, owner, selected, None).map(|(p, _)| p);
+        let result = self.dispatch(call, batch, &place, &scope, owner, selected, None, false).map(|(p, _)| p);
         let complete = result.is_ok() && !self.stopped.load(Ordering::Acquire);
         scope.finish(result, DirectoryEnd::Retained, complete, call.epoch)
     }
@@ -259,9 +301,12 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
         owner: RecursionOwner,
         selected: Option<&[(std::ffi::OsString, u8)]>,
         mut pending: Option<(&DirectoryScope, &mut Vec<PendingDirectory>)>,
+        opaque: bool,
     ) -> Result<(Progress, bool), Failure> {
         self.gate(call, &batch, place)?;
-        self.count(&batch);
+        if opaque {
+            self.count(&batch, false);
+        }
         let slots: Vec<_> = (0..batch.selection().len())
             .filter(|&i| {
                 selected.is_none_or(|names| {
@@ -554,7 +599,8 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             self.gate(call, &batch, &place)?;
             scope.reserve_names(batch.selection().entries().map(|e| e.name()));
             scope.ensure_writable(call.epoch)?;
-            self.dispatch(call, batch, &place, &scope, RecursionOwner::ThisCall, None, None).map(|(p, _)| p)
+            self.dispatch(call, batch, &place, &scope, RecursionOwner::ThisCall, None, None, true)
+                .map(|(p, _)| p)
         })();
         let complete = result.is_ok() && !self.stopped.load(Ordering::Acquire);
         let mut result = scope.finish(result, DirectoryEnd::Created { donor }, complete, call.epoch);
@@ -591,7 +637,7 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             needed: false,
         });
         let result = self
-            .dispatch(call, batch, &place, &scope, RecursionOwner::ThisCall, None, Some((parent, pending)))
+            .dispatch(call, batch, &place, &scope, RecursionOwner::ThisCall, None, Some((parent, pending)), true)
             .map(|(p, _)| p);
         let frame = pending.pop().expect("active conditional directory");
         if frame.needed {
@@ -648,15 +694,19 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
         self.gate(call, &batch, &place)?;
         let scope = DirectoryScope::new(&child.to, batch.selection().entries().map(|e| e.name()));
         let mut kept = !remove;
-        let result = self.dispatch(call, batch, &place, &scope, RecursionOwner::ThisCall, None, None).map(|(p, k)| {
-            kept |= k;
-            p
-        });
+        let result = self
+            .dispatch(call, batch, &place, &scope, RecursionOwner::ThisCall, None, None, true)
+            .map(|(p, k)| {
+                kept |= k;
+                p
+            });
         let complete = result.is_ok() && !self.stopped.load(Ordering::Acquire);
         let result = scope.clean(result, complete, call.epoch);
         let result = result.and_then(|p| {
             if kept {
-                self.retained.fetch_add(1, Ordering::Relaxed);
+                if remove && !self.stopped.load(Ordering::Acquire) {
+                    self.necessary.fetch_add(1, Ordering::Relaxed);
+                }
                 return Ok(p);
             }
             let mut removed = (|| {
@@ -718,7 +768,10 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
         Ok(())
     }
     pub(crate) fn preview(&self, call: &EffectCall<'_>, batch: PreparedDirectory<P::Context>) -> Result<bool, Failure> {
-        self.count(&batch);
+        self.preview_inner(call, batch, true).map(|(needed, _)| needed)
+    }
+    fn preview_inner(&self, call: &EffectCall<'_>, batch: PreparedDirectory<P::Context>, immediate: bool) -> Result<(bool, bool), Failure> {
+        self.count(&batch, immediate);
         self.planned.fetch_add(
             batch.selection().entries().filter(|e| e.has_work() && !conditional(e)).count() as u64,
             Ordering::Relaxed,
@@ -736,12 +789,25 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
                     entry.has_work() && !conditional(&entry),
                     conditional(&entry),
                     entry.interior.clone(),
+                    entry.action,
+                    entry.target.is_some(),
                 )
             })
             .collect::<Vec<_>>();
         drop(batch);
         let mut needed = false;
-        for (relative, mut work, conditional, interior) in entries {
+        let mut keeps_target = false;
+        for (relative, mut work, conditional, interior, action, target) in entries {
+            let mut kept = target
+                && matches!(
+                    action,
+                    Action::PreserveTree
+                        | Action::KeepLeaf
+                        | Action::Directory {
+                            container: Container::Keep,
+                            ..
+                        }
+                );
             if let Some(interior) = interior {
                 let from = self.binding.original.join(&relative);
                 let to = self.binding.target.join(&relative);
@@ -770,13 +836,26 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
                     false,
                     false,
                 )?;
-                work |= self.preview(call, child)?;
+                let (child_work, child_kept) = self.preview_inner(call, child, false)?;
+                work |= child_work;
+                if matches!(
+                    action,
+                    Action::Directory {
+                        container: Container::Remove,
+                        ..
+                    }
+                ) && child_kept
+                {
+                    self.necessary.fetch_add(1, Ordering::Relaxed);
+                    kept = true;
+                }
             }
             if conditional && work {
                 self.planned.fetch_add(1, Ordering::Relaxed);
             }
             needed |= work;
+            keeps_target |= kept;
         }
-        Ok(needed)
+        Ok((needed, keeps_target))
     }
 }

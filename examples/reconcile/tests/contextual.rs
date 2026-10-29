@@ -218,6 +218,7 @@ fn generic_unstarted_barrier_transport_preserves_the_exact_selected_contexts() -
     for root in ["source", "target-0", "target-1"] {
         std::fs::create_dir_all(fixture.path().join(root).join("a"))?;
     }
+    std::fs::write(fixture.path().join("source/leaf"), b"effectful pending decisions")?;
     let policies = regions();
     let bindings = bindings(fixture.path(), &policies)?;
     let loans = loans(&bindings, &policies);
@@ -235,7 +236,7 @@ fn generic_unstarted_barrier_transport_preserves_the_exact_selected_contexts() -
         })
         .collect();
     let parts = SyncParts {
-        version: 2,
+        version: 3,
         comparison: run.into_parts(),
         copy_policies: vec![diff_dirs_transfer_sync::CopyPolicy::Copy; 2],
         lanes: vec![LaneTotals::default(); 2],

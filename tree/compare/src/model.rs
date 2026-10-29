@@ -33,6 +33,8 @@ pub struct Summary {
     pub planned: u64,
     /// Committed slots whose finalized action differs from normal mirror work.
     pub deviated: u64,
+    /// Intentional selected preservation boundaries, independently of deviation.
+    pub retained: u64,
     /// Bound predicate; None only before an unbound/default summary is assessed.
     pub comparator: Option<SemanticId>,
     pub equal: u64,
@@ -62,6 +64,7 @@ impl Summary {
         self.excluded += coverage.excluded;
         self.planned += coverage.planned;
         self.deviated += coverage.deviated;
+        self.retained += coverage.retained;
         self.equal += coverage.equal;
         self.different += coverage.different;
         self.not_assessed += coverage.not_assessed;

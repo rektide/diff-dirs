@@ -79,9 +79,11 @@ pub struct Policy {
     /// `apply_report`, this covers only the supplied record, not the whole tree.
     /// This is false on Failure and is not a full-root cleanliness certificate.
     pub satisfied: bool,
-    /// Retained committed comparison slots (including uncomparable specials),
-    /// recursive retained entries, and necessary structural containers. Slots in
-    /// yielded batches are not counted twice when combining walk/application.
+    /// Finalized actions differing from their assessed baseline; not retention.
+    pub deviated: u64,
+    /// Selected preservation boundaries (including source-only preservation),
+    /// plus necessary retained removal containers. Not surviving-entry counts.
+    /// Committed comparison selections and returned opaque additions count once.
     pub retained: u64,
     /// Excluded boundaries encountered during application, not subtree sizes.
     /// Comparison exclusions are separately in `Report.observed`.
@@ -91,6 +93,7 @@ pub struct Policy {
 impl AddAssign for Policy {
     fn add_assign(&mut self, rhs: Self) {
         self.retained += rhs.retained;
+        self.deviated += rhs.deviated;
         self.excluded += rhs.excluded;
     }
 }
@@ -126,7 +129,7 @@ pub struct Failure {
     /// Conditional routing ancestors count when descendant work needs them,
     /// including an attempted materialization that fails.
     pub planned: u64,
-    /// Encountered retention/exclusion counters; satisfaction is always false.
+    /// Encountered deviation/retention/exclusion; satisfaction is always false.
     pub policy: Box<Policy>,
     pub primary: Box<Issue>,
     /// Cold error details are boxed to keep streaming Result values compact.

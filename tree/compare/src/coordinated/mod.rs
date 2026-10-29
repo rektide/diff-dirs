@@ -852,6 +852,7 @@ fn preflight<C>(summary: &Summary, local: &Local<C>) -> Result<(), Error> {
     add(summary.excluded, local.coverage.excluded)?;
     add(summary.planned, local.coverage.planned)?;
     add(summary.deviated, local.coverage.deviated)?;
+    add(summary.retained, local.coverage.retained)?;
     add(summary.equal, local.coverage.equal)?;
     add(summary.different, local.coverage.different)?;
     add(summary.not_assessed, local.coverage.not_assessed)?;

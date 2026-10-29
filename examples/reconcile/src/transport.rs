@@ -1,4 +1,4 @@
-//! Explicit version-two application DTOs. These are not derives on runtime
+//! Explicit version-three application DTOs. These are not derives on runtime
 //! objects or an archive of private Rust layouts. Decode, then validate meaning.
 
 use std::collections::VecDeque;
@@ -76,6 +76,7 @@ pub struct Observation {
     pub excluded: u64,
     pub planned: u64,
     pub deviated: u64,
+    pub retained: u64,
     pub comparator: Option<Meaning>,
     pub equal: u64,
     pub different: u64,
@@ -158,7 +159,8 @@ pub struct Totals {
     pub applications: u64,
     pub planned: u128,
     pub completed: Work,
-    pub recursive_retained: u128,
+    pub opaque_deviated: u128,
+    pub additional_retained: u128,
     pub excluded: u128,
     pub end: Option<String>,
     pub pruned: bool,
@@ -367,6 +369,7 @@ impl From<&Summary> for Observation {
             excluded: v.excluded,
             planned: v.planned,
             deviated: v.deviated,
+            retained: v.retained,
             comparator: v.comparator.as_ref().map(Meaning::from),
             equal: v.equal,
             different: v.different,
@@ -394,6 +397,7 @@ impl Observation {
             excluded: self.excluded,
             planned: self.planned,
             deviated: self.deviated,
+            retained: self.retained,
             comparator: self.comparator.map(SemanticId::from),
             equal: self.equal,
             different: self.different,
@@ -709,7 +713,7 @@ impl<C: Clone + Eq> Snapshot<C> {
         let p = &parts.comparison;
         Ok(Self {
             schema: "diff-dirs.reconcile-example".into(),
-            version: 2,
+            version: 3,
             policies,
             state: State {
                 version: parts.version,
@@ -721,7 +725,8 @@ impl<C: Clone + Eq> Snapshot<C> {
                         applications: t.applications,
                         planned: t.planned,
                         completed: (&t.completed).into(),
-                        recursive_retained: t.recursive_retained,
+                        opaque_deviated: t.opaque_deviated,
+                        additional_retained: t.additional_retained,
                         excluded: t.excluded,
                         end: t.end.map(end),
                         pruned: t.pruned,
@@ -744,7 +749,7 @@ impl<C: Clone + Eq> Snapshot<C> {
         })
     }
     pub fn decode(self) -> Result<(SyncParts<C>, Vec<PolicyConfig>)> {
-        if self.schema != "diff-dirs.reconcile-example" || self.version != 2 {
+        if self.schema != "diff-dirs.reconcile-example" || self.version != 3 {
             return Err("unsupported reconcile transport schema/version".into());
         }
         let s = self.state;
@@ -760,7 +765,8 @@ impl<C: Clone + Eq> Snapshot<C> {
                         applications: t.applications,
                         planned: t.planned,
                         completed: t.completed.into(),
-                        recursive_retained: t.recursive_retained,
+                        opaque_deviated: t.opaque_deviated,
+                        additional_retained: t.additional_retained,
                         excluded: t.excluded,
                         end: t.end.as_deref().map(parse_end).transpose()?,
                         pruned: t.pruned,

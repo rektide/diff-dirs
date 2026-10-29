@@ -147,21 +147,21 @@ impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
             observed: None,
         };
         let epoch = diff_dirs_tree_inspect::InspectionEpoch::new();
-        let mut applied_retained = 0;
         while let Some(item) = walk.next() {
-            let result = item.map_err(Failure::comparison).and_then(|prepared| {
-                applied_retained += prepared.selection().coverage().deviated;
-                self.apply_ready(&source, &epoch, prepared, false)
-            });
+            let result = item
+                .map_err(Failure::comparison)
+                .and_then(|prepared| self.apply_walk_ready(&source, &epoch, prepared, false));
             if let Err(mut failure) = accumulate(&mut accumulated, result) {
                 let observed = walk.into_summary();
-                failure.policy.retained += observed.deviated.saturating_sub(applied_retained);
+                failure.policy.deviated += observed.deviated;
+                failure.policy.retained += observed.retained;
                 failure.observed = Some(Box::new(observed));
                 return Err(failure);
             }
         }
         let observed = walk.into_summary();
-        accumulated.policy.retained += observed.deviated.saturating_sub(applied_retained);
+        accumulated.policy.deviated += observed.deviated;
+        accumulated.policy.retained += observed.retained;
         accumulated.policy.satisfied = true;
         accumulated.observed = Some(observed);
         Ok(accumulated)
@@ -208,21 +208,21 @@ impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
             observed: None,
         };
         let epoch = diff_dirs_tree_inspect::InspectionEpoch::new();
-        let mut applied_retained = 0;
         while let Some(item) = walk.next() {
-            let result = item.map_err(Failure::comparison).and_then(|prepared| {
-                applied_retained += prepared.selection().coverage().deviated;
-                pool.install(|| self.apply_ready(&source, &epoch, prepared, true))
-            });
+            let result = item
+                .map_err(Failure::comparison)
+                .and_then(|prepared| pool.install(|| self.apply_walk_ready(&source, &epoch, prepared, true)));
             if let Err(mut failure) = accumulate(&mut accumulated, result) {
                 let observed = walk.into_summary();
-                failure.policy.retained += observed.deviated.saturating_sub(applied_retained);
+                failure.policy.deviated += observed.deviated;
+                failure.policy.retained += observed.retained;
                 failure.observed = Some(Box::new(observed));
                 return Err(failure);
             }
         }
         let observed = walk.into_summary();
-        accumulated.policy.retained += observed.deviated.saturating_sub(applied_retained);
+        accumulated.policy.deviated += observed.deviated;
+        accumulated.policy.retained += observed.retained;
         accumulated.policy.satisfied = true;
         accumulated.observed = Some(observed);
         Ok(accumulated)

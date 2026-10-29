@@ -164,9 +164,9 @@ fn fresh_processes_preserve_barrier_different_heads_returns_and_root_closure() {
     no_staging(&f.a);
     no_staging(&f.b);
 
-    // Settle B's root, then A's clean a/ batch; inspect a/deep but leave its
+    // Apply B's root, autoaccept A's clean a/ batch; inspect a/deep but leave its
     // application pending. B is still waiting at root for shared b/.
-    let second = f.invoke(f.resume_args(2, 2), 0);
+    let second = f.invoke(f.resume_args(2, 1), 0);
     assert_eq!(second["root_hooks"], 0);
     let p = f.parts();
     assert_eq!(p.comparison.frames.len(), 3);
@@ -464,6 +464,7 @@ fn wide_cumulative_counters_have_an_explicit_lossless_json_representation() {
     let f = Fixture::new();
     f.paired(Path::new("d"));
     file(f.source.join("d/leaf"), b"data");
+    file(f.source.join("root-leaf"), b"an actual second application");
     f.invoke(f.start_args(100, 100), 0);
     let (mut p, config) = transport::read(&f.cursor).unwrap();
     assert_eq!(p.lanes[0].applications, 2);

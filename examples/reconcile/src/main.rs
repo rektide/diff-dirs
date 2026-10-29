@@ -225,7 +225,7 @@ fn main() -> Result<()> {
     let output = serde_json::json!({ "groups": progress.groups, "applications": progress.applications, "stop": format!("{:?}", progress.stop),
         "root_hooks": hooks.load(Ordering::Relaxed), "failures": progress.failures.iter().map(ToString::to_string).collect::<Vec<_>>(),
         "reports": reports.iter().map(|r| serde_json::json!({ "target": r.target.0, "satisfied": r.satisfied, "applications": r.totals.applications,
-            "planned": r.totals.planned, "retained": r.retained, "excluded": r.totals.excluded, "completed": transport::Work::from(&r.totals.completed), "observed": transport::Observation::from(&r.observed) })).collect::<Vec<_>>() });
+            "planned": r.totals.planned, "deviated": r.deviated, "retained": r.retained, "excluded": r.totals.excluded, "completed": transport::Work::from(&r.totals.completed), "observed": transport::Observation::from(&r.observed) })).collect::<Vec<_>>() });
     transport::write(&cursor, &run.into_parts(), config)?;
     let stdout = std::io::stdout();
     let mut stdout = stdout.lock();

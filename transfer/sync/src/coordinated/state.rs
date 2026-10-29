@@ -69,8 +69,10 @@ pub struct LaneTotals {
     pub applications: u64,
     pub planned: u128,
     pub completed: WorkTotals,
-    /// Recursive retention beyond the immediate slots already in comparison.
-    pub recursive_retained: u128,
+    /// Opaque descendant choices beyond committed comparison selections.
+    pub opaque_deviated: u128,
+    /// Opaque static retention plus necessary retained removal containers.
+    pub additional_retained: u128,
     pub excluded: u128,
     pub end: Option<End>,
     /// An explicit traversal prune abandons reconciliation coverage, unlike a
@@ -92,7 +94,7 @@ pub struct SyncParts<C = ()> {
 
 impl<C: Clone + Eq> SyncParts<C> {
     pub fn validate(&self) -> Result<(), Error> {
-        require(self.version == 2, "unsupported sync parts version")?;
+        require(self.version == 3, "unsupported sync parts version")?;
         self.comparison.validate().map_err(Error::Comparison)?;
         let n = self.comparison.bindings.targets.len();
         require(self.copy_policies.len() == n && self.lanes.len() == n, "sync binding/lane count mismatch")?;
@@ -102,7 +104,11 @@ impl<C: Clone + Eq> SyncParts<C> {
             require(totals.applications <= lane.summary.examined_directories, "more applications than observations")?;
             let bound = u128::from(totals.applications) * u128::from(u64::MAX);
             require(
-                totals.planned <= bound && totals.recursive_retained <= bound && totals.excluded <= bound && totals.completed.bounded(bound),
+                totals.planned <= bound
+                    && totals.opaque_deviated <= bound
+                    && totals.additional_retained <= bound
+                    && totals.excluded <= bound
+                    && totals.completed.bounded(bound),
                 "application totals exceed returned-call bounds",
             )?;
             require(totals.pruned == !lane.summary.pruned.is_empty(), "sync prune coverage mismatch")?;
@@ -127,6 +133,10 @@ impl<C: Clone + Eq> SyncParts<C> {
                 )?;
                 let mut active = Vec::new();
                 for app in &barrier.applications {
+                    require(
+                        app.state != ApplicationState::Unstarted || app.decision.coverage().application_need != diff_dirs_tree_inspect::ApplicationNeed::None,
+                        "unstarted no-effect application",
+                    )?;
                     require(app.target < n, "unknown barrier target")?;
                     super::decision::validate_decision(&app.decision)?;
                     let binding = &self.comparison.bindings.targets[app.target];
