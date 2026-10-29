@@ -16,6 +16,8 @@ sources:
     title: Existing native work ownership; its later-design placement is superseded for the selected contextual build
   - resource: /doc/architecture/README.md
     title: Current library ownership and persistence boundaries
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/verification0.sol61x.md"
+    title: Independent Sol verification-tooling preparation, counted trace capability and remaining real-command fixture requirements
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -79,6 +81,7 @@ specific unresolved concern.
 | --- | --- | --- |
 | Provider contract design | Astra high, `opencode://ses_e7a2675f8ffe76VJT5Lt1Lwe5l` | In progress; inspect/compare/sync and observation ownership. |
 | Native and command design | Astra high, `opencode://ses_e7a26147bffeOIk9jHWPYXJrHI` | In progress; includes a bounded native replacement proof. |
+| Bounded verification preparation | Sol xhigh, `opencode://ses_e7a2227e7ffeTQH5TWAkgiaxOz` | Returned: native trace count command and concrete integration handoff. |
 | Implementation | Sol xhigh | Begins from reviewed contracts. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
@@ -87,7 +90,19 @@ Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
 `design/reseed-locking/lock-contention0.glm53max.md` and
 `design/up-performance/handoff0.glm53m.md`; those belong to their existing work.
 
-No implementation or new runtime result is claimed by this opening checkpoint.
+### Verification preparation
+
+JW commit `36b1a380` adds `jw-perf count TRACE` and distinguishes `sparse list`
+from `sparse set` in summaries. Commit `415d80e6` records the
+[verification handoff](file:///home/rektide/src/jj-waltz/design/coordinated-refill/verification0.sol61x.md).
+Sol reports three focused tests, formatting, strict package Clippy and document
+checks passed. A real read-only JJ version probe recorded exactly one call.
+Parent reviewed the tool diff and report; these checks were not repeated.
+
+The existing campaign creates donors per sample and fixes D=S. The integrated
+evidence slice must instead reuse one owned donor and at most two receivers,
+exercise mixed N2 and independent S/D, and run both routes through the actual
+public command. Native protocol and production results remain pending.
 
 ## Work ownership and navigation
 
