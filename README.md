@@ -8,13 +8,15 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
   - resource: opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4
-    title: Reviews and integrates shared selections, typed frontiers, contextual production effects and their explicit API and v2 transitions
+    title: Reviews and integrates shared selections, contextual execution, grouped source reuse and explicit API and checkpoint transitions
   - resource: /design/architecture/execution0.sol61x.md
     title: Shared selected-state, staged inspection and resource implementation checkpoint
   - resource: /design/architecture/execution1.sol61x.md
     title: Verified contextual traversal, clean-work publication and generic v2 data checkpoint
   - resource: /design/architecture/execution2.sol61x.md
     title: Verified 0.5 contextual production effects and actual resumed application
+  - resource: /design/architecture/execution3.sol61x.md
+    title: Verified grouped opaque execution, bounded source reuse and truthful schema3 reporting
   - resource: opencode://ses_e7be6b24fffeDISpWdV1xNbqhD
     title: Adds explicit source-only conditional routing creation, effect/preview/continuation verification and the coordinated 0.2 public-interface marker
   - resource: opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY
@@ -287,8 +289,9 @@ comparators and `PreparedDirectory<C>` through the
 [immediate inspection API](tree/inspect/README.md#contextual-inspection-and-shared-selections).
 Selected semantics and runtime facts now have separate owners; full visitors below
 use that same engine. Typed paired traversal, work-only publication and contextual
-v2 data are delivered, with generic contextual effects and fresh-process application
-continuation at 0.5. Grouped execution and manifest renewal continue in the
+contextual data are delivered, with generic effects and fresh-process application
+continuation. Grouped opaque execution, bounded source reuse and schema3 reporting
+are delivered at 0.6; manifest renewal continues in the
 [active delivery](design/architecture/delivery0.gpt6ax.md). The following section
 describes the full-visitor compatibility contract.
 
@@ -391,8 +394,9 @@ Readlink remains literal and path-based; stable caller-owned trees are required.
 `DirectoryPlan.diff()` and `Summary.counts` retain baseline observed comparison;
 `DirectoryPlan.work()` and `Summary.planned` count immediate proposed namespace
 actions, with a collision counted once. Conditional directory creation/removal may later
-retain a necessary ancestor. `retained` counts changed action slots, including
-stopped clean descent. These are neither recursive payload catalogs nor actual
+retain a necessary ancestor. `deviated` counts action choices differing from their
+baseline; `retained` separately counts intentional preserved/kept boundaries,
+including stopped clean descent. Renewal is not retention. These are neither recursive payload catalogs nor actual
 completed operations. Exclusions/retention never certify full-root cleanliness.
 
 An unsupported observed kind (socket, FIFO, etc.) has `comparison() == None`,
@@ -907,10 +911,11 @@ are silent in the library (the CLI still prints its final summary).
 
 ## Development and evidence
 
-The contextual production effect runtime is marked **0.5.0** across
+Grouped execution, bounded source reuse and corrected reporting are marked **0.6.0** across
 the five library packages and CLI, with exact internal dependency pins. Comparison
-and sync parts and the reconciliation example now use schema v2 and reject v1;
-the transport now carries generic contexts and bound comparison coverage. Actual
+and sync parts and the reconciliation example now use schema3 and reject v2/v1;
+old mixed retention aggregates cannot recover the new distinct counters. The
+transport carries generic contexts and bound comparison coverage. Actual
 contextual resumed effects are verified. Typed planning landed at 0.4 and shared
 selections at 0.3;
 `CreateIfNeeded` was the earlier 0.2 interface addition. This is an

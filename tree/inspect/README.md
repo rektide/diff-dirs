@@ -15,6 +15,8 @@ sources:
     title: Reviews and promotes the shared selection, contextual inspection and finite acquisition foundation while preserving traversal/executor handoff boundaries
   - resource: /design/architecture/execution0.sol61x.md
     title: Foundation code checkpoints, compatibility and acquisition checks, and exact pending integration
+  - resource: /design/architecture/execution3.sol61x.md
+    title: Delivered successful source retention, demand masking, diagnostics and corrected selected counters
   - resource: /tree/inspect/src/selection.rs
     title: Shared selected semantics, domain-specific authority and common validation
   - resource: /tree/inspect/src/policy.rs
@@ -100,10 +102,19 @@ reuse their exact supplied input without root-policy replay. The
 immediate behavior. The [next checkpoint](/design/architecture/execution1.sol61x.md)
 delivers generic contextual frontiers and fresh-process comparison transport;
 the [0.5 runtime](/design/architecture/execution2.sol61x.md) now executes contextual
-opaque effects and resumed applications. Source cells currently share
-within one joined call; bounded cross-call retention remains pending. Route epochs
+opaque effects and resumed applications. The [0.6 checkpoint](/design/architecture/execution3.sol61x.md)
+adds bounded successful source retention across calls. Route epochs
 now provide actual no-follow admission and invalidation within a returned call,
 with no lasting cross-call route authority.
+
+`SourceSession::with_cache_limits` and `set_cache_limits` configure actual retained
+observations: default 32 idle batches / 8 MiB charged owned capacity; zero disables
+retention. Pinned active width is separate. Only successful facts survive calls;
+listing handles and executable errors do not. Sparse positive cells do not imply
+a complete listing or absence of unqueried names. Original enumeration hints and
+lane-specific demand masks remain independent of cache history. `diagnostics()`
+attributes source listing/fact work to paired, opaque and declared paths, separately
+from route, target, permission and output work. Its cache charge is not process RSS.
 
 ## Shared immediate inspection
 

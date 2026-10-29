@@ -14,6 +14,12 @@ sources:
     title: Implemented inherited ordinary policy, real clear-first N1/N2 callable cohort, source-sharing witnesses and receiving verification
   - resource: /design/architecture/execution2.sol61x.md
     title: Delivered contextual production runtime enabling consumer adoption
+  - resource: /design/architecture/execution3.sol61x.md
+    revision: 1f1385de
+    title: Final committed provider0.6 source-sharing and schema3 reporting receipt
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/context-validation1.sol61x.md"
+    revision: a11befca
+    title: Reviewed pure restored-reference correction, resealed corruption evidence and receiving verification boundary
   - resource: /design/architecture/delivery0.gpt6ax.md
     title: Active joined delivery, review corrections and remaining manifest/public-command work
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
@@ -70,21 +76,25 @@ administration, supported-kind and device guards remain active.
 
 The clear-first callable command now uses this cohort and loaded finish. Public
 CLI dispatch still awaits both-route integration. JW is 0.9.0 and its receiving
-pins are provider 0.6/schema3; the consumer's last checks used the provider's
-in-progress reporting snapshot, so the provider's final committed receipt remains
-an explicit integration gate. Reported receiving evidence: 44 default cases,
-21 native-dirent feature cases and strict lint/format/document checks passed.
+pins are provider 0.6/schema3. The earlier receiving runs used an in-progress
+reporting snapshot; the [final provider receipt](/design/architecture/execution3.sol61x.md)
+now records its committed correction and verification. Reported cohort evidence:
+44 default cases, 21 native-dirent feature cases and strict checks passed.
 
 The tests demonstrate same-source metadata sharing, one Q qualification, mixed
 missing/paired targets, different lane link/exclude authority and truthful forward
 failure. Native-dirent is explicitly nondefault. These are semantic and acquisition
-witnesses, not a full-command speed result. Parent review also requests explicit
-restored search-reference validation beyond the existing recomputable checksum.
+witnesses, not a full-command speed result. The subsequent
+[reference-validation correction](file:///home/rektide/src/jj-waltz/design/coordinated-refill/context-validation1.sol61x.md)
+adds pure selector/ignore/trie interpretation checks beyond recomputable checksums.
+It passed 71 default and 23 feature cases, including 29 deliberately resealed malformed
+contexts. A later extra rebuild was stopped by the new manifest owner's unfinished
+code; its eventual receiving adoption needs fresh checks rather than stale binaries.
 
 Remaining native work is complete prepared S/O manifest renewal, ReplaceAuthorized,
 public reseed/prepare/JSON cutover and bounded route comparison. Library grouped
-opaque/cache work and the distinct retention/deviation correction have their own
-active provider owner. The following assessment sequence retains its original
+opaque/cache work and distinct retention/deviation reporting are delivered;
+declared manifest execution is active. The following assessment sequence retains its original
 revision-bound claims rather than describing those old costs as still universal.
 
 ## Assessment sequence and selected follow-through

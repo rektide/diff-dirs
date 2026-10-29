@@ -7,13 +7,15 @@ status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 sources:
   - resource: opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4
-    title: Promotes explicit v2 selected semantics, generic contextual frontier transport and actual fresh-process resumed-effect evidence
+    title: Promotes contextual selected semantics and resumed-effect evidence, then records the explicit schema3 retention-accounting correction
   - resource: /design/architecture/execution0.sol61x.md
     title: Provider 0.3 adoption, common semantic validation and 15 passing process cases
   - resource: /design/architecture/execution1.sol61x.md
     title: Generic v2 transport, fresh-process contextual comparison and 18 passing reconcile cases
   - resource: /design/architecture/execution2.sol61x.md
     title: Actual contextual A-accepted/B-unstarted process continuation and 20 passing reconcile cases
+  - resource: /design/architecture/execution3.sol61x.md
+    title: Verified schema3 transport and separate deviation/retention totals
   - resource: "opencode://ses_e7be6b24fffeDISpWdV1xNbqhD"
     title: Adopts exact 0.2 library pins and locks and extends the example's action vocabulary for source-only conditional routing
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
@@ -118,7 +120,7 @@ can complete even when another lane failed, so `Done` alone does not mean succes
 ## Transport and effect boundaries
 
 [`transport.rs`](src/transport.rs) defines explicit application DTOs under
-`schema = "diff-dirs.reconcile-example", version = 2`. Field names and closed enum
+`schema = "diff-dirs.reconcile-example", version = 3`. Field names and closed enum
 spellings belong to this example, not to runtime Rust layout. Unknown fields,
 vocabulary, versions, incompatible policy descriptors and invalid saved state are
 refused before execution. Actual error causes are returned live; saved terminal
@@ -134,8 +136,10 @@ checkpoints; `Snapshot<C>` supports contextual application data. Fresh-process t
 verify deep independent heads and pre-I/O interpretation refusal. The production
 effectful CLI still uses unit context; additional production-runtime subprocess
 tests now verify actual contextual A-accepted/B-unstarted execution, second-comparator
-effects and rejected changed opaque residuals. Earlier incomplete unit-only v2 documents
-missing the now-required fields refuse; no silent migration is provided.
+effects and rejected changed opaque residuals. Version3 additionally carries true
+selected retention separately from action deviation and explicit opaque/necessary
+additions. All version2 documents refuse: their old mixed aggregates cannot recover
+the corrected meaning. No silent migration is provided.
 
 The 0.2 library adoption adds `directory/create-if-needed/descend` to this
 vocabulary. Older readers reject unknown spellings; it is not a serialization

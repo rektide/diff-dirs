@@ -77,6 +77,13 @@ implementation completion.
   on the [inspection foundation](architecture/execution0.sol61x.md) and
   [typed frontier](architecture/execution1.sol61x.md); grouped/cache/manifest work
   remains in the active delivery.
+- [Grouped source execution and truthful reporting](architecture/execution3.sol61x.md):
+  delivered 0.6/V3, real shared opaque batches, bounded generation-owned observations,
+  separate retention/deviation and once-only returned additions. Exact source-work
+  discriminators are evidence, not a wall-time speed claim. The
+  [declared-input handoff](architecture/declared-handoff0.gpt6a.md) guides the active
+  manifest executor; [reporting correction](architecture/reporting-handoff0.gpt6a.md)
+  preserves the rationale for the explicit schema transition.
 - [Annealing architecture into the next delivery](architecture/annealing0.gpt6ax.md):
   selected integration of JW's trajectory1 and subsequent human steering.
   Recommends real inherited region context and explicit comparison composition in

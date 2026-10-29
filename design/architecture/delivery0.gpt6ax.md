@@ -42,6 +42,10 @@ sources:
     title: Confirmed deviation-retention conflation and duplicate kept-container counts, with accepted once-only accounting and explicit schema3 correction
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution1.sol61x.md"
     title: Implemented inherited ordinary regions, real fail-fast native command cohort and receiving0.6/schema3 verification boundary
+  - resource: /design/architecture/execution3.sol61x.md
+    title: Final grouped/cache/reporting checkpoint, exact source work and stable0.6/schema3 verification
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/context-validation1.sol61x.md"
+    title: Verified pure restored-reference correction and receiving checks, with later manifest-build boundary explicit
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -119,9 +123,10 @@ specific unresolved concern.
 | Declared-input preparation design | Explicit Astra high, `opencode://ses_e799075e5ffeLWmQqtFubr3wPE` | Returned at `5643527f`; accepted for the subsequent manifest implementation. Completed runtime report confirms `#high`. |
 | Reused two-route evidence adapter | Sol xhigh, `opencode://ses_e79d11c23ffeYmXANCjX2wAB34` | Returned through `06a2ffb9`; report binding and actual route runs await public CLI. |
 | JW contextual ordinary cohort | Sol xhigh, `opencode://ses_e79561af9ffecPXhjLCL1J5Mcl` | Returned through `8b9f152b`; real callable cohort verified, provider final receipt still pending. |
-| Grouped opaque execution and source retention | Sol xhigh, `opencode://ses_e795502d3ffeuJ2kcDootC5FFb` | Active: real grouped recursion and bounded generation-owned cache. |
+| Grouped opaque execution and source retention | Sol xhigh, `opencode://ses_e795502d3ffeuJ2kcDootC5FFb` | Returned through `1f1385de`; actual grouping/cache and separate reporting/V3 correction verified. |
 | Effect-report accounting correction design | Explicit Astra high, `opencode://ses_e7951c1b6ffeyQeGeqQnqwkKil` | Returned at `3664ad18`; correction accepted and assigned around the active grouped build. |
-| JW restored-context reference correction | Sol xhigh, `opencode://ses_e7930131cffemJnROGPjnIatHG` | Active focused correction for pure bounds/ignore-chain validation beyond recomputable seals. |
+| JW restored-context reference correction | Sol xhigh, `opencode://ses_e7930131cffemJnROGPjnIatHG` | Returned through `a11befca`; code `3860eccc` and resealed-cursor refusal tests reviewed. |
+| Complete declared/manifest execution | Sol xhigh, `opencode://ses_e792612b5ffeyFb3DWg7x3JxVt` | Active: inspect-owned declared preparation, bound S/O authority, grouped listed kernel and complete coverage. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -433,6 +438,42 @@ correctly resealed data could reach unchecked indexing/ancestor assumptions. A
 focused Sol correction adds pure frozen-input reference validation and meaningful
 resealed-corruption tests, without filesystem I/O or replaying accepted admission.
 This is interpretation validation, not authentication of historical authority.
+
+### Grouping, cache and reporting accepted
+
+Provider `51046cc3`, `4f0c07c0`, `e3e6ef79` and `8d76f95e`, with
+[receipt](execution3.sol61x.md) `1f1385de`, deliver the actual source-sharing and
+reporting scope at 0.6/schema3. Parent inspected successful-cache ownership/charging,
+atomic application subsets, independent returned accounting and domain-aware retained
+selection. The reporting correction landed separately from its grouped predecessor.
+
+Reported gates: 275 workspace, 178 feature-disabled and 20 process/example cases,
+required real reflinks, strict lint/docs/formatting and focused final concurrent/pool
+cases passed. With retention disabled, the different-policy missing/private-replacement
+cohort performed 82 shared source listings and 122 metadata acquisitions. Mixed
+retention/eviction changes acquisition work without changing recursive ownership.
+No wall-time improvement follows from these counts.
+
+The new manifest owner has the actual grouped/kernel/cache surfaces and accepted
+declared-input design. Parent also requested a small separate hot-path correction:
+sort/duplicate-check source entries by borrowed `Entry::name()` rather than allocating
+`file_name()` values per comparison. Native two-route implementation is tracked as
+`jjwaltz-reseed-coordinated-renewal`; CLI cutover depends on it.
+
+### Native reference correction accepted
+
+JW `3860eccc`, [receipt](file:///home/rektide/src/jj-waltz/design/coordinated-refill/context-validation1.sol61x.md)
+`a11befca`, adds owner-native selector bounds/order/epsilon checks, known nested
+ignore-chain references and compact trie parent backedges for coordinate validation.
+Parent inspected the diff. Twenty-nine correctly resealed malformed contexts refuse
+before source I/O; valid independently allocated contexts reach their expected
+route check without admission replay. Original nested causes remain intact.
+
+Reported 71 default and 23 native-dirent cases, strict checks and document checks
+passed. A later extra rebuild encountered the active manifest owner's temporary
+undefined helper; that run did not execute tests and was not substituted with old
+binaries. The correction's verified native0.9/provider0.6 boundary remains distinct
+from the forthcoming manifest adoption and final native command gate.
 
 ## Work ownership and navigation
 

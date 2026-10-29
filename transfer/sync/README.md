@@ -11,6 +11,8 @@ sources:
     title: Reviews and promotes the contextual production runtime, direct prepared effects, shared kernel and real fresh-process continuation checkpoint
   - resource: /design/architecture/execution2.sol61x.md
     title: Verified 0.5 P/M runtime, recursive context, sparse execution inputs and call-local route ownership
+  - resource: /design/architecture/execution3.sol61x.md
+    title: Verified grouped source work, bounded retention and separately corrected execution accounting
   - resource: "opencode://ses_e7be6b24fffeDISpWdV1xNbqhD"
     title: Implements conditional source-only routing containers with runtime pending ancestry, postorder modes, preview and saved-decision integration; verifies focused production cases
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
@@ -338,8 +340,34 @@ Actual contextual A-accepted/B-unstarted execution has passed fresh-process test
 including a second comparator and residual-context rejection before filesystem I/O.
 
 The [runtime checkpoint](/design/architecture/execution2.sol61x.md) records checks
-and exact interfaces. Grouped opaque execution, bounded cross-call source retention
-and desired/owned manifest renewal remain subsequent slices of the active delivery.
+and exact interfaces. The [0.6 checkpoint](/design/architecture/execution3.sol61x.md)
+adds grouped opaque execution and bounded cross-call source retention. Desired/owned
+manifest renewal remains the next library slice.
+
+### Grouped opaque applications and reporting
+
+`apply_many(runtime, token, targets)` validates a distinct nonempty pending subset
+before work, refreshes all pending saved decisions before resumed effects, and
+returns independent results in binding order. Compatible source-owning interiors
+are grouped before their child inspection; source sharing therefore works even
+with retention disabled. Targets keep separate contexts, staging, permissions,
+conditional ancestry, failures and actual progress. Healthy peers can complete
+after a local failure. `apply` remains a one-member call; `drive` remains ordered
+apply-one. There is no pause inside an opaque cohort call.
+
+The same source session provides bounded successful observation reuse across
+opaque and later paired work. Eviction changes acquisition cost, not recursion
+ownership or policy. Its diagnostics distinguish paired/opaque/declared source
+work from actual target effects; no whole-tree source-once or speed claim follows.
+
+`Policy` and `LaneReport` expose **deviated** and **retained** separately. Static
+selected retention excludes renewal; explicit kept containers count once. Necessary
+retained removal ancestors add distinct credits. Reports combine committed
+comparison choices with explicit returned opaque/necessary additions, including on
+failure. They no longer infer ownership by subtraction. `ApplicationNeed::None`
+autoaccepts with zero application/effect totals while preserving the control window
+and paired edges; consumers use `pending()` to select applications. Parts and the
+example codec are schema3, rejecting unrecoverable v2 aggregates.
 
 ```rust,no_run
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -826,7 +854,7 @@ Failed private preparations/cleanup are not successful installations. Counters
 are not syscall, disk-byte, or crash-durability accounting. Clean sync does zero
 writes, including no staging or temporary chmod.
 
-`Report.policy` separately records `satisfied`, `retained`, and `excluded`.
+`Report.policy` separately records `satisfied`, `deviated`, `retained`, and `excluded`.
 Success means the **declared operation's policy** was exhausted, not that full
 roots are equal. Retained counters cover retained leaves, constant-NeverRemove
 pruned branches, and required structural containers; excluded counters count

@@ -15,6 +15,8 @@ sources:
     title: Reviews and promotes typed frontiers, initial execution demand, work-only publication and generic v2 comparison continuation
   - resource: /design/architecture/execution1.sol61x.md
     title: Verified 0.4 frontier checkpoint and remaining contextual effect-runtime boundary
+  - resource: /design/architecture/execution3.sol61x.md
+    title: Delivered cross-owner source retention and schema3 truthful comparison/application accounting
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
     title: Reproduces and fixes inconsistent closed reductions on restoration while preserving lane-specific partial-child returns
   - resource: "opencode://ses_e7ea319dfffeZci454IqpWo77c"
@@ -193,12 +195,18 @@ replaces the old action-deviation field `retained` and is not a completeness vet
 
 Paired walkers retain one shared `SourceSession` across listings. `bind_with_source`
 can lend the same owner to another composition. Resource identity is runtime-only;
-the effect runtime has call-local route reuse, while bounded cross-call source
-retention remains subsequent work. Generic
+the effect runtime has call-local route reuse and bounded successful source
+retention now spans paired/opaque calls. Generic
 v2 comparison transport and fresh-process partial-head tests are verified in the
 [frontier checkpoint](/design/architecture/execution1.sol61x.md). The subsequent
 [runtime checkpoint](/design/architecture/execution2.sol61x.md) verifies contextual
 opaque effects and actual contextual A-accepted/B-unstarted execution.
+
+The [0.6 reporting correction](/design/architecture/execution3.sol61x.md#separate-reporting-correction-and-v3)
+adds genuine selected-boundary `Summary.retained` independently of action
+`deviated`. Equal renewal is not retention. Saved parts now use version3; version2
+mixed aggregates refuse rather than being reinterpreted. Neither selected counter
+is a post-effect file census or equality check.
 
 Inter-group traversal is sequential. `Execution::Parallel` uses the current Rayon
 pool only for the shared inspector's within-group metadata work; callers can use

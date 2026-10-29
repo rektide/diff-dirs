@@ -17,6 +17,8 @@ sources:
     title: Delivered contextual planning, partial frames, initial execution demand and generic v2 data
   - resource: /design/architecture/execution2.sol61x.md
     title: Delivered contextual production effects, shared physical kernel, route epochs and fresh-process application continuation
+  - resource: /design/architecture/execution3.sol61x.md
+    title: Delivered grouped opaque source sharing, bounded retained observations and truthful schema3 accounting
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
     title: Connects the human-directed architectural integration assessment and its proposed next-build ownership changes to the maintained architecture
   - resource: /design/architecture/annealing0.gpt6ax.md
@@ -121,9 +123,10 @@ state.
 Work anchor: **`diffdir-tree-coordinated`**. Its child tickets record delivered
 inspection, traversal, continuation, sync and process capabilities, final review
 and documentation, and the separate workload-measurement follow-up.
-The [final verification account](/design/architecture/rebuild0.gpt6a.md#final-verification-and-remaining-work)
-records the 217-test all-feature workspace run, 14-case process consumer and the
-remaining empirical performance study.
+The [earlier rebuild verification](/design/architecture/rebuild0.gpt6a.md#final-verification-and-remaining-work)
+records its 217-test all-feature workspace run and 14-case process consumer.
+The [active delivery](/design/architecture/delivery0.gpt6ax.md) tracks the subsequent
+contextual/grouped implementation, native adoption and remaining manifest/cutover work.
 
 | Capability | Owner and standing |
 | --- | --- |
@@ -134,6 +137,7 @@ remaining empirical performance study.
 | Coordinated comparison continuation | Delivered: validated owned parts, partial heads, independent returns, control-token restoration and explicit runtime binding. |
 | Ordinary production filesystem effects | Delivered in [sync](/transfer/sync/README.md): staging, replacement, copy policy, timestamps, recursive policy and joined failures. |
 | Coordinated production sync and process transport | Delivered: [sync cursor/runtime](/transfer/sync/README.md#coordinated-reconciliation-and-continuation) and [fresh-process consumer](/examples/reconcile/README.md). |
+| Grouped opaque execution and bounded source reuse | Delivered at 0.6, with independent lane effects and truthful schema3 deviation/retention. [Receipt](/design/architecture/execution3.sol61x.md). |
 | Generated inputs and native workspace adapters | Wider research and bounded specimens, linked below; their standing is separate from the delivered comparison APIs. |
 
 The [root specification](/README.md) and [sync specification](/transfer/sync/README.md)
@@ -189,8 +193,11 @@ transport with fresh-process comparison evidence. The
 [0.5 runtime checkpoint](/design/architecture/execution2.sol61x.md) completes
 contextual opaque effects and actual resumed application, using direct prepared
 batches, shared policy-free primitives, call-local route epochs and one source
-owner. Grouped opaque execution, bounded source retention and declared manifest
-renewal are the active subsequent build boundaries.
+owner. The [0.6 checkpoint](/design/architecture/execution3.sol61x.md) adds actual
+grouped opaque execution, bounded successful source retention and distinct
+retention/deviation accounting with schema3 continuation. Declared manifest renewal
+is the active subsequent library boundary; JW has adopted the contextual ordinary
+cohort and retains ordered fail-fast application.
 The [inspection guide](/tree/inspect/README.md#contextual-inspection-and-shared-selections)
 owns the delivered API; the wider design also selects grouped opaque execution and
 complete desired/owned manifest renewal for subsequent integration.
