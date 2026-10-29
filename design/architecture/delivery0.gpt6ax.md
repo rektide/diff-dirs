@@ -22,6 +22,8 @@ sources:
     title: Native command design and bounded same-tree-child replacement proof accepted for implementation
   - resource: /design/architecture/execution0.gpt6a.md
     title: Accepted contextual selection, acquisition, runtime resource, grouped opaque and complete desired-owned manifest contracts
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution0.sol61x.md"
+    title: Shared native command implementation checkpoint, producer and preview evidence, pending final rebuild and integration interfaces
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -90,7 +92,7 @@ specific unresolved concern.
 | Provider contract design | Astra high, `opencode://ses_e7a2675f8ffe76VJT5Lt1Lwe5l` | Returned and accepted through commit `1132c5c1`, including the native manifest handoff. |
 | Native and command design | Astra high, `opencode://ses_e7a26147bffeOIk9jHWPYXJrHI` | Returned and reviewed; commit `2d2dfa2b`, six bounded native cases. |
 | Bounded verification preparation | Sol xhigh, `opencode://ses_e7a2227e7ffeTQH5TWAkgiaxOz` | Returned: native trace count command and concrete integration handoff. |
-| Shared native command implementation | Sol xhigh, `opencode://ses_e7a14b1afffe7eRp0y0L0JssYC` | Active: shared bindings/native inputs, receiver operation, structured reports and coherent producer/preview extraction. |
+| Shared native command implementation | Sol xhigh, `opencode://ses_e7a14b1afffe7eRp0y0L0JssYC` | Returned through `deb7fb75`; final native integration checks await the active provider rewrite. |
 | Provider selection/inspection foundation | Sol xhigh, `opencode://ses_e7a064cf8ffeJhoqfCnySR4Q6l` | Active: shared semantic contract, common validation, contextual policy/comparison and real inspection adoption. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
@@ -176,6 +178,34 @@ The provider foundation is the first Sol implementation checkpoint. Contextual
 frontier/opaque propagation and fresh-process transport follow from that actual
 code; grouped execution and listed renewal then share its kernel. These are staged
 build ownership boundaries within the selected larger scope.
+
+### Shared native implementation checkpoint
+
+JW commits `d44dbfee`, `70e36580` and `b9f0fc80` implement one vector-ready command
+boundary, shared native inputs, serial clear-first receiver execution, structured
+link outcomes, source-only final-conformance production and `PLANNED` preview.
+[Sol's handoff](file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution0.sol61x.md)
+is committed as `deb7fb75`. The old N1 callable now projects this native engine;
+public CLI cutover and the contextual ordinary adapter remain pending.
+
+Parent reviewed command/source/native/report ownership: native-only O memberships
+and donor cache are released before the ordinary call; S and every saved O are
+checked before destructive refill; actual S is distinct from the upstream goal;
+the ordinary seam takes a cohort once and preserves returned lane outcomes.
+
+Reported evidence includes seven command tests at the first checkpoint; a later
+17/18 combined run passed all nine prior N1 cases and exposed one native startup
+migration defect. Its corrected regression passed separately. Four final native/
+state owner cases, owner formatting and document checks passed. Final engine
+rebuilds stopped in the concurrent provider observation rewrite, so later
+native/report refinements and new barrier/finish tests still require the exact
+handoff commands after that dependency settles.
+
+Integration must replace the temporary strict-seed coverage projection with actual
+`ManifestCoverage`, add ReplaceAuthorized and the contextual ordinary adapter, then
+cut over the CLI. Parent also identified a report presentation correction for that
+slice: `CommandFailure::fmt` currently debug-dumps all receiver reports; the public
+failure path must render compact phase/cause/effect summaries instead.
 
 ## Work ownership and navigation
 
