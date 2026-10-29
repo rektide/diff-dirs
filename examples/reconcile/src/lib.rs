@@ -86,7 +86,7 @@ impl Visitor for Policy {
     }
 }
 
-pub type Runtime = SyncRuntime<NoCheck, NoScope, diff_dirs_transfer_sync::RemoveAll, Policy>;
+pub type Runtime = SyncRuntime<diff_dirs_transfer_sync::FullPolicy<NoCheck, NoScope, diff_dirs_transfer_sync::RemoveAll, Policy>>;
 
 /// Validate every frozen rule descriptor before constructing any filesystem-bound
 /// Applier, including inactive lane descriptors. Executable policies are rebuilt.

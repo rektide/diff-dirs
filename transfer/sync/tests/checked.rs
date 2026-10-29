@@ -25,7 +25,7 @@ impl Fixture {
         Self { _owned: owned, source, target }
     }
 
-    fn applier(&self) -> Applier<impl diff_dirs::Check> {
+    fn applier(&self) -> Applier<diff_dirs_sync::FullPolicy<impl diff_dirs::Check>> {
         Applier::new_checked(&self.source, &self.target, CopyPolicy::Copy, refuse_admin).unwrap()
     }
 }
@@ -53,7 +53,7 @@ fn modes() -> &'static [bool] {
     if cfg!(feature = "parallel") { &[false, true] } else { &[false] }
 }
 
-fn mirror<C: diff_dirs::Check>(applier: &Applier<C>, parallel: bool) -> Result<diff_dirs_sync::Report, diff_dirs_sync::Failure> {
+fn mirror<C: diff_dirs::Check>(applier: &Applier<diff_dirs_sync::FullPolicy<C>>, parallel: bool) -> Result<diff_dirs_sync::Report, diff_dirs_sync::Failure> {
     #[cfg(feature = "parallel")]
     if parallel {
         let pool = rayon::ThreadPoolBuilder::new().num_threads(4).build().unwrap();

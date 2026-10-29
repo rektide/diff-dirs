@@ -13,9 +13,11 @@ use std::sync::Arc;
 use diff_dirs_tree_compare::coordinated::{
     self as compare, Bindings, Compared, ComparedGroup, Coordinated, GroupToken, LaneStatus, TargetBinding, TargetId, TargetOutcome, TargetPolicy,
 };
-use diff_dirs_tree_inspect::{Check, DirectoryPlan, Execution, NoCheck, NoScope, NoVisitor, Scope, SharedRoots, TargetVisitor, Visitor};
+use diff_dirs_tree_inspect::{
+    Comparator, DirectoryAdmission, DirectoryRequest, Execution, InspectionEpoch, Policy, PreparedDirectory, Purpose, StatKey, TargetInspection, inspect_group,
+};
 
-use crate::{Absence, Applier, CopyPolicy, Failure, RemoveAll, Report, paths};
+use crate::{Applier, CopyPolicy, Failure, FullPolicy, PhysicalExecutionDemand, Report, paths};
 pub use decision::{DirectoryDecision, EntryDecision};
 pub use diff_dirs_tree_inspect::Kind;
 pub use state::{Application, ApplicationState, Barrier, End, LaneTotals, SyncParts, WorkTotals};
@@ -104,28 +106,28 @@ pub(super) fn disjoint<C>(bindings: &Bindings<C>) -> Result<(), Error> {
 
 /// A production binding plus its frozen callback identity/version/parameters.
 /// The descriptor is a caller promise, not executable policy introspection.
-pub struct SyncTarget<C = NoCheck, S = NoScope, A = RemoveAll, V = NoVisitor> {
+pub struct SyncTarget<P = FullPolicy, M = StatKey> {
     pub id: TargetId,
     pub descriptor: String,
-    pub applier: Applier<C, S, A, V>,
+    pub applier: Applier<P, M>,
 }
 
 /// Owns executable policies, not traversal. Temporary Steering loans exist only
 /// during each call; neither this object nor SyncCursor is self-referential.
-pub struct SyncRuntime<C = NoCheck, S = NoScope, A = RemoveAll, V = NoVisitor> {
-    targets: Vec<SyncTarget<C, S, A, V>>,
+pub struct SyncRuntime<P = FullPolicy, M = StatKey> {
+    targets: Vec<SyncTarget<P, M>>,
 }
 
-impl<C: Check, S: Scope, A: Absence, V: Visitor> SyncRuntime<C, S, A, V> {
-    pub fn new(targets: Vec<SyncTarget<C, S, A, V>>) -> Self {
+impl<P: Policy, M: Comparator> SyncRuntime<P, M> {
+    pub fn new(targets: Vec<SyncTarget<P, M>>) -> Self {
         Self { targets }
     }
 
-    fn target(&self, id: &TargetId) -> Result<&SyncTarget<C, S, A, V>, Error> {
+    fn target(&self, id: &TargetId) -> Result<&SyncTarget<P, M>, Error> {
         self.targets.iter().find(|t| t.id == *id).ok_or_else(|| Error::RuntimeMismatch(id.clone()))
     }
 
-    fn bindings(&self) -> Result<Bindings, Error> {
+    fn bindings(&self) -> Result<Bindings<P::Context>, Error> {
         let first = self.targets.first().ok_or(Error::InvalidState("fresh sync needs targets"))?;
         require(
             self.targets.iter().all(|t| t.applier.original() == first.applier.original()),
@@ -136,7 +138,15 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> SyncRuntime<C, S, A, V> {
             targets: self
                 .targets
                 .iter()
-                .map(|t| TargetBinding::full(t.id.clone(), t.applier.target().to_owned(), t.descriptor.clone()))
+                .map(|t| TargetBinding {
+                    id: t.id.clone(),
+                    root: t.applier.target().to_owned(),
+                    policy: t.descriptor.clone(),
+                    policy_id: t.applier.selection.identity().clone(),
+                    context_schema: t.applier.selection.context_schema().clone(),
+                    comparator: t.applier.comparator.identity().clone(),
+                    initial_context: t.applier.selection.initial_context(),
+                })
                 .collect(),
         };
         bindings.validate().map_err(Error::Comparison)?;
@@ -144,18 +154,16 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> SyncRuntime<C, S, A, V> {
         Ok(bindings)
     }
 
-    fn with_policies<T>(
-        &self,
-        call: impl FnOnce(
-            &[TargetPolicy<'_, diff_dirs_tree_inspect::FullVisitor<diff_dirs_tree_inspect::VisitorRef<'_, crate::visitor::Steering<'_, C, S, A, V>>>>],
-        ) -> T,
-    ) -> T {
-        let steering: Vec<_> = self.targets.iter().map(|t| t.applier.steering()).collect();
+    fn with_policies<T>(&self, call: impl FnOnce(&[TargetPolicy<'_, &P, &M>]) -> T) -> T {
         let policies: Vec<_> = self
             .targets
             .iter()
-            .zip(&steering)
-            .map(|(t, visitor)| TargetPolicy::full(&t.id, &t.descriptor, visitor))
+            .map(|t| TargetPolicy {
+                target: &t.id,
+                descriptor: &t.descriptor,
+                policy: &t.applier.selection,
+                comparator: &t.applier.comparator,
+            })
             .collect();
         call(&policies)
     }
@@ -195,20 +203,20 @@ pub struct Drive {
 /// Owned traversal and decisions. Full plans are an expendable runtime cache;
 /// parts()/into_parts() never contain them. Do not resume forked old parts while
 /// also advancing this lineage: effects/publication are not exactly-once.
-pub struct SyncCursor {
-    comparison: Coordinated,
+pub struct SyncCursor<C = ()> {
+    comparison: Coordinated<C>,
     copy_policies: Vec<CopyPolicy>,
     lanes: Vec<LaneTotals>,
-    current: Option<Barrier>,
-    plans: Vec<Option<DirectoryPlan>>,
+    current: Option<Barrier<C>>,
+    plans: Vec<Option<PreparedDirectory<C>>>,
     execution: Execution,
     bound: bool,
 }
 
-impl SyncCursor {
+impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
     /// All roots must already be real directories. No whole-root initialization
     /// or replacement is introduced by this coordinated composition.
-    pub fn new<C: Check, S: Scope, A: Absence, V: Visitor>(runtime: &SyncRuntime<C, S, A, V>, execution: Execution) -> Result<Self, Error> {
+    pub fn new<P: Policy<Context = C>, M: Comparator>(runtime: &SyncRuntime<P, M>, execution: Execution) -> Result<Self, Error> {
         let bindings = runtime.bindings()?;
         let n = bindings.targets.len();
         let parts = SyncParts {
@@ -224,7 +232,7 @@ impl SyncCursor {
     }
 
     /// Strictly data-only, including terminal states whose roots no longer exist.
-    pub fn from_parts(parts: SyncParts, execution: Execution) -> Result<Self, Error> {
+    pub fn from_parts(parts: SyncParts<C>, execution: Execution) -> Result<Self, Error> {
         parts.validate()?;
         let n = parts.lanes.len();
         Ok(Self {
@@ -238,7 +246,7 @@ impl SyncCursor {
         })
     }
 
-    pub fn parts(&self) -> SyncParts {
+    pub fn parts(&self) -> SyncParts<C> {
         SyncParts {
             version: 2,
             comparison: self.comparison.parts().clone(),
@@ -247,7 +255,7 @@ impl SyncCursor {
             current: self.current.clone(),
         }
     }
-    pub fn into_parts(self) -> SyncParts {
+    pub fn into_parts(self) -> SyncParts<C> {
         SyncParts {
             version: 2,
             comparison: self.comparison.into_parts(),
@@ -256,7 +264,7 @@ impl SyncCursor {
             current: self.current,
         }
     }
-    pub fn current(&self) -> Option<&Barrier> {
+    pub fn current(&self) -> Option<&Barrier<C>> {
         self.current.as_ref()
     }
     pub fn current_token(&self) -> Option<GroupToken> {
@@ -281,7 +289,7 @@ impl SyncCursor {
         Ok(())
     }
 
-    fn validate_runtime<C: Check, S: Scope, A: Absence, V: Visitor>(&self, runtime: &SyncRuntime<C, S, A, V>) -> Result<(), Error> {
+    fn validate_runtime<P: Policy<Context = C>, M: Comparator>(&self, runtime: &SyncRuntime<P, M>) -> Result<(), Error> {
         let bindings = &self.comparison.parts().bindings;
         let mut seen = HashSet::new();
         for t in &runtime.targets {
@@ -311,7 +319,7 @@ impl SyncCursor {
     /// Reconstruct execution separately. Descriptor checks precede tree access;
     /// existing ancestors must be real, all resolved roots remain disjoint, and
     /// no root/ancestor visitor decision is replayed.
-    pub fn bind<C: Check, S: Scope, A: Absence, V: Visitor>(&mut self, runtime: &SyncRuntime<C, S, A, V>) -> Result<(), Error> {
+    pub fn bind<P: Policy<Context = C>, M: Comparator>(&mut self, runtime: &SyncRuntime<P, M>) -> Result<(), Error> {
         self.validate_runtime(runtime)?;
         self.bound = false;
         self.plans.iter_mut().for_each(|p| *p = None);
@@ -369,10 +377,10 @@ impl SyncCursor {
             .collect()
     }
 
-    pub fn next_group<C: Check, S: Scope, A: Absence, V: Visitor>(
+    pub fn next_group<P: Policy<Context = C>, M: Comparator>(
         &mut self,
-        runtime: &SyncRuntime<C, S, A, V>,
-    ) -> Result<Option<ComparedGroup<DirectoryDecision>>, Error> {
+        runtime: &SyncRuntime<P, M>,
+    ) -> Result<Option<ComparedGroup<DirectoryDecision<C>>>, Error> {
         self.validate_runtime(runtime)?;
         if !self.pending().is_empty() {
             return Err(Error::PendingApplications);
@@ -383,10 +391,7 @@ impl SyncCursor {
         self.current = None;
         self.plans.iter_mut().for_each(|p| *p = None);
         let Some(group) = runtime
-            .with_policies(|p| {
-                self.comparison
-                    .next_group_with(p, |_, plan| plan.into_full_plan().expect("full-visitor runtime"))
-            })
+            .with_policies(|p| self.comparison.next_group_prepared(p, &PhysicalExecutionDemand, |_, plan| plan))
             .map_err(Error::Comparison)?
         else {
             return Ok(None);
@@ -491,7 +496,11 @@ impl SyncCursor {
     /// Restore only unstarted decisions, in a single source-sharing epoch. Check
     /// every refreshed decision before permitting any refreshed effect. Failed
     /// lanes become terminal; valid peers retain their fresh plans for dispatch.
-    pub fn refresh<C: Check, S: Scope, A: Absence, V: Visitor>(&mut self, runtime: &SyncRuntime<C, S, A, V>) -> Result<(), Error> {
+    pub fn refresh<P: Policy<Context = C>, M: Comparator>(&mut self, runtime: &SyncRuntime<P, M>) -> Result<(), Error> {
+        self.refresh_with(runtime, &InspectionEpoch::new())
+    }
+
+    fn refresh_with<P: Policy<Context = C>, M: Comparator>(&mut self, runtime: &SyncRuntime<P, M>, epoch: &InspectionEpoch) -> Result<(), Error> {
         self.validate_runtime(runtime)?;
         if !self.bound && !self.is_terminal() {
             return Err(Error::NotBound);
@@ -524,7 +533,7 @@ impl SyncCursor {
         let mut issues = Vec::new();
         let mut ready = Vec::new();
         for i in pending {
-            match self.route(i, &relative) {
+            match self.route(i, &relative, epoch) {
                 Ok(()) => ready.push(i),
                 Err(failure) => {
                     issues.push(RefreshIssue::Route {
@@ -537,26 +546,48 @@ impl SyncCursor {
         }
         if !ready.is_empty() {
             let b = &self.comparison.parts().bindings;
-            let roots = SharedRoots::new(&b.source, ready.iter().map(|&i| &b.targets[i].root)).map_err(|e| {
-                Error::Comparison(match e {
-                    diff_dirs_tree_inspect::SharedBindError::NoTargets => compare::Error::InvalidState("empty refresh"),
-                    diff_dirs_tree_inspect::SharedBindError::Source(e) => compare::Error::Source(Arc::new(e)),
-                    diff_dirs_tree_inspect::SharedBindError::Target { target, error } => compare::Error::Target {
-                        target: b.targets[ready[target]].id.clone(),
-                        error: Arc::new(error),
-                    },
-                })
-            })?;
-            let steering: Vec<_> = ready
+            let source = Arc::clone(self.comparison.source_session().ok_or(Error::NotBound)?);
+            let directories: Vec<_> = ready.iter().map(|&i| b.targets[i].root.join(&relative)).collect();
+            let requests: Vec<_> = ready
                 .iter()
-                .map(|&i| runtime.target(&b.targets[i].id).map(|t| t.applier.steering()))
-                .collect::<Result<_, _>>()?;
-            let requests: Vec<_> = steering.iter().enumerate().map(|(target, visitor)| TargetVisitor { target, visitor }).collect();
-            let outcomes = roots
-                .inspect_admitted_with(&relative, &requests, self.execution, |_, plan| plan)
-                .map_err(|e| Error::Comparison(compare::Error::Inspection(e)))?;
+                .zip(&directories)
+                .map(|(&i, path)| {
+                    let target = runtime.target(&b.targets[i].id)?;
+                    let decision = &self
+                        .current
+                        .as_ref()
+                        .expect("barrier")
+                        .applications
+                        .iter()
+                        .find(|a| a.target == i)
+                        .expect("pending")
+                        .decision;
+                    Ok(TargetInspection {
+                        target: i,
+                        logical_root: &b.targets[i].root,
+                        physical_directory: Some(path),
+                        context: decision.input_context(),
+                        policy: &target.applier.selection,
+                        comparator: &target.applier.comparator,
+                    })
+                })
+                .collect::<Result<_, Error>>()?;
+            let outcomes = inspect_group(
+                &source,
+                DirectoryRequest {
+                    relative: &relative,
+                    source_directory: Some(&b.source.join(&relative)),
+                    purpose: Purpose::Compare,
+                    admission: DirectoryAdmission::AlreadyAdmitted,
+                },
+                &requests,
+                &PhysicalExecutionDemand,
+                epoch,
+                self.execution,
+            )
+            .map_err(|e| Error::Comparison(compare::Error::Inspection(e)))?;
             for outcome in outcomes {
-                let i = ready[outcome.target];
+                let i = outcome.target;
                 match outcome.outcome {
                     Err(error) => {
                         issues.push(RefreshIssue::Inspection {
@@ -582,6 +613,14 @@ impl SyncCursor {
                             });
                             self.fail(i, End::DecisionChanged);
                         } else {
+                            self.current
+                                .as_mut()
+                                .expect("barrier")
+                                .applications
+                                .iter_mut()
+                                .find(|a| a.target == i)
+                                .expect("pending")
+                                .decision = Arc::clone(plan.selection());
                             self.plans[i] = Some(plan);
                         }
                     }
@@ -591,20 +630,10 @@ impl SyncCursor {
         if issues.is_empty() { Ok(()) } else { Err(Error::Refresh(issues)) }
     }
 
-    fn route(&self, target: usize, relative: &Path) -> Result<(), Failure> {
+    fn route(&self, target: usize, relative: &Path, epoch: &InspectionEpoch) -> Result<(), Failure> {
         let b = &self.comparison.parts().bindings;
         for root in [&b.source, &b.targets[target].root] {
-            // Also check absolute ancestors of the frozen root, not just the
-            // relative suffix; read_dir alone would follow an intermediate link.
-            let resolved = paths::root(root, false)?;
-            if resolved != *root {
-                return Err(Failure::invalid("validate sync route", root, "resolved root changed"));
-            }
-            let mut path = root.clone();
-            for part in relative.components() {
-                path.push(part);
-                paths::directory(&path)?;
-            }
+            crate::kernel::route(epoch, &root.join(relative))?;
         }
         Ok(())
     }
@@ -612,9 +641,9 @@ impl SyncCursor {
     /// Consume the cursor's own pending plan, never a caller-supplied diff. A
     /// returned kernel failure is accepted once and terminates this lane. No
     /// operation-internal progress is retained for retry.
-    pub fn apply<C: Check, S: Scope, A: Absence, V: Visitor>(
+    pub fn apply<P: Policy<Context = C>, M: Comparator>(
         &mut self,
-        runtime: &SyncRuntime<C, S, A, V>,
+        runtime: &SyncRuntime<P, M>,
         token: &GroupToken,
         target: &TargetId,
     ) -> Result<Report, Error> {
@@ -630,7 +659,8 @@ impl SyncCursor {
         if app.state != ApplicationState::Unstarted {
             return Err(Error::InvalidControl("application already disposed"));
         }
-        self.refresh(runtime)?;
+        let epoch = InspectionEpoch::new();
+        self.refresh_with(runtime, &epoch)?;
         let app = self
             .current
             .as_ref()
@@ -641,7 +671,7 @@ impl SyncCursor {
             .expect("pending target");
         let retained = app.decision.coverage().deviated;
         let relative = app.decision.relative().to_owned();
-        if let Err(failure) = self.route(i, &relative) {
+        if let Err(failure) = self.route(i, &relative, &epoch) {
             self.fail(i, End::ApplicationFailed);
             return Err(Error::Application {
                 target: target.clone(),
@@ -659,7 +689,8 @@ impl SyncCursor {
         let parallel = self.execution == Execution::Parallel;
         #[cfg(not(feature = "parallel"))]
         let parallel = false;
-        let result = runtime.target(target)?.applier.apply_plan_with(&plan, parallel);
+        let source = Arc::clone(self.comparison.source_session().ok_or(Error::NotBound)?);
+        let result = runtime.target(target)?.applier.apply_ready(&source, &epoch, plan, parallel);
         let totals = &mut self.lanes[i];
         let (planned, completed, policy) = match &result {
             Ok(r) => (r.planned, &r.completed, &r.policy),
@@ -710,7 +741,7 @@ impl SyncCursor {
     /// Budgets count joined groups and application requests, not bytes, syscalls,
     /// memory or latency. Pure returns can drain with a zero group budget.
     /// Lane failures are returned as events while healthy lanes keep advancing.
-    pub fn drive<C: Check, S: Scope, A: Absence, V: Visitor>(&mut self, runtime: &SyncRuntime<C, S, A, V>, limits: Limits) -> Result<Drive, Error> {
+    pub fn drive<P: Policy<Context = C>, M: Comparator>(&mut self, runtime: &SyncRuntime<P, M>, limits: Limits) -> Result<Drive, Error> {
         let mut progress = Drive {
             groups: 0,
             applications: 0,

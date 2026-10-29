@@ -6,6 +6,7 @@
 mod acquire;
 mod check;
 mod comparison;
+mod epoch;
 mod error;
 mod model;
 mod policy;

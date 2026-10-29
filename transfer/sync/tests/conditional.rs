@@ -25,7 +25,12 @@ impl Fixture {
         fs::create_dir(&target).unwrap();
         Self { _owned: owned, source, target }
     }
-    fn bind(&self, rules: Routing) -> Applier<diff_dirs_tree_compare::NoCheck, diff_dirs_tree_compare::NoScope, diff_dirs_transfer_sync::RemoveAll, Routing> {
+    fn bind(
+        &self,
+        rules: Routing,
+    ) -> Applier<
+        diff_dirs_transfer_sync::FullPolicy<diff_dirs_tree_compare::NoCheck, diff_dirs_tree_compare::NoScope, diff_dirs_transfer_sync::RemoveAll, Routing>,
+    > {
         Applier::new(&self.source, &self.target, CopyPolicy::Copy).unwrap().visitor(rules)
     }
 }

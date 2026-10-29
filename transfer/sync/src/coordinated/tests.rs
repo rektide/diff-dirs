@@ -1,5 +1,6 @@
 use super::*;
-use diff_dirs_tree_inspect::{CheckError, Names, Operations};
+use crate::RemoveAll;
+use diff_dirs_tree_inspect::{CheckError, Names, NoCheck, NoScope, Operations, Visitor};
 use std::fs;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -52,7 +53,7 @@ impl Setup {
             targets,
         }
     }
-    fn runtime(&self, rules: Vec<Rules>) -> SyncRuntime<NoCheck, NoScope, RemoveAll, Rules> {
+    fn runtime(&self, rules: Vec<Rules>) -> SyncRuntime<FullPolicy<NoCheck, NoScope, RemoveAll, Rules>> {
         SyncRuntime::new(
             rules
                 .into_iter()
@@ -76,7 +77,7 @@ fn file(path: impl AsRef<Path>, bytes: &[u8]) {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(path, bytes).unwrap();
 }
-fn finish<C: Check, S: Scope, A: Absence, V: Visitor>(cursor: &mut SyncCursor, runtime: &SyncRuntime<C, S, A, V>) -> Drive {
+fn finish<P: Policy<Context = ()>, M: Comparator>(cursor: &mut SyncCursor, runtime: &SyncRuntime<P, M>) -> Drive {
     cursor
         .drive(
             runtime,
@@ -315,7 +316,7 @@ fn kinds_and_excluded_names_are_checked_even_with_unchanged_legacy_diff() {
             Some(&f.source),
             Some(&f.targets[0]),
             diff_dirs_tree_inspect::Purpose::Compare,
-            &runtime.targets[0].applier.steering(),
+            &runtime.targets[0].applier.selection.0,
         )
         .unwrap();
         assert_eq!(*fresh.diff(), diff);

@@ -43,7 +43,7 @@ fn modes() -> &'static [bool] {
     }
 }
 fn run<V: Visitor>(
-    binding: &Applier<NoCheck, diff_dirs::NoScope, diff_dirs_sync::RemoveAll, V>,
+    binding: &Applier<diff_dirs_sync::FullPolicy<NoCheck, diff_dirs::NoScope, diff_dirs_sync::RemoveAll, V>>,
     parallel: bool,
 ) -> Result<diff_dirs_sync::Report, diff_dirs_sync::Failure> {
     #[cfg(feature = "parallel")]

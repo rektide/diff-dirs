@@ -232,10 +232,16 @@ pub struct EntryParts<C = ()> {
     pub name: OsString,
     pub entry: EntrySelection<C>,
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct EntrySelectionRef<'a, C = ()> {
     name: &'a OsStr,
     entry: &'a EntrySelection<C>,
+}
+impl<C> Copy for EntrySelectionRef<'_, C> {}
+impl<C> Clone for EntrySelectionRef<'_, C> {
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl<'a, C> EntrySelectionRef<'a, C> {
     pub fn name(&self) -> &'a OsStr {

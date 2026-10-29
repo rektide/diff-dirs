@@ -25,7 +25,7 @@
 
 mod state;
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -472,7 +472,7 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> Coordinated<C> {
             },
             &requests,
             demand,
-            &mut InspectionEpoch::new(),
+            &checked.epoch,
             self.execution,
         )
         .map_err(Error::Inspection)?;
@@ -824,32 +824,17 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> Coordinated<C> {
 
 #[derive(Default)]
 struct Routes {
-    results: HashMap<PathBuf, Result<(), Arc<crate::Error>>>,
+    epoch: InspectionEpoch,
+    seen: HashSet<PathBuf>,
     checks: u64,
 }
 
 impl Routes {
     fn check(&mut self, path: &Path) -> Result<Result<(), Arc<crate::Error>>, Error> {
-        if let Some(result) = self.results.get(path) {
-            return Ok(result.clone());
+        if self.seen.insert(path.to_owned()) {
+            self.checks = add(self.checks, 1)?;
         }
-        self.checks = add(self.checks, 1)?;
-        let result = std::fs::symlink_metadata(path)
-            .map_err(|source| crate::Error::Io {
-                path: path.to_path_buf(),
-                operation: "validate coordinated route",
-                source,
-            })
-            .and_then(|m| {
-                if m.is_dir() {
-                    Ok(())
-                } else {
-                    Err(crate::Error::NotDirectory { path: path.to_path_buf() })
-                }
-            })
-            .map_err(Arc::new);
-        self.results.insert(path.to_path_buf(), result.clone());
-        Ok(result)
+        Ok(self.epoch.directory(path).map(|_| ()))
     }
 }
 

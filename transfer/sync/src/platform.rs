@@ -28,14 +28,14 @@ pub(crate) fn same_permissions(a: &Permissions, b: &Permissions) -> bool {
 }
 
 #[cfg(unix)]
-pub(crate) fn symlink(link: &Path, to: &Path, _metadata: &Metadata) -> io::Result<()> {
+pub(crate) fn symlink(link: &Path, to: &Path, _metadata: Option<&Metadata>) -> io::Result<()> {
     std::os::unix::fs::symlink(link, to)
 }
 
 #[cfg(windows)]
-pub(crate) fn symlink(link: &Path, to: &Path, metadata: &Metadata) -> io::Result<()> {
+pub(crate) fn symlink(link: &Path, to: &Path, metadata: Option<&Metadata>) -> io::Result<()> {
     use std::os::windows::fs::{FileTypeExt, symlink_dir, symlink_file};
-    if metadata.file_type().is_symlink_dir() {
+    if metadata.expect("platform execution inputs checked").file_type().is_symlink_dir() {
         symlink_dir(link, to)
     } else {
         symlink_file(link, to)
@@ -43,19 +43,19 @@ pub(crate) fn symlink(link: &Path, to: &Path, metadata: &Metadata) -> io::Result
 }
 
 #[cfg(not(any(unix, windows)))]
-pub(crate) fn symlink(_link: &Path, _to: &Path, _metadata: &Metadata) -> io::Result<()> {
+pub(crate) fn symlink(_link: &Path, _to: &Path, _metadata: Option<&Metadata>) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "symlink creation unsupported on this platform"))
 }
 
-pub(crate) fn remove_leaf(path: &Path, metadata: &Metadata) -> io::Result<()> {
+pub(crate) fn remove_leaf(path: &Path, kind: diff_dirs_tree_inspect::Kind, metadata: Option<&Metadata>) -> io::Result<()> {
     #[cfg(windows)]
     {
         use std::os::windows::fs::FileTypeExt;
-        if metadata.file_type().is_symlink_dir() {
+        if kind == diff_dirs_tree_inspect::Kind::Symlink && metadata.expect("platform execution inputs checked").file_type().is_symlink_dir() {
             return fs::remove_dir(path);
         }
     }
-    let _ = metadata;
+    let _ = (kind, metadata);
     // Never chmod a leaf to make this succeed: it may have hardlink aliases.
     fs::remove_file(path)
 }

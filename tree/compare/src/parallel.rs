@@ -223,6 +223,9 @@ pub fn walk_in_pool_policy<P: Policy, M: Comparator, E: ExecutionDemand>(
     Ok(ParallelPolicyWalk { walk, pool })
 }
 impl<P: Policy, M: Comparator, E: ExecutionDemand> ParallelPolicyWalk<'_, P, M, E> {
+    pub fn source_session(&self) -> &std::sync::Arc<crate::SourceSession> {
+        self.walk.source_session()
+    }
     pub fn prune_here(&mut self) -> bool {
         self.walk.prune_here()
     }

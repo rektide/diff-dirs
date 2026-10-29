@@ -57,7 +57,7 @@ fn modes() -> &'static [bool] {
     if cfg!(feature = "parallel") { &[false, true] } else { &[false] }
 }
 
-fn run<C: Check, S: Scope, A: Absence>(applier: &Applier<C, S, A>, parallel: bool) -> Result<Report, diff_dirs_sync::Failure> {
+fn run<C: Check, S: Scope, A: Absence>(applier: &Applier<diff_dirs_sync::FullPolicy<C, S, A>>, parallel: bool) -> Result<Report, diff_dirs_sync::Failure> {
     #[cfg(feature = "parallel")]
     if parallel {
         let pool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();

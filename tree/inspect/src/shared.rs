@@ -145,17 +145,7 @@ impl SourceSession {
         &self.resources
     }
 }
-/// Per-returned-call runtime scope. Never saved or reused as a route certificate.
-/// The next route owner can extend its private contents without changing callers.
-#[derive(Debug, Default)]
-pub struct InspectionEpoch {
-    _private: (),
-}
-impl InspectionEpoch {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
+pub use crate::epoch::InspectionEpoch;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DirectoryAdmission {
     RootGated,
@@ -185,14 +175,13 @@ pub struct TargetInspection<'a, P: Policy, M: Comparator> {
 /// outcomes across independently assessed lanes. No traversal or effects occur.
 /// Every selected execution input completes before a prepared lane is returned.
 /// Root gating derives the interior input context once; an admitted call never
-/// replays that gate. Runtime route certification is still caller-owned; the epoch
-/// is not a certificate and currently retains no routes between these stages.
+/// replays that gate. Callers admit physical routes through the call-local epoch.
 pub fn inspect_group<P: Policy, M: Comparator, E: ExecutionDemand>(
     source: &SourceSession,
     at: DirectoryRequest<'_>,
     lanes: &[TargetInspection<'_, P, M>],
     execution_demand: &E,
-    _epoch: &mut InspectionEpoch,
+    _epoch: &InspectionEpoch,
     execution: Execution,
 ) -> Result<Vec<TargetComparison<PreparedDirectory<P::Context>>>, SharedInputError> {
     inspect_group_using(source, at, lanes, execution_demand, execution, &Physical(source.resources()), None)

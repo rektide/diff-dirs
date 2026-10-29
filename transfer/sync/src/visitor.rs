@@ -4,14 +4,15 @@ use diff_dirs_tree_inspect::{Action, Check, CheckError, CheckedScope, Container,
 /// Compiled compatibility adapters and the caller's visitor, sharing the same
 /// immutable facts and mutable action slots. No filesystem engine consults old
 /// scope/absence rules separately from this finalization.
-pub(crate) struct Steering<'a, C, S, A, V> {
-    pub check: &'a C,
-    pub scope: &'a S,
-    pub absence: &'a A,
-    pub visitor: &'a V,
+#[derive(Debug)]
+pub struct Steering<C, S, A, V> {
+    pub check: C,
+    pub scope: S,
+    pub absence: A,
+    pub visitor: V,
 }
 
-impl<C: Check, S: Scope, A: Absence, V: Visitor> Visitor for Steering<'_, C, S, A, V> {
+impl<C: Check, S: Scope, A: Absence, V: Visitor> Visitor for Steering<C, S, A, V> {
     const ENABLED: bool = C::ENABLED || S::ENABLED || A::ENABLED || V::ENABLED;
     fn scoped(&self) -> bool {
         S::ENABLED || A::ENABLED || self.visitor.scoped()

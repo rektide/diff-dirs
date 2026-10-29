@@ -1,37 +1,42 @@
-//! Explicit filesystem synchronization; see the crate README for the stable-tree
-//! safety model, metadata contract, partial failures, and caller-pool execution.
+//! Explicit filesystem synchronization under caller-owned stable trees.
 #![doc = include_str!("../README.md")]
 
 mod apply;
 mod authority;
 pub mod coordinated;
+mod kernel;
 mod model;
+mod opaque;
 mod paths;
 mod platform;
+mod seed;
 mod visitor;
 
-pub use coordinated::{SyncCursor, SyncRuntime, SyncTarget};
-
-pub use apply::{clear, clear_with_visitor, seed_leaves};
+pub use apply::{PhysicalExecutionDemand, clear, clear_with_visitor};
 pub use authority::{Absence, NeverRemove, RemoveAll};
+pub use coordinated::{SyncCursor, SyncRuntime, SyncTarget};
 pub use model::{CopyPolicy, Failure, Issue, Policy, Progress, Report};
-pub use visitor::{Prune, Seed, Update};
+pub use seed::seed_leaves;
+pub use visitor::{Prune, Seed, Steering, Update};
 
+use diff_dirs_tree_inspect::{
+    Check, Comparator, DirDiff, FullVisitor, NoCheck, NoScope, NoVisitor, Policy as SelectionPolicy, Scope, SourceSession, StatKey, Visitor,
+};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use diff_dirs_tree_inspect::{Check, DirDiff, NoCheck, NoScope, NoVisitor, Scope, Visitor};
+/// Owned compatibility interpretation, in check/scope/absence/late-visitor order.
+pub type FullPolicy<C = NoCheck, S = NoScope, A = RemoveAll, V = NoVisitor> = FullVisitor<Steering<C, S, A, V>>;
 
-/// Validated, non-overlapping roots. Construction performs no writes.
-/// The source must be a real directory; the target may be absent.
+/// Validated, non-overlapping logical roots plus executable interpretation. Live
+/// source resources belong to a run/cursor, never to serialized selections.
 #[derive(Debug)]
-pub struct Applier<C = NoCheck, S = NoScope, A = RemoveAll, V = NoVisitor> {
+pub struct Applier<P = FullPolicy, M = StatKey> {
     original: PathBuf,
     target: PathBuf,
     policy: CopyPolicy,
-    check: C,
-    scope: S,
-    absence: A,
-    visitor: V,
+    selection: P,
+    comparator: M,
     replace_root: bool,
 }
 
@@ -40,21 +45,45 @@ impl Applier {
         Self::new_checked(original, target, policy, NoCheck)
     }
 }
-
-impl<C: Check> Applier<C> {
-    /// Bind roots without traversing interiors or probing clone capability.
+impl<C: Check> Applier<FullPolicy<C>> {
     pub fn new_checked(original: impl AsRef<Path>, target: impl AsRef<Path>, policy: CopyPolicy, check: C) -> Result<Self, Failure> {
-        Self::bind(original.as_ref(), target.as_ref(), policy, check, false)
+        Self::new_policy(
+            original,
+            target,
+            policy,
+            FullVisitor(Steering {
+                check,
+                scope: NoScope,
+                absence: RemoveAll,
+                visitor: NoVisitor,
+            }),
+            StatKey,
+        )
     }
-
-    /// Explicitly authorize replacing an existing target file/link root with a
-    /// staged source directory. Ancestors must be real directories; the selected
-    /// target symlink itself is NEVER followed. No replacement occurs here.
     pub fn new_replacing_checked(original: impl AsRef<Path>, target: impl AsRef<Path>, policy: CopyPolicy, check: C) -> Result<Self, Failure> {
-        Self::bind(original.as_ref(), target.as_ref(), policy, check, true)
+        Self::new_replacing_policy(
+            original,
+            target,
+            policy,
+            FullVisitor(Steering {
+                check,
+                scope: NoScope,
+                absence: RemoveAll,
+                visitor: NoVisitor,
+            }),
+            StatKey,
+        )
     }
+}
 
-    fn bind(original: &Path, target: &Path, policy: CopyPolicy, check: C, replace_root: bool) -> Result<Self, Failure> {
+impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
+    pub fn new_policy(original: impl AsRef<Path>, target: impl AsRef<Path>, copy: CopyPolicy, policy: P, comparator: M) -> Result<Self, Failure> {
+        Self::bind(original.as_ref(), target.as_ref(), copy, policy, comparator, false)
+    }
+    pub fn new_replacing_policy(original: impl AsRef<Path>, target: impl AsRef<Path>, copy: CopyPolicy, policy: P, comparator: M) -> Result<Self, Failure> {
+        Self::bind(original.as_ref(), target.as_ref(), copy, policy, comparator, true)
+    }
+    fn bind(original: &Path, target: &Path, copy: CopyPolicy, policy: P, comparator: M, replace_root: bool) -> Result<Self, Failure> {
         let original = paths::root(original, false)?;
         let target = paths::root_with_leaf(target, true, replace_root)?;
         if original.starts_with(&target) || target.starts_with(&original) {
@@ -63,222 +92,299 @@ impl<C: Check> Applier<C> {
         Ok(Self {
             original,
             target,
-            policy,
-            check,
-            scope: NoScope,
-            absence: RemoveAll,
-            visitor: NoVisitor,
+            policy: copy,
+            selection: policy,
+            comparator,
             replace_root,
         })
     }
-}
-
-impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
-    /// Replace pair-wide scope without changing binding or absence authority.
-    /// A preserved ancestor wins over descendant inclusion and over any absence
-    /// authority, including during recursive copy/removal and private staging.
-    /// See [`Scope`] for pure callback and no-scope specialization obligations.
-    pub fn scope<T: Scope>(self, scope: T) -> Applier<C, T, A, V> {
-        Applier {
-            original: self.original,
-            target: self.target,
-            policy: self.policy,
-            check: self.check,
-            scope,
-            absence: self.absence,
-            visitor: self.visitor,
-            replace_root: self.replace_root,
-        }
-    }
-
-    /// Select update (NeverRemove), mirror (RemoveAll), or mixed authority.
-    /// `run` and per-record application both honor the selected policy.
-    /// Target-only routing directories still need descent for arbitrary mixed
-    /// policies; retaining a directory name does not retain every descendant.
-    pub fn absence<B: Absence>(self, absence: B) -> Applier<C, S, B, V> {
-        Applier {
-            original: self.original,
-            target: self.target,
-            policy: self.policy,
-            check: self.check,
-            scope: self.scope,
-            absence,
-            visitor: self.visitor,
-            replace_root: self.replace_root,
-        }
-    }
-
     pub fn original(&self) -> &Path {
         &self.original
     }
-
     pub fn target(&self) -> &Path {
         &self.target
     }
-
-    pub fn check(&self) -> &C {
-        &self.check
+    pub fn selection_policy(&self) -> &P {
+        &self.selection
     }
-
-    /// Steer the same finalized early/late batches used by comparison, recursive
-    /// one-sided work, initialization and staged type transitions. Compatibility
-    /// checks/scope/absence are compiled adapters into these contexts; the caller
-    /// visitor runs last. Facts and coupled replacement authority remain immutable.
-    pub fn visitor<W: Visitor>(self, visitor: W) -> Applier<C, S, A, W> {
-        Applier {
-            original: self.original,
-            target: self.target,
-            policy: self.policy,
-            check: self.check,
-            scope: self.scope,
-            absence: self.absence,
-            visitor,
-            replace_root: self.replace_root,
-        }
+    pub fn comparator(&self) -> &M {
+        &self.comparator
     }
-
-    fn steering(&self) -> visitor::Steering<'_, C, S, A, V> {
-        visitor::Steering {
-            check: &self.check,
-            scope: &self.scope,
-            absence: &self.absence,
-            visitor: &self.visitor,
-        }
-    }
-
-    /// Borrow this binding's exact scope for a caller-owned comparison loop.
-    pub fn scope_policy(&self) -> &S {
-        &self.scope
-    }
-
-    /// Apply only this record. Both roots must now exist. Validates the entire
-    /// record and its immediate entry types before any mutation. Does not prune,
-    /// advance, or retain the caller's iterator.
     pub fn apply(&self, diff: &DirDiff) -> Result<Progress, Failure> {
-        self.apply_with(diff, false)
+        self.apply_report(diff).map(|r| r.completed)
     }
-
-    /// Whole-root initialization, only for an absent target with an existing
-    /// parent. On failure a partial target may remain; retry with `mirror`.
     pub fn initialize(&self) -> Result<Progress, Failure> {
-        self.initialize_with(false)
+        self.initialize_reported(false).map(|r| r.completed)
     }
-
-    /// Explicit whole-root leaf-to-directory transition. Requires a replacing
-    /// binding. A refused descendant or failed preparation preserves the leaf.
     pub fn replace_root(&self) -> Result<Progress, Failure> {
-        self.replace_root_with(false)
+        self.replace_root_reported(false).map(|r| r.completed)
+    }
+    pub fn mirror(&self) -> Result<Report, Failure> {
+        self.run()
     }
 
-    /// Read-only visitor-selected coverage of each existing side, source first,
-    /// including admitted one-sided interiors. Presence is side-local, not a
-    /// joint comparison; use [`Self::preview`] for collision-aware planning.
-    /// Does not apply or build a retained operation map.
-    pub fn audit(&self) -> Result<AuditReport, AuditFailure> {
-        let mut report = AuditReport::default();
-        match diff_dirs_tree_compare::audit_with_visitor(&self.original, diff_dirs_tree_inspect::Side::Original, &self.steering()) {
-            Ok(inspected) => report.original = inspected,
-            Err(failure) => {
-                report.original = failure.inspected;
-                return Err(AuditFailure {
-                    error: failure.error,
-                    inspected: Box::new(report),
-                });
+    /// One streaming paired frontier plus opaque selected interiors. Initial
+    /// publication acquires execution inputs, including work in comparison-clean
+    /// batches. No audit or second driver precedes execution.
+    pub fn run(&self) -> Result<Report, Failure> {
+        let source = Arc::new(SourceSession::new(&self.original));
+        if let Some(report) = self.whole_root(&source, false)? {
+            return Ok(report);
+        }
+        let mut walk = diff_dirs_tree_compare::walk_with_source(
+            Arc::clone(&source),
+            &self.target,
+            Default::default(),
+            &self.selection,
+            &self.comparator,
+            PhysicalExecutionDemand,
+        )
+        .map_err(Failure::comparison)?;
+        let mut accumulated = Report {
+            planned: 0,
+            completed: Progress::default(),
+            policy: Policy::default(),
+            observed: None,
+        };
+        let mut applied_retained = 0;
+        while let Some(item) = walk.next() {
+            let result = item.map_err(Failure::comparison).and_then(|prepared| {
+                applied_retained += prepared.selection().coverage().deviated;
+                self.apply_ready(&source, &diff_dirs_tree_inspect::InspectionEpoch::new(), prepared, false)
+            });
+            if let Err(mut failure) = accumulate(&mut accumulated, result) {
+                let observed = walk.into_summary();
+                failure.policy.retained += observed.deviated.saturating_sub(applied_retained);
+                failure.observed = Some(Box::new(observed));
+                return Err(failure);
             }
         }
-        match paths::exists(&self.target) {
-            Ok(false) => return Ok(report),
-            Err(failure) => {
-                return Err(AuditFailure {
-                    error: diff_dirs_tree_inspect::Error::Io {
-                        path: self.target.clone(),
-                        operation: "inspect audit target",
-                        source: std::io::Error::other(failure),
-                    },
-                    inspected: Box::new(report),
-                });
-            }
-            Ok(true) => {}
-        }
-        match diff_dirs_tree_compare::audit_with_visitor(&self.target, diff_dirs_tree_inspect::Side::Target, &self.steering()) {
-            Ok(inspected) => {
-                report.target = inspected;
-                Ok(report)
-            }
-            Err(failure) => {
-                report.target = failure.inspected;
-                Err(AuditFailure {
-                    error: failure.error,
-                    inspected: Box::new(report),
-                })
-            }
-        }
+        let observed = walk.into_summary();
+        accumulated.policy.retained += observed.deviated.saturating_sub(applied_retained);
+        accumulated.policy.satisfied = true;
+        accumulated.observed = Some(observed);
+        Ok(accumulated)
     }
 
     #[cfg(feature = "parallel")]
     pub fn apply_in_pool(&self, diff: &DirDiff, pool: &rayon::ThreadPool) -> Result<Progress, Failure> {
-        pool.install(|| self.apply_with(diff, true))
+        pool.install(|| self.apply_public(diff, true, None).map(|r| r.completed))
     }
-
     #[cfg(feature = "parallel")]
     pub fn initialize_in_pool(&self, pool: &rayon::ThreadPool) -> Result<Progress, Failure> {
-        pool.install(|| self.initialize_with(true))
+        pool.install(|| self.initialize_reported(true).map(|r| r.completed))
     }
-
     #[cfg(feature = "parallel")]
     pub fn replace_root_in_pool(&self, pool: &rayon::ThreadPool) -> Result<Progress, Failure> {
-        pool.install(|| self.replace_root_with(true))
+        pool.install(|| self.replace_root_reported(true).map(|r| r.completed))
+    }
+    #[cfg(feature = "parallel")]
+    pub fn mirror_in_pool(&self, pool: &rayon::ThreadPool, limits: diff_dirs_tree_compare::ParallelLimits) -> Result<Report, Failure> {
+        self.run_in_pool(pool, limits)
+    }
+    #[cfg(feature = "parallel")]
+    pub fn run_in_pool(&self, pool: &rayon::ThreadPool, limits: diff_dirs_tree_compare::ParallelLimits) -> Result<Report, Failure> {
+        let source = Arc::new(SourceSession::new(&self.original));
+        if let Some(report) = pool.install(|| self.whole_root(&source, true))? {
+            return Ok(report);
+        }
+        let mut walk = diff_dirs_tree_compare::walk_in_pool_policy(
+            &self.original,
+            &self.target,
+            pool,
+            limits,
+            &self.selection,
+            &self.comparator,
+            PhysicalExecutionDemand,
+        )
+        .map_err(Failure::comparison)?;
+        // The borrowed-pool walk owns the same session used by every opaque call.
+        let source = Arc::clone(walk.source_session());
+        let mut accumulated = Report {
+            planned: 0,
+            completed: Progress::default(),
+            policy: Policy::default(),
+            observed: None,
+        };
+        let mut applied_retained = 0;
+        while let Some(item) = walk.next() {
+            let result = item.map_err(Failure::comparison).and_then(|prepared| {
+                applied_retained += prepared.selection().coverage().deviated;
+                pool.install(|| self.apply_ready(&source, &diff_dirs_tree_inspect::InspectionEpoch::new(), prepared, true))
+            });
+            if let Err(mut failure) = accumulate(&mut accumulated, result) {
+                let observed = walk.into_summary();
+                failure.policy.retained += observed.deviated.saturating_sub(applied_retained);
+                failure.observed = Some(Box::new(observed));
+                return Err(failure);
+            }
+        }
+        let observed = walk.into_summary();
+        accumulated.policy.retained += observed.deviated.saturating_sub(applied_retained);
+        accumulated.policy.satisfied = true;
+        accumulated.observed = Some(observed);
+        Ok(accumulated)
     }
 }
 
-/// Read-only selected side-local coverage; counters include each present root.
+fn accumulate(total: &mut Report, result: Result<Report, Failure>) -> Result<(), Failure> {
+    match result {
+        Ok(r) => {
+            total.planned += r.planned;
+            total.completed += r.completed;
+            total.policy += r.policy;
+            Ok(())
+        }
+        Err(mut f) => {
+            f.planned += total.planned;
+            f.completed += total.completed.clone();
+            *f.policy += total.policy.clone();
+            Err(f)
+        }
+    }
+}
+
+impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<FullPolicy<C, S, A, V>> {
+    pub fn scope<T: Scope>(self, scope: T) -> Applier<FullPolicy<C, T, A, V>> {
+        let Steering { check, absence, visitor, .. } = self.selection.0;
+        Applier {
+            original: self.original,
+            target: self.target,
+            policy: self.policy,
+            selection: FullVisitor(Steering {
+                check,
+                scope,
+                absence,
+                visitor,
+            }),
+            comparator: StatKey,
+            replace_root: self.replace_root,
+        }
+    }
+    pub fn absence<B: Absence>(self, absence: B) -> Applier<FullPolicy<C, S, B, V>> {
+        let Steering { check, scope, visitor, .. } = self.selection.0;
+        Applier {
+            original: self.original,
+            target: self.target,
+            policy: self.policy,
+            selection: FullVisitor(Steering {
+                check,
+                scope,
+                absence,
+                visitor,
+            }),
+            comparator: StatKey,
+            replace_root: self.replace_root,
+        }
+    }
+    pub fn visitor<W: Visitor>(self, visitor: W) -> Applier<FullPolicy<C, S, A, W>> {
+        let Steering { check, scope, absence, .. } = self.selection.0;
+        Applier {
+            original: self.original,
+            target: self.target,
+            policy: self.policy,
+            selection: FullVisitor(Steering {
+                check,
+                scope,
+                absence,
+                visitor,
+            }),
+            comparator: StatKey,
+            replace_root: self.replace_root,
+        }
+    }
+    pub fn check(&self) -> &C {
+        &self.selection.0.check
+    }
+    pub fn scope_policy(&self) -> &S {
+        &self.selection.0.scope
+    }
+    pub fn audit(&self) -> Result<AuditReport, AuditFailure> {
+        let mut report = AuditReport::default();
+        for (path, side) in [
+            (&self.original, diff_dirs_tree_inspect::Side::Original),
+            (&self.target, diff_dirs_tree_inspect::Side::Target),
+        ] {
+            if side == diff_dirs_tree_inspect::Side::Target
+                && !paths::exists(path).map_err(|f| AuditFailure {
+                    error: diff_dirs_tree_inspect::Error::Io {
+                        path: path.clone(),
+                        operation: "inspect audit target",
+                        source: std::io::Error::other(f),
+                    },
+                    inspected: Box::new(report.clone()),
+                })?
+            {
+                break;
+            }
+            match diff_dirs_tree_compare::audit_with_visitor(path, side, &self.selection.0) {
+                Ok(a) => {
+                    if side == diff_dirs_tree_inspect::Side::Original {
+                        report.original = a
+                    } else {
+                        report.target = a
+                    }
+                }
+                Err(f) => {
+                    if side == diff_dirs_tree_inspect::Side::Original {
+                        report.original = f.inspected
+                    } else {
+                        report.target = f.inspected
+                    };
+                    return Err(AuditFailure {
+                        error: f.error,
+                        inspected: Box::new(report),
+                    });
+                }
+            }
+        }
+        Ok(report)
+    }
+    pub fn apply_plan(&self, plan: &diff_dirs_tree_inspect::DirectoryPlan) -> Result<Report, Failure> {
+        self.apply_prepared(plan)
+    }
+    fn apply_prepared(&self, plan: &diff_dirs_tree_inspect::DirectoryPlan) -> Result<Report, Failure> {
+        if plan.operations().source_root() != self.original || plan.operations().target_root() != self.target || plan.selection().is_root() {
+            return Err(Failure::invalid(
+                "apply plan",
+                plan.selection().relative(),
+                "plan does not belong to these directory roots",
+            ));
+        }
+        self.apply_public(plan.diff(), false, Some(plan.selection()))
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AuditReport {
     pub original: diff_dirs_tree_compare::Audit,
     pub target: diff_dirs_tree_compare::Audit,
 }
-
 #[derive(Debug)]
 pub struct AuditFailure {
     pub error: diff_dirs_tree_inspect::Error,
-    /// Cold finalized-prefix counters, boxed to keep the streaming error compact.
     pub inspected: Box<AuditReport>,
 }
-
 impl std::fmt::Display for AuditFailure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.error.fmt(f)
     }
 }
-
 impl std::error::Error for AuditFailure {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         Some(&self.error)
     }
 }
 
-/// Mirror source to target, including exact target-only removals. Application
-/// finishes before each next comparison. A successful report's comparison
-/// describes the *observed delta*, not a post-sync verification scan.
 pub fn mirror(original: impl AsRef<Path>, target: impl AsRef<Path>, policy: CopyPolicy) -> Result<Report, Failure> {
-    Applier::new(original, target, policy)?.mirror()
+    Applier::new(original, target, policy)?.run()
 }
-
 pub fn mirror_checked<C: Check>(original: impl AsRef<Path>, target: impl AsRef<Path>, policy: CopyPolicy, check: C) -> Result<Report, Failure> {
-    Applier::new_checked(original, target, policy, check)?.mirror()
+    Applier::new_checked(original, target, policy, check)?.run()
 }
-
-/// Update source-present paths while retaining whole target-only branches.
-/// Equivalent to an unscoped binding with [`NeverRemove`]. A source leaf cannot
-/// replace a nonempty target directory because its descendants are retained;
-/// the local precheck leaves that old subtree intact. Use [`Applier::scope`] for
-/// exclusions, and [`Applier::absence`] for mixed deletion regions.
 pub fn update(original: impl AsRef<Path>, target: impl AsRef<Path>, policy: CopyPolicy) -> Result<Report, Failure> {
     Applier::new(original, target, policy)?.visitor(Update).run()
 }
-
-/// Optional borrowed-pool comparison and application. Creates/configures no
-/// pool. J/K limit comparison lookahead, not application workers or bytes.
 #[cfg(feature = "parallel")]
 pub fn mirror_in_pool(
     original: impl AsRef<Path>,
@@ -287,129 +393,5 @@ pub fn mirror_in_pool(
     pool: &rayon::ThreadPool,
     limits: diff_dirs_tree_compare::ParallelLimits,
 ) -> Result<Report, Failure> {
-    Applier::new(original, target, policy)?.mirror_in_pool(pool, limits)
-}
-
-impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
-    /// Stream compare/apply, or initialize/explicitly replace a selected root.
-    /// Does not run `audit` first. Every visited entry uses this binding's check.
-    pub fn mirror(&self) -> Result<Report, Failure> {
-        self.run()
-    }
-
-    /// Exhaust finalized early/late visitor decisions with one streaming
-    /// compare/apply traversal, or initialize/explicitly replace the selected
-    /// root through those same contexts. Legacy policies are compiled adapters.
-    /// Never runs
-    /// an audit first and never interprets a missing source as an empty tree.
-    ///
-    /// Paired equal entries still reach late (and compatibility Check). Recursive
-    /// one-sided work uses the same visitor at logical final paths; excluded names cannot authorize
-    /// deletion. Retained-only/clean regions make zero namespace, staging, or
-    /// chmod writes. [`Report::policy`] means declared-policy completion, not
-    /// full-root equality. Failure retains actual work, not a rollback promise;
-    /// retry via fresh comparison under stable, nonhostile caller-owned roots.
-    pub fn run(&self) -> Result<Report, Failure> {
-        if let Some(report) = self.whole_root(false)? {
-            return Ok(report);
-        }
-        // Preserve NoCheck specialization across the comparison/application seam.
-        let mut walk = diff_dirs_tree_compare::walk_with_visitor(self.original(), self.target(), self.steering()).map_err(Failure::comparison)?;
-        let mut completed = Progress::default();
-        let mut policy = Policy::default();
-        let mut planned = 0;
-        let mut applied_retained = 0;
-        while let Some(item) = walk.next() {
-            match item.map_err(Failure::comparison).and_then(|plan| {
-                applied_retained += plan.retained();
-                self.apply_plan_with(&plan, false)
-            }) {
-                Ok(report) => {
-                    planned += report.planned;
-                    completed += report.completed;
-                    policy += report.policy;
-                }
-                Err(mut failure) => {
-                    failure.planned += planned;
-                    failure.completed += completed;
-                    *failure.policy += policy;
-                    let observed = walk.into_summary();
-                    failure.policy.retained += observed.deviated.saturating_sub(applied_retained);
-                    failure.observed = Some(Box::new(observed));
-                    return Err(failure);
-                }
-            }
-        }
-        let observed = walk.into_summary();
-        // Late preservation can leave no normal DirDiff to yield/application to
-        // count. Include those committed slots without counting yielded ones twice.
-        policy.retained += observed.deviated.saturating_sub(applied_retained);
-        Ok(Report {
-            planned,
-            policy: Policy { satisfied: true, ..policy },
-            completed,
-            observed: Some(observed),
-        })
-    }
-
-    #[cfg(feature = "parallel")]
-    pub fn mirror_in_pool(&self, pool: &rayon::ThreadPool, limits: diff_dirs_tree_compare::ParallelLimits) -> Result<Report, Failure> {
-        self.run_in_pool(pool, limits)
-    }
-
-    #[cfg(feature = "parallel")]
-    /// [`Self::run`] borrowing the caller's pool, with joined comparison and
-    /// application. J/K bound speculative comparison directories, not bytes or
-    /// independent application work. All started siblings join before return;
-    /// failures need not represent a serial mutation prefix.
-    pub fn run_in_pool(&self, pool: &rayon::ThreadPool, limits: diff_dirs_tree_compare::ParallelLimits) -> Result<Report, Failure> {
-        if let Some(report) = pool.install(|| self.whole_root(true))? {
-            return Ok(report);
-        }
-        let mut walk =
-            diff_dirs_tree_compare::walk_in_pool_visitor(self.original(), self.target(), pool, limits, self.steering()).map_err(Failure::comparison)?;
-        let mut completed = Progress::default();
-        let mut policy = Policy::default();
-        let mut planned = 0;
-        let mut applied_retained = 0;
-        while let Some(item) = walk.next() {
-            match item.map_err(Failure::comparison).and_then(|plan| {
-                applied_retained += plan.retained();
-                pool.install(|| self.apply_plan_with(&plan, true))
-            }) {
-                Ok(report) => {
-                    planned += report.planned;
-                    completed += report.completed;
-                    policy += report.policy;
-                }
-                Err(mut failure) => {
-                    failure.planned += planned;
-                    failure.completed += completed;
-                    *failure.policy += policy;
-                    let observed = walk.into_summary();
-                    failure.policy.retained += observed.deviated.saturating_sub(applied_retained);
-                    failure.observed = Some(Box::new(observed));
-                    return Err(failure);
-                }
-            }
-        }
-        let observed = walk.into_summary();
-        policy.retained += observed.deviated.saturating_sub(applied_retained);
-        Ok(Report {
-            planned,
-            policy: Policy { satisfied: true, ..policy },
-            completed,
-            observed: Some(observed),
-        })
-    }
-
-    fn whole_root(&self, parallel: bool) -> Result<Option<Report>, Failure> {
-        let report = match std::fs::symlink_metadata(&self.target) {
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => self.initialize_reported(parallel)?,
-            Err(error) => return Err(Failure::io("inspect target root", &self.target, error)),
-            Ok(metadata) if metadata.is_dir() => return Ok(None),
-            Ok(_) => self.replace_root_reported(parallel)?,
-        };
-        Ok(Some(report))
-    }
+    Applier::new(original, target, policy)?.run_in_pool(pool, limits)
 }
