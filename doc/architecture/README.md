@@ -21,6 +21,8 @@ sources:
     title: Delivered grouped opaque source sharing, bounded retained observations and truthful schema3 accounting
   - resource: /design/architecture/execution4.sol61x.md
     title: Delivered inspect-owned declared acquisition and exact manifest-bound production renewal
+  - resource: /design/performance/selection0.sol61x.md
+    title: Exact small predecessor/current ownership measurement, including increased transient allocation and larger caller-held semantic views
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
     title: Connects the human-directed architectural integration assessment and its proposed next-build ownership changes to the maintained architecture
   - resource: /design/architecture/annealing0.gpt6ax.md
@@ -234,6 +236,16 @@ bindings + frozen policy → immediate inspection → finalized assessment
 These are semantic seams, not one mandatory trait per row. The core remains
 read-only and independent of sync, JW and serialization. Ordinary copying needs
 neither a repository adapter nor a codec. Ordinary comparison needs no executor.
+
+### Measured selection ownership
+
+The [bounded full-visitor receipt](/design/performance/selection0.sol61x.md) proves
+eliminated deep decision-clone allocation and earlier clean fact release. It also
+records higher total allocation events/transient requested-live peak and larger
+caller-held semantic bodies. No-effect autoaccept and optional source retention
+change lifetimes independently of Arc sharing. These measurements do not establish
+lower RSS or native command latency; the reported cache-charge undercount has its
+own focused correction in the active delivery.
 
 ## Immediate inspection and decision authority
 

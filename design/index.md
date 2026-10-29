@@ -257,6 +257,11 @@ implementation completion.
 
 ## Preserved baseline and measurements
 
+- [Wide clean selected-state ownership](performance/selection0.sol61x.md): exact
+  0.2/0.7 production-cursor allocator and lifetime evidence on one tiny reused
+  fixture. Deep clones disappear and clean facts release earlier; transient
+  allocation and caller-held semantic residency increase. Includes the separately
+  tracked 16-byte cache-charge gap, without time/RSS claims.
 - [Implementation account](implementation/implementation0.sol61x.md): generic
   diff state machine, native filenames, summary coverage, CLI, and tests.
 - [Parallel measurements and handoff](performance/parallel0.sol61x.md):

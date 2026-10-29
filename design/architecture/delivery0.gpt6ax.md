@@ -52,6 +52,8 @@ sources:
     title: Accepted application-owned schema1, CLI cutover/retirement and explicitly live-asserted performance profile
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution2.sol61x.md"
     title: Verified production native routes, full manifest gates, available phase outcomes and actual optional ordinary pool
+  - resource: /design/performance/selection0.sol61x.md
+    title: Measured exact predecessor/current wide clean ownership, clone allocations, fact release and negative transient/retained-memory findings
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -136,7 +138,8 @@ specific unresolved concern.
 | Both production native renewal routes | Sol xhigh, `opencode://ses_e78f3a386ffeEoMW921VWMAzPe` | Returned through `31d2e5ff`; working two-route boundary accepted for public cutover. |
 | Public command/wire design | Explicit Astra high, `opencode://ses_e78f2e0eaffejn7gBDnYKJ2RhA` | Returned at `044b6471`; schema1/cutover/measurement-profile contract accepted. |
 | Public reseed/prepare cutover | Sol xhigh, `opencode://ses_e779f1a9affejTLMoRyE5Nv4xW` | Active: actual dispatch, source/selection outcome data, schema1, old-driver retirement and operative docs. |
-| Bounded selected-state ownership evidence | Sol xhigh, `opencode://ses_e779e67c4ffep3LwYT7qpuVLbK` | Active independent small predecessor/current allocation and retention comparison. |
+| Bounded selected-state ownership evidence | Sol xhigh, `opencode://ses_e779e67c4ffep3LwYT7qpuVLbK` | Returned at `2c892dad`; exact small full-visitor allocator/lifetime receipt reviewed. |
+| Source cache charge correction | Sol xhigh, `opencode://ses_e77885cc0ffeFqE7lKAwqkV7Oa` | Active bounded fix for the measured 16-byte retained-capacity undercount. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -559,6 +562,28 @@ on actual caller evidence and update operative docs. Native child facts on a fai
 command are last observed facts, not a new post-failure census. Existing actual
 manifest-preparation capture counts may be included in the first wire schema with
 their declared scope. Performance binding follows review of that actual public path.
+
+### Measured ownership gains and costs
+
+[Selection ownership evidence](/design/performance/selection0.sol61x.md)
+(`2c892dad`) compares exact 0.2/0.7 production cursors on one reused 195-entry
+fixture, using the same compiler and default full-visitor features. Sixteen measured
+wide-group returns matched across repetitions. N2 decision clones fell from
+132 allocations / 5,122 requested bytes to zero. Cache-off clean facts release
+before return; no-effect autoaccept contributes alongside shared ownership.
+
+The negative results matter too: wide-call allocation events rose 2,345 → 4,699;
+extra allocator-requested live peak rose 96,585 → 169,192 bytes. Holding the new
+group after cursor disposal retains 24,006 bytes of semantic/group/token storage,
+versus 6,440 before, without retaining its fact arena. These are exact bounded
+full-visitor measurements, not JW latency, RSS or an attribution to one mechanism.
+
+Default cache retention is intentional, but its diagnostic charge was 38,933 bytes
+against 38,949 requested bytes released by clearing it. The 16-byte undercount is
+tracked as `diffdir-tree-coordinated-cache-charge`; a bounded correction is active.
+The broader allocation costs remain recorded evidence rather than being hidden
+behind the eliminated decision clone. No general optimization sweep is selected
+by this receipt.
 
 ## Work ownership and navigation
 
