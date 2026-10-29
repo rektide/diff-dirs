@@ -7,7 +7,7 @@ status: proposed-integration
 generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
-    title: Human commissions architectural integration and explains renewal as the baseline avoiding uncertain reflink-identity detection; parent traces current contracts, proposes an interleaved build and grounds the renewal cost question in existing Btrfs and kernel evidence
+    title: Human commissions architectural integration, explains the constructive renewal baseline and selects support for clear-first and authorized-replacement routes with later benchmarking; parent connects those choices to inherited policy, current contracts and existing evidence
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/trajectory1.gpt6ax.md"
     title: Whole-command delivery sequence, shared input lifetimes and explicit product decisions
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/work-map0.gpt6ax.md"
@@ -318,10 +318,12 @@ The inspector's acquisition and selected-state ownership must be designed for bo
 from the first slice. **JW is not the proof that every sparse-fact optimization
 helps:** its retained device guards can still require full metadata.
 
-If equal-content storage renewal is selected, give it explicit installation
-authority. Do not label equal files different to force the existing action validator
-to accept them. Likewise, retain selected-work publication independently of physical
-diff: future generated work and existing opaque work make “clean means no work”
+The tracked renewal baseline needs explicit installation authority even when
+contents are already equal. Its authorized-replacement route should be able to
+omit equality assessment entirely. Do not label equal files different to force
+the existing action validator to accept them. Likewise, retain selected-work
+publication independently of physical diff: future generated work and existing
+opaque work make “clean means no work”
 an invalid universal rule. The [typed-action study](/design/actions/dispatch0.gpt61sxh.md)
 supplies that separation without requiring a general action framework now.
 
@@ -342,9 +344,13 @@ require a preceding whole-file sharing census. Focused native tests can verify t
 protocol and representative sharing behavior separately from the normal command.
 
 **Renewal is a postcondition; clear-first remains one protocol for achieving it.**
-An alternative can improve the native composition while renewing every required
-leaf. Retaining an existing leaf based only on content equality would instead
-weaken that objective unless suitable sharing evidence were available.
+The human subsequently directs support for **both clear-first and replacement
+renewal**, followed by benchmarking. Clearing was originally chosen because it
+appeared relatively cheap/bulk and enabled a very simple, proactive population
+policy. That rationale remains a useful control even while its cost is questioned.
+Both routes renew required donor leaves; retaining an existing leaf based only on
+content equality would weaken that objective unless suitable sharing evidence
+were available.
 
 The present strict route is an executable control: save O, sparse-clear, establish
 a receiving child of D, install S, adopt S state, restore D when needed, verify,
@@ -360,6 +366,50 @@ local-obstruction authority on tiny D=S/D≠S examples. Native meaning remains w
 JW; generic equal-leaf installation cannot by itself make a partially installed S
 tree compatible with an unmodified S cache. The final-D sharing scope when D differs
 from S still needs an honest outcome statement.
+
+### Two proactive renewal routes
+
+The selected direction is two mechanisms for the same renewal intent, chosen up
+front. These are working names for the build, not selected CLI flag spellings:
+
+| Route | Policy and necessary work | Question for later measurement |
+| --- | --- | --- |
+| `ClearThenPopulate` | Native tracked clearing and residual admission establish available destinations for strict donor population. Renew every selected leaf without equality/sharing probes. | Does the simpler installation path compensate for native clearing, namespace churn and associated passes? |
+| `ReplaceAuthorized` | Preserve the existing namespace until each authorized tracked replacement; prepare a fresh private clone and install it. Remove obsolete tracked names under explicit native authority. Renew selected leaves without equality/sharing probes. | How much clearing/recreation work disappears, and what target-shape, replacement and native-state work replaces it? |
+
+**Proactive selection is available in both modes.** The policy has already decided
+to renew the selected leaf. Existing-target mode still needs ownership, route and
+shape checks to execute that decision correctly; it need not compare contents or
+test whether storage is already shared. This distinction directly motivates the
+inherited region and explicit work-authority changes above.
+
+Carry the settled renewal intent separately from the destination condition:
+available for strict creation versus occupied under an explicit replacement grant.
+Native clearing covers tracked paths, not every ordinary file in the workspace;
+it does not justify calling the whole target empty. Likewise, a donor leaf list
+alone does not grant replacement/removal authority over unrelated target locals.
+JW supplies that authority from its native contract. The generic executor owns
+fresh-file preparation, replacement and required clone behavior.
+
+The current strict listed installer provides the first route's transfer primitive.
+The second route needs an explicit authorized replacement seam and a proved native
+transition. Removing `sparse set --clear` from the current sequence is insufficient:
+subsequent JJ operations may themselves materialize files, and adopted state must
+truthfully describe the installed tracked tree. Replacement here means replacing
+the destination name with a newly prepared private file, not writing through the
+old inode. Preserve coupled type-transition and retained-descendant semantics.
+
+Share command inputs, membership/indexes, effect kernels, ordinary transfer and
+reporting across both routes. Their native phase sequences can differ. Select the
+route once before mutation and include it in reports; failures retain the chosen
+route's actual effects rather than triggering the other route as a fallback.
+
+Establish correctness for both routes first, then compare their full costs on the
+same bounded fixtures and renewal outcomes. Include clearing and native work in
+the measurement, not just the final clone loop. Use clean D=S as the primary
+discriminator, plus changed/type-transition cases and D≠S under explicitly matched
+sharing claims. This selects support for both strategies; their relative speed
+and eventual default remain empirical questions.
 
 ### Why the Btrfs inquiry does not gate this baseline
 
@@ -419,8 +469,8 @@ not something the new shared context may imply automatically.
 | --- | --- | --- |
 | **1. Shared inputs and immutable decision views** | JW owns one command/source input set and extracted receiver-native operation. diff-dirs shares the existing selected decision between barrier and group. | N1 keeps its native result; repeated S/D/index extraction is counted; existing supported checkpoints survive; wide-group allocation/copy effects are attributed. |
 | **2. Contextual persisted inspection and execution** | One selected-state contract with common semantic validation; real inherited child context through compare and opaque sync; default comparison supplied through an explicit seam. JW uses admitted-region context rather than root-prefix replay inside Q. | Preserved nested exception; mixed paired/missing lanes; selected-region target-only removal; Known/Unknown facts; restored partial heads and A-accepted/B-unstarted. A second bounded comparator proves the seam reaches saved meaning. |
-| **3. One working N1/N2 command boundary** | One ordinary runtime/cursor over native-ready receivers, source-only producer handoff, loaded finish and compact phase-aware partial reports. | Different lane policies/shapes, real paired source sharing, clean ordinary zero writes and a surfaced failure. Count opaque source work separately. Review this callable end-to-end path. |
-| **4. Public operation and bounded cost evidence** | Chosen native contract/profile; nonmutating PLANNED preview; CLI/schema/help; retirement of superseded orchestration; explicit release/install decision. | Real prepare-once, preview and failure cases; matched N1/N2 native and ordinary cost attribution with small reused fixtures. |
+| **3. One working N1/N2 command boundary** | Shared command flow with explicit clear-first and authorized-replacement renewal routes; one ordinary runtime/cursor over native-ready receivers, source-only producer handoff, loaded finish and compact phase-aware partial reports. | Correct renewal/native outcomes for both routes, different lane policies/shapes, real paired source sharing, clean ordinary zero writes and a surfaced failure. Count opaque source work separately. Review this callable end-to-end path. |
+| **4. Public operation and bounded cost evidence** | Supported native contracts/profiles; nonmutating PLANNED preview; CLI/schema/help; retirement of superseded orchestration; explicit release/install decision. | Real prepare-once, preview and failure cases; later like-for-like comparison of both renewal routes, including clearing/native work, with matched N1/N2 cost attribution on small reused fixtures. |
 
 The contracts for slices 1–2 should be reviewed together before coding their public
 surfaces. Their commits can remain small. For example, sharing the current decision

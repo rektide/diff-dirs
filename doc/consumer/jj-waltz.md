@@ -8,7 +8,7 @@ generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-28 }
 updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
-    title: Integrates inherited judgments and modular comparison into the proposed next build and records the human's renewal baseline motivated by uncertain reflink-detection cost
+    title: Integrates inherited judgments and modular comparison into the proposed next build and records the human's constructive renewal baseline, two renewal routes and later benchmark direction
   - resource: /design/architecture/annealing0.gpt6ax.md
     title: Source-grounded integration of trajectory1, the three-lane queue, inherited context and persisted selection contracts
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/discussion0.gpt6ax.md"
@@ -149,6 +149,15 @@ coverage and cost before it can eliminate installs. See the
 [renewal rationale and performance evidence](/design/architecture/annealing0.gpt6ax.md#annealing-native).
 This clarification concerns tracked renewal; retained ordinary payload still has
 the separate stat-equality and storage-evidence contract described above.
+
+The human also selects support for **clear-then-populate and authorized replacement
+without initial clearing**, followed by benchmarking. Both renew donor sharing
+proactively; the second route need not perform equality or sharing detection.
+Clearing's original appeal was a simple population policy over available tracked
+destinations. The alternative needs explicit target-replacement authority and a
+truthful native transition while sharing the command inputs and production kernels.
+The [two-route design](/design/architecture/annealing0.gpt6ax.md#two-proactive-renewal-routes)
+connects this requirement to inherited intent and separates it from choosing a winner.
 
 ## Next useful comparison
 
