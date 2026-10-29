@@ -383,7 +383,7 @@ fn inspect_using<L: DeclaredSelection, E: ExecutionDemand>(
 }
 
 pub(crate) fn manifest_valid(id: ManifestId) -> bool {
-    id.version == 1 && id.platform == if cfg!(windows) { NativePlatform::Windows } else { NativePlatform::Unix }
+    cfg!(any(unix, windows)) && id.version == 1 && id.platform == if cfg!(windows) { NativePlatform::Windows } else { NativePlatform::Unix }
 }
 fn lookup(path: &Path, acquire: &impl Acquire, epoch: &InspectionEpoch) -> Lookup {
     match acquire.path_metadata(path) {

@@ -78,6 +78,8 @@ impl Work {
 struct Job {
     lane: usize,
     place: Scope,
+    directory: Option<DirectoryScope>,
+    donor: Option<Permissions>,
 }
 struct Frame {
     job: Job,
@@ -89,12 +91,9 @@ struct Frame {
 }
 enum ChildEnd {
     Keep,
-    Created {
-        donor: Permissions,
-    },
+    Created,
     Expand {
         slot: StageSlot,
-        donor: Permissions,
         old_kind: Kind,
         old_attributes: Option<Box<Metadata>>,
         old_leaf: LeafId,
@@ -140,6 +139,8 @@ pub(super) fn run<G: ListedGuard>(
         .enumerate()
         .map(|(lane, state)| Job {
             lane,
+            directory: None,
+            donor: None,
             place: Scope {
                 relative: PathBuf::new(),
                 context: state.selector.root(),
@@ -275,9 +276,12 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
     let preparations = inspect(source, epoch, lanes, &jobs, true);
     let mut frames = Vec::with_capacity(jobs.len());
     let mut children = Vec::new();
-    for (job, preparation) in jobs.into_iter().zip(preparations) {
+    for (mut job, preparation) in jobs.into_iter().zip(preparations) {
         let parent = frames.len();
-        let scope = DirectoryScope::new(&job.place.output, std::iter::empty());
+        let scope = job
+            .directory
+            .take()
+            .unwrap_or_else(|| DirectoryScope::new(&job.place.output, std::iter::empty()));
         let mut frame = Frame {
             job,
             scope,
@@ -308,6 +312,7 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
                             directories_created: 1,
                             ..Progress::default()
                         }));
+                        frame.scope.ensure_writable(epoch)?;
                     }
                     Err(error) => return Err(inspection_failure(error)),
                 }
@@ -364,6 +369,8 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
                         job: Job {
                             lane: frame.job.lane,
                             place: child_place(),
+                            directory: None,
+                            donor: None,
                         },
                         end: ChildEnd::Keep,
                     }),
@@ -378,13 +385,19 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
                             directories_created: 1,
                             ..Progress::default()
                         }));
+                        if let Err(failure) = scope.ensure_writable(epoch) {
+                            frame.work.add(scope.finish(Err(failure), DirectoryEnd::Created { donor }, false, epoch));
+                            return Ok(());
+                        }
                         children.push(Child {
                             parent,
                             job: Job {
                                 lane: frame.job.lane,
                                 place: child_place(),
+                                directory: Some(scope),
+                                donor: Some(donor),
                             },
-                            end: ChildEnd::Created { donor },
+                            end: ChildEnd::Created,
                         });
                     }
                     Action::ReplaceWithDirectory { .. } => {
@@ -392,6 +405,15 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
                         let staged = frame.scope.stage_slot(slot, &output, epoch)?;
                         let scope = DirectoryScope::new(staged.path(), std::iter::empty());
                         kernel::create_directory(&scope, epoch)?;
+                        if let Err(failure) = scope.ensure_writable(epoch) {
+                            frame.work.add(kernel::discard_private(scope.finish(
+                                Err(failure),
+                                DirectoryEnd::Created { donor },
+                                false,
+                                epoch,
+                            )));
+                            return Ok(());
+                        }
                         let mut place = child_place();
                         place.output = staged.path().to_owned();
                         place.observed = None;
@@ -400,10 +422,14 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
                         };
                         children.push(Child {
                             parent,
-                            job: Job { lane: frame.job.lane, place },
+                            job: Job {
+                                lane: frame.job.lane,
+                                place,
+                                directory: Some(scope),
+                                donor: Some(donor),
+                            },
                             end: ChildEnd::Expand {
                                 slot: staged,
-                                donor,
                                 old_kind: entry.target.unwrap(),
                                 old_attributes: facts.target.and_then(|f| f.attributes.known()).cloned().map(Box::new),
                                 old_leaf: leaf,
@@ -447,35 +473,28 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
         let peers: Vec<_> = children.drain(..count).collect();
         let mut active = Vec::new();
         let mut finishes = Vec::new();
-        for child in peers {
+        for mut child in peers {
             if frames[child.parent].work.good() {
-                finishes.push((child.parent, child.end, child.job.place.output.clone()));
+                finishes.push((child.parent, child.end));
                 active.push(child.job);
             } else {
                 // Started containers still finish even though no child work starts
                 // after this lane's failure. Private trees remain provisional.
-                let scope = DirectoryScope::new(&child.job.place.output, std::iter::empty());
+                let scope = child
+                    .job
+                    .directory
+                    .take()
+                    .unwrap_or_else(|| DirectoryScope::new(&child.job.place.output, std::iter::empty()));
                 let private = matches!(child.end, ChildEnd::Expand { .. });
-                let end = match child.end {
-                    ChildEnd::Keep => DirectoryEnd::Retained,
-                    ChildEnd::Created { donor } | ChildEnd::Expand { donor, .. } => DirectoryEnd::Created { donor },
-                };
+                let end = child.job.donor.map_or(DirectoryEnd::Retained, |donor| DirectoryEnd::Created { donor });
                 let result = scope.finish(Ok(Progress::default()), end, false, epoch);
                 frames[child.parent].work.add(if private { kernel::discard_private(result) } else { result });
             }
         }
         let results = group(source, epoch, lanes, active);
-        for ((parent, end, output), mut result) in finishes.into_iter().zip(results) {
-            let child_scope = DirectoryScope::new(&output, std::iter::empty());
-            let directory_end = match &end {
-                ChildEnd::Keep => DirectoryEnd::Retained,
-                ChildEnd::Created { donor } | ChildEnd::Expand { donor, .. } => DirectoryEnd::Created { donor: donor.clone() },
-            };
-            let good = result.good();
-            let progress = result.take();
-            result.result = child_scope.finish(progress, directory_end, good, epoch);
+        for ((parent, end), mut result) in finishes.into_iter().zip(results) {
             match end {
-                ChildEnd::Keep | ChildEnd::Created { .. } => frames[parent].work.join(result),
+                ChildEnd::Keep | ChildEnd::Created => frames[parent].work.join(result),
                 ChildEnd::Expand {
                     slot,
                     old_kind,
@@ -523,7 +542,10 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
         .map(|mut frame| {
             let complete = frame.work.good();
             let progress = frame.work.take();
-            let end = frame.root_donor.map_or(DirectoryEnd::Retained, |donor| DirectoryEnd::Created { donor });
+            let end = frame
+                .root_donor
+                .or(frame.job.donor)
+                .map_or(DirectoryEnd::Retained, |donor| DirectoryEnd::Created { donor });
             let mut result = frame.scope.finish(progress, end, complete, epoch);
             if let Some(parent) = frame.root_parent {
                 let complete = result.is_ok();
@@ -544,6 +566,8 @@ fn path_order(a: &Path, b: &Path) -> std::cmp::Ordering {
 fn preflight<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes: &[Lane<'_, G>], lane: usize, scope: &Scope) -> Result<(), Failure> {
     let job = Job {
         lane,
+        directory: None,
+        donor: None,
         place: Scope {
             relative: scope.relative.clone(),
             context: scope.context.clone(),
@@ -580,7 +604,12 @@ fn remove_tree<G: ListedGuard>(
     place: Scope,
     parent: &DirectoryScope,
 ) -> Work {
-    let job = Job { lane, place };
+    let job = Job {
+        lane,
+        place,
+        directory: None,
+        donor: None,
+    };
     let prepared = inspect(source, epoch, lanes, std::slice::from_ref(&job), true).pop().unwrap();
     let scope = DirectoryScope::new(&job.place.output, std::iter::empty());
     let mut work = Work::default();

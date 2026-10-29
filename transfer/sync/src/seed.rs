@@ -125,9 +125,9 @@ where
     P: AsRef<Path>,
     C: Check,
 {
+    let binding = EffectBinding::new(original, target, policy)?;
     let desired = PreparedLeafList::new(leaves)?;
     let owned = OwnedLeafSet::new(Vec::<PathBuf>::new())?;
-    let binding = EffectBinding::new(original, target, policy)?;
     let guard = CheckedListedGuard {
         check: checker,
         directories: Mutex::default(),

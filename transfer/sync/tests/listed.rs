@@ -583,3 +583,110 @@ fn coupled_old_retirement_survives_later_publication_failure_without_postfailure
     assert!(!f.targets[0].join("q").exists());
     clean(&f.targets[0]);
 }
+
+#[cfg(unix)]
+#[test]
+fn restrictive_umask_preserves_one_created_scope_through_inspection_and_postorder_failure() {
+    use std::os::unix::fs::PermissionsExt;
+    const CHILD: &str = "DIFF_DIRS_LISTED_UMASK_CHILD";
+    let scratch = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.test-agent/listed-umask");
+    if std::env::var_os(CHILD).is_none() {
+        fs::create_dir_all(&scratch).unwrap();
+        let output = std::process::Command::new("sh")
+            .args([
+                "-c",
+                "umask 0777; exec \"$1\" --exact restrictive_umask_preserves_one_created_scope_through_inspection_and_postorder_failure --nocapture",
+                "listed-umask-test",
+            ])
+            .arg(std::env::current_exe().unwrap())
+            .env(CHILD, "1")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+    let temp = tempfile::tempdir_in(fs::canonicalize(scratch).unwrap()).unwrap();
+    fs::set_permissions(temp.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let source_root = temp.path().join("source");
+    fs::create_dir(&source_root).unwrap();
+    fs::set_permissions(&source_root, fs::Permissions::from_mode(0o700)).unwrap();
+    for path in ["p", "p/deep"] {
+        fs::create_dir(source_root.join(path)).unwrap();
+        fs::set_permissions(source_root.join(path), fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    fs::write(source_root.join("p/deep/value"), b"post-umask physical copy").unwrap();
+    fs::set_permissions(source_root.join("p/deep/value"), fs::Permissions::from_mode(0o444)).unwrap();
+    fs::set_permissions(source_root.join("p"), fs::Permissions::from_mode(0o751)).unwrap();
+    fs::set_permissions(source_root.join("p/deep"), fs::Permissions::from_mode(0o750)).unwrap();
+    let paths: Vec<_> = (0..3).map(|i| temp.path().join(format!("target-{i}"))).collect();
+    for path in &paths[1..] {
+        fs::create_dir(path).unwrap();
+        fs::set_permissions(path, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    fs::write(paths[2].join("p"), b"old owned leaf").unwrap();
+    fs::set_permissions(paths[2].join("p"), fs::Permissions::from_mode(0o444)).unwrap();
+    let policy = if std::env::var_os("DIFF_DIRS_SYNC_REQUIRE_REFLINK").is_some() {
+        CopyPolicy::ReflinkRequired
+    } else {
+        CopyPolicy::Copy
+    };
+    let bindings: Vec<_> = paths.iter().map(|p| EffectBinding::new(&source_root, p, policy).unwrap()).collect();
+    let desired = PreparedLeafList::new(["p/deep/value"]).unwrap();
+    let owned = [
+        OwnedLeafSet::new(Vec::<PathBuf>::new()).unwrap(),
+        OwnedLeafSet::new(Vec::<PathBuf>::new()).unwrap(),
+        OwnedLeafSet::new(["p"]).unwrap(),
+    ];
+    let ids = [TargetId("new-root".into()), TargetId("retained".into()), TargetId("staged".into())];
+    struct Refuse(bool);
+    impl ListedGuard for Refuse {
+        fn check(&self, at: ListedCandidate<'_>, _: EntryFacts<'_>) -> Result<(), CheckError> {
+            if self.0 && matches!(at.observed,DeclaredCandidate::Entry(e) if e.coordinate.name=="value") {
+                Err("deep batch refusal".into())
+            } else {
+                Ok(())
+            }
+        }
+    }
+    for refuse in [true, false] {
+        let guard = Refuse(refuse);
+        let targets: Vec<_> = (0..3)
+            .map(|i| ListedTarget {
+                id: &ids[i],
+                binding: &bindings[i],
+                owned: &owned[i],
+                intent: ListedIntent::RenewOwned,
+                guard: &guard,
+            })
+            .collect();
+        let source = SourceSession::new(&source_root);
+        let report = reconcile_listed(&source, &desired, &targets).unwrap();
+        assert_eq!(source.diagnostics().declared.metadata_acquisitions, 3);
+        for (i, outcome) in report.outcomes.into_iter().enumerate() {
+            if refuse {
+                let failure = outcome.outcome.unwrap_err();
+                assert_eq!(outcome.coverage.installed, 0);
+                assert!(!outcome.coverage.complete);
+                assert_eq!(failure.completed.directories_created, [3, 2, 0][i]);
+                assert_eq!(failure.completed.directory_permissions_set, [6, 4, 0][i]);
+                if i == 2 {
+                    assert_eq!(fs::read(paths[i].join("p")).unwrap(), b"old owned leaf");
+                    clean(&paths[i]);
+                    continue;
+                }
+            } else {
+                assert!(outcome.coverage.complete, "lane {i}: {:?}", outcome.outcome);
+                assert_eq!(outcome.coverage.installed, 1);
+                assert_eq!(fs::read(paths[i].join("p/deep/value")).unwrap(), b"post-umask physical copy");
+            }
+            assert_eq!(fs::metadata(paths[i].join("p")).unwrap().permissions().mode() & 0o777, 0o751);
+            assert_eq!(fs::metadata(paths[i].join("p/deep")).unwrap().permissions().mode() & 0o777, 0o750);
+            clean(&paths[i]);
+        }
+    }
+}

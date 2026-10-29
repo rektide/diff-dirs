@@ -20,6 +20,13 @@ pub(super) struct Index {
 }
 impl Index {
     fn build(specs: impl IntoIterator<Item = DesiredLeaf>, owned: bool) -> Result<Arc<Self>, Failure> {
+        if !cfg!(any(unix, windows)) {
+            return Err(Failure::invalid(
+                "prepare manifest",
+                Path::new(""),
+                "declared native-name encoding is supported on Unix and Windows only",
+            ));
+        }
         let mut leaves = specs
             .into_iter()
             .map(|mut spec| {
