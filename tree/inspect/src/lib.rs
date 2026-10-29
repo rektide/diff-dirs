@@ -6,6 +6,7 @@
 mod acquire;
 mod check;
 mod comparison;
+mod declared;
 mod epoch;
 mod error;
 mod model;
@@ -20,6 +21,10 @@ mod visitor;
 pub use acquire::{Available, Demand, EntryFacts, SideDemands, SideFacts};
 pub use check::{Check, CheckError, CheckRef, Entry, NoCheck, Purpose, Side};
 pub use comparison::{Comparator, Comparison, ComparisonInput, SemanticId, SizeAndLink, StatKey};
+pub use declared::{
+    DeclaredCandidate, DeclaredChoice, DeclaredEntryCandidate, DeclaredInspection, DeclaredName, DeclaredNames, DeclaredRequest, DeclaredRouteCandidate,
+    DeclaredSelection, inspect_declared_group,
+};
 pub use diff_dirs_tree_observe::{EarlyFacts, FactOrigin, FileKind};
 pub use diff_dirs_tree_observe::{ObservationBackend, ObservationConfig, ObservationResources, ResourceError};
 pub use error::Error;

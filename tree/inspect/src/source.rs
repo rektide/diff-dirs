@@ -1,5 +1,5 @@
 //! Bounded successful source observations. Active width is not retained capacity.
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::sync::{
     Arc, Mutex,
@@ -291,6 +291,53 @@ pub(crate) struct SourceLease<'a> {
     counter: SourceCounter,
 }
 impl SourceLease<'_> {
+    /// The containing route was admitted by inspection in the current epoch.
+    /// Only positive lookup results enter retention; completeness comes solely
+    /// from an OriginalListing. Failures/absence are interned by the active call.
+    pub(crate) fn lookup(
+        &self,
+        parent: &Path,
+        name: &OsStr,
+        acquire: &impl Acquire,
+        epoch: &crate::InspectionEpoch,
+    ) -> Result<Option<Arc<AcquisitionCell>>, Arc<Error>> {
+        let mut batch = self.batch.lock().expect("source batch poisoned");
+        let index = batch.cells.binary_search_by(|(n, _)| n.as_encoded_bytes().cmp(name.as_encoded_bytes()));
+        let (cell, hints) = match index {
+            Ok(index) => {
+                let cell = batch.cells[index].1.clone();
+                // Preserve original listing hints even when lookup metadata is
+                // stronger; only explicit kind/fact stages see the stronger fact.
+                let hints = batch
+                    .complete_names
+                    .as_ref()
+                    .and_then(|l| l.names.iter().find(|(n, _)| n == name).map(|(_, h)| *h));
+                let hints = match hints {
+                    Some(hints) => hints,
+                    None => cell.lookup_hints(),
+                };
+                (cell, hints)
+            }
+            Err(index) => {
+                if batch.complete_names.is_some() {
+                    return Ok(None);
+                }
+                let path = parent.join(name);
+                self.counter.metadata();
+                let metadata = match acquire.path_metadata(&path) {
+                    Ok(metadata) => Arc::new(metadata),
+                    Err(Error::Io { source, .. }) if source.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+                    Err(error) => return Err(Arc::new(error)),
+                };
+                epoch.acquired_directory(&path, &metadata)?;
+                let hints = EarlyFacts::from_acquired_metadata(&metadata);
+                let cell = Arc::new(SuccessfulCell::lookup(path, metadata));
+                batch.cells.insert(index, (name.to_owned(), cell.clone()));
+                (cell, hints)
+            }
+        };
+        Ok(Some(Arc::new(AcquisitionCell::source(cell, hints, self.counter.clone()))))
+    }
     pub(crate) fn listed(&self, path: &Path, acquire: &impl Acquire) -> Result<Vec<(OsString, Arc<AcquisitionCell>)>, Error> {
         // Only a per-directory lock spans enumeration, never the cache index.
         let mut batch = self.batch.lock().expect("source batch poisoned");

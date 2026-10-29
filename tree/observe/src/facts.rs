@@ -116,4 +116,12 @@ impl EarlyFacts {
             origin: FactOrigin::RootMetadata,
         }
     }
+
+    /// Project an actual no-follow child lookup, distinct from root binding and
+    /// the immutable hints of a directory enumeration.
+    pub fn from_acquired_metadata(metadata: &Metadata) -> Self {
+        let mut facts = Self::from_root_metadata(metadata);
+        facts.origin = FactOrigin::AcquiredMetadata;
+        facts
+    }
 }

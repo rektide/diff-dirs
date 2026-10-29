@@ -169,6 +169,19 @@ pub(crate) struct SuccessfulCell {
     state: Mutex<SuccessState>,
 }
 impl SuccessfulCell {
+    pub(crate) fn lookup_hints(&self) -> EarlyFacts {
+        let state = self.state.lock().expect("successful source cell poisoned");
+        EarlyFacts::from_acquired_metadata(state.metadata.as_ref().expect("sparse positive lookup has metadata"))
+    }
+    pub(crate) fn lookup(path: PathBuf, metadata: Arc<Metadata>) -> Self {
+        Self {
+            path,
+            state: Mutex::new(SuccessState {
+                metadata: Some(metadata),
+                ..SuccessState::default()
+            }),
+        }
+    }
     pub(crate) fn listed(entry: observe::Entry) -> Self {
         Self {
             path: entry.path(),
@@ -207,6 +220,20 @@ pub(crate) struct AcquisitionCell {
     successful: Option<(Arc<SuccessfulCell>, crate::source::SourceCounter)>,
 }
 impl AcquisitionCell {
+    pub(crate) fn lookup(path: PathBuf, metadata: Arc<Metadata>) -> Self {
+        Self {
+            hints: EarlyFacts::from_acquired_metadata(&metadata),
+            path,
+            state: Mutex::new(CellState {
+                listed: None,
+                metadata: Some(Ok(metadata)),
+                link: None,
+                plain: None,
+                linked: None,
+            }),
+            successful: None,
+        }
+    }
     pub fn listed(entry: observe::Entry) -> Self {
         Self {
             path: entry.path(),

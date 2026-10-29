@@ -79,6 +79,7 @@ pub enum SharedInputError {
     UnorderedTargets,
     InvalidProfile,
     EmptyRoot,
+    InvalidDeclared(&'static str),
 }
 impl std::fmt::Display for SharedInputError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -88,6 +89,7 @@ impl std::fmt::Display for SharedInputError {
             Self::UnorderedTargets => f.write_str("targets must be distinct and ordered"),
             Self::InvalidProfile => f.write_str("LegacyFull requires StatKey comparison"),
             Self::EmptyRoot => f.write_str("root assessment requires at least one actual side"),
+            Self::InvalidDeclared(message) => f.write_str(message),
         }
     }
 }
