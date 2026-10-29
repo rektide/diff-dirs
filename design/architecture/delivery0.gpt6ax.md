@@ -54,6 +54,8 @@ sources:
     title: Verified production native routes, full manifest gates, available phase outcomes and actual optional ordinary pool
   - resource: /design/performance/selection0.sol61x.md
     title: Measured exact predecessor/current wide clean ownership, clone allocations, fact release and negative transient/retained-memory findings
+  - resource: /design/performance/cache-charge1.sol61x.md
+    title: Verified private control-group/alignment charge correction with matched original fixture and unchanged source/lifetime behavior
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -139,7 +141,7 @@ specific unresolved concern.
 | Public command/wire design | Explicit Astra high, `opencode://ses_e78f2e0eaffejn7gBDnYKJ2RhA` | Returned at `044b6471`; schema1/cutover/measurement-profile contract accepted. |
 | Public reseed/prepare cutover | Sol xhigh, `opencode://ses_e779f1a9affejTLMoRyE5Nv4xW` | Active: actual dispatch, source/selection outcome data, schema1, old-driver retirement and operative docs. |
 | Bounded selected-state ownership evidence | Sol xhigh, `opencode://ses_e779e67c4ffep3LwYT7qpuVLbK` | Returned at `2c892dad`; exact small full-visitor allocator/lifetime receipt reviewed. |
-| Source cache charge correction | Sol xhigh, `opencode://ses_e77885cc0ffeFqE7lKAwqkV7Oa` | Active bounded fix for the measured 16-byte retained-capacity undercount. |
+| Source cache charge correction | Sol xhigh, `opencode://ses_e77885cc0ffeFqE7lKAwqkV7Oa` | Returned through `10faca4a`; fix `48e8fd10` and actual allocator regression reviewed. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -584,6 +586,22 @@ tracked as `diffdir-tree-coordinated-cache-charge`; a bounded correction is acti
 The broader allocation costs remain recorded evidence rather than being hidden
 behind the eliminated decision clone. No general optimization sweep is selected
 by this receipt.
+
+### Cache charge corrected without changing residency
+
+`48e8fd10`, with [receipt](/design/performance/cache-charge1.sol61x.md) `10faca4a`,
+includes the current HashMap's missing trailing control group and conservative
+alignment/load-factor slack. Parent reviewed the private formula and actual
+requested-layout regression. API/version remains 0.7; tight byte limits may evict
+earlier, with unchanged policy and source ownership.
+
+The original N2 fixture now charges 38,964 bytes against the unchanged 38,949-byte
+cache-clear release. Every other numeric CSV field matches the frozen receipt,
+including allocations, source work and lifetimes. Twenty-four small fill/churn
+cases and 11 focused owner/group checks, strict affected lint, formatting and
+document checks passed. The envelope is explicitly tied to the reviewed current
+std implementation, not a stable HashMap allocation ABI or RSS bound. The broader
+allocation tradeoff remains unchanged and visible.
 
 ## Work ownership and navigation
 
