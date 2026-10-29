@@ -7,7 +7,7 @@ status: proposed-integration
 generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
-    title: Human asks to assess trajectory1 and local steering together so architectural requirements shape present and future construction; parent traces research, current code and tickets and proposes an interleaved build
+    title: Human commissions architectural integration and explains renewal as the baseline avoiding uncertain reflink-identity detection; parent traces current contracts, proposes an interleaved build and grounds the renewal cost question in existing Btrfs and kernel evidence
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/trajectory1.gpt6ax.md"
     title: Whole-command delivery sequence, shared input lifetimes and explicit product decisions
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/work-map0.gpt6ax.md"
@@ -34,6 +34,10 @@ sources:
     title: Staged fact demand, full-visitor compatibility and execution handoff
   - resource: /design/observation/names0.gpt61sxh.md
     title: Allocation evidence and sparse-survivor ownership tradeoff
+  - resource: /design/performance/opportunity-also.md
+    title: Inspected Btrfs checksum coverage, compressed/inline limitations and distinct content, object and extent identity questions
+  - resource: /design/performance/leaf0.sol61x.md
+    title: Historical controlled production-kernel evidence for improving required-clone execution without detecting existing sharing
   - resource: /design/execution/contracts0.gpt61sxh.md
     title: Earlier typed-goal and fine-grained specimen contracts, distinct from production continuation
   - resource: /design/actions/dispatch0.gpt61sxh.md
@@ -323,12 +327,24 @@ supplies that separation without requiring a general action framework now.
 
 <a id="annealing-native"></a>
 
-## 6. Keep the native decision open at the right boundary
+## 6. Renewal is the baseline; optimize how it is achieved
 
-Trajectory1's first-release table recommends renewal. The subsequent discussion
-adds a useful correction: **renewal is a postcondition; clear-first is one protocol
-for achieving it.** Refresh versus renewal and clear-first versus another truthful
-renewal composition are two different questions.
+The human's follow-up in this session supplies the missing rationale: **renew donor
+sharing is the baseline objective because establishing whether existing storage
+already shares with the donor may itself be costly or unavailable.** The hope is
+to make that constructive operation reasonably fast without requiring clever
+identity detection first. This resolves the assessment's earlier framing of an
+unanswered renewal-versus-refresh preference for the tracked-file baseline.
+
+Use fresh private destinations and successful required-clone operations to obtain
+the filesystem's clone semantics directly. Their production execution does not
+require a preceding whole-file sharing census. Focused native tests can verify the
+protocol and representative sharing behavior separately from the normal command.
+
+**Renewal is a postcondition; clear-first remains one protocol for achieving it.**
+An alternative can improve the native composition while renewing every required
+leaf. Retaining an existing leaf based only on content equality would instead
+weaken that objective unless suitable sharing evidence were available.
 
 The present strict route is an executable control: save O, sparse-clear, establish
 a receiving child of D, install S, adopt S state, restore D when needed, verify,
@@ -336,13 +352,53 @@ transfer ordinary contents, finish. It deliberately reinstalls tracked leaves on
 a clean D=S run. With D≠S, some S installations are temporary and confer no final-D
 sharing guarantee.
 
-I recommend retaining that control while extracting command inputs and native
-receiver execution. Before public cutover, choose the required tracked/storage
-outcome and review whether clear-first's costs and namespace effects fit it. If a
-less destructive renewal route is pursued, prove truthful membership/cache state
-and local-obstruction authority on tiny D=S/D≠S examples before selecting it.
-Native meaning remains with JW; generic equal-leaf installation cannot by itself
-make a partially installed S tree compatible with an unmodified S cache.
+Retain that control while extracting command inputs and native receiver execution.
+Measure the necessary clone/native work and remove duplicated setup, acquisition,
+index construction and protocol passes where a sound replacement is demonstrated.
+A less destructive renewal route still needs truthful membership/cache state and
+local-obstruction authority on tiny D=S/D≠S examples. Native meaning remains with
+JW; generic equal-leaf installation cannot by itself make a partially installed S
+tree compatible with an unmodified S cache. The final-D sharing scope when D differs
+from S still needs an honest outcome statement.
+
+### Why the Btrfs inquiry does not gate this baseline
+
+The [checked Btrfs account](/design/performance/opportunity-also.md#btrfs-checksums-and-change-tokens)
+confirms the remembered obstacle: the inspected `GET_CSUMS` implementation supplies
+COMPRESSED/INLINE classifications without checksum payload for those ranges. At
+that study's date the running kernel also returned ENOTTY; this assessment did not
+recheck today's runtime capability.
+
+Even complete matching content checksums would establish only their declared
+content-comparison evidence, **not that two files share the same storage**. Matching
+device/inode identifies a shared file object rather than a private reflink.
+Different inodes do not establish extent sharing. FIEMAP can provide extent evidence,
+but a SHARED flag alone identifies neither this donor nor complete file coverage.
+A donor-specific sharing predicate needs its own range, lifetime and cost contract.
+The compressed-checksum limitation concerns inspection; requesting a reflink does
+not require obtaining those checksums first.
+
+An optional inspect-and-skip optimization should earn its place by saving more
+renewal work than its probing costs, with useful coverage on the actual compressed
+workload. Unknown evidence would still require renewal under this baseline. Keep
+that inquiry available while making unconditional required renewal work well.
+
+### What performance evidence supports
+
+The [earlier leaf-pipeline controls](/design/performance/leaf0.sol61x.md#larger-same-shape-confirmation)
+show that required-clone execution can improve substantially without sharing
+detection. On the recorded owned Btrfs fixture of 30k 4-KiB files, 300 directories
+and 300 links, P4 fresh required-clone sync went from a median 1.789 seconds to
+0.954 seconds through descriptor ownership, batch staging and metadata handoff.
+Those optimizations are already delivered. This is historical library evidence,
+not a prediction for the present JW native command or another unclaimed future win.
+
+Renewal still pays per-file namespace/metadata work and filesystem clone work;
+extent structure, dirty data and native transitions can affect cost. Source sharing
+does not eliminate destination installations. The next evidence should separate
+native commands, tracked installation, ordinary transfer and finish on a bounded
+owned fixture. That can show whether the baseline is usable and identify the next
+avoidable cost without introducing a prerequisite identity-probing campaign.
 
 Ordinary-data semantics have an established useful baseline: selected source
 regions mirror; vanished qualifying source roots retain their target; empty

@@ -8,7 +8,7 @@ generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-28 }
 updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
-    title: Integrates the latest request to make inherited judgments and modular comparison part of architectural construction, with a proposed interleaved build sequence
+    title: Integrates inherited judgments and modular comparison into the proposed next build and records the human's renewal baseline motivated by uncertain reflink-detection cost
   - resource: /design/architecture/annealing0.gpt6ax.md
     title: Source-grounded integration of trajectory1, the three-lane queue, inherited context and persisted selection contracts
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/discussion0.gpt6ax.md"
@@ -140,9 +140,15 @@ observed difference. Do not falsify the baseline comparison to request a reclone
 
 Native command reduction, prepared-source identity, tracked sharing renewal, desired
 revision selection and operator history/preview semantics belong to JW. The most
-important product fork is whether frequent work must renew tracked CoW every time
-or primarily update contents/dependencies. A narrower refresh operation may be
-valuable, but must not silently weaken the existing reseed meaning.
+recent human clarification keeps **renew donor sharing as the tracked-file baseline**:
+determining whether existing files already share storage may be expensive or lack
+usable evidence, particularly given the compressed/inline checksum limitations.
+The engineering task is to make required renewal efficient, with the existing native
+route as a control. Optional sharing detection must justify its own correctness,
+coverage and cost before it can eliminate installs. See the
+[renewal rationale and performance evidence](/design/architecture/annealing0.gpt6ax.md#annealing-native).
+This clarification concerns tracked renewal; retained ordinary payload still has
+the separate stat-equality and storage-evidence contract described above.
 
 ## Next useful comparison
 
