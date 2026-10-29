@@ -79,6 +79,10 @@ impl Acquire for Counted {
         self.before(Call::Root, path, "inspect root")?;
         Physical(&ObservationResources::default()).root_metadata(path)
     }
+    fn path_metadata(&self, path: &Path) -> Result<Metadata, Error> {
+        self.before(Call::Stat, path, "inspect entry")?;
+        Physical(&ObservationResources::default()).path_metadata(path)
+    }
     fn link(&self, path: &Path) -> Result<PathBuf, Error> {
         self.before(Call::Link, path, "read symlink")?;
         Physical(&ObservationResources::default()).link(path)
@@ -1316,6 +1320,8 @@ fn execution_facts_are_finite_reuse_kind_metadata_and_gate_whole_publication() {
         faults: vec![Fault::Raw(Call::Stat, f.original.join("z"), 5)],
         ..Counted::default()
     };
+    // A new source phase must not reuse the successful preceding observation.
+    let source = SourceSession::new(&f.original);
     let result = inspect_group_using(
         &source,
         admitted_request(&f.original),
@@ -1331,6 +1337,190 @@ fn execution_facts_are_finite_reuse_kind_metadata_and_gate_whole_publication() {
     .outcome;
     assert_eq!(result.unwrap_err().path(), f.original.join("z"));
     assert!(fs::read_dir(&f.target).unwrap().next().is_none());
+}
+
+#[test]
+fn source_cache_preserves_original_hints_masks_acquired_attributes_and_bounded_release() {
+    struct Hinted {
+        inner: SparsePolicy,
+        hints: Arc<Mutex<Vec<EarlyFacts>>>,
+    }
+    impl crate::Policy for Hinted {
+        type Context = u8;
+        fn identity(&self) -> &SemanticId {
+            self.inner.identity()
+        }
+        fn initial_context(&self) -> u8 {
+            7
+        }
+        fn names(&self, _: &u8, names: &mut Names) -> Result<(), CheckError> {
+            self.hints.lock().unwrap().push(*names.entries()[0].source().unwrap());
+            Ok(())
+        }
+        fn shape(&self, c: &u8, b: &mut ShapeChoices<'_, u8>) -> Result<(), CheckError> {
+            self.inner.shape(c, b)
+        }
+        fn select(&self, c: &u8, b: &mut Choices<'_, u8>) -> Result<(), CheckError> {
+            self.inner.select(c, b)
+        }
+    }
+    let f = Fixture::new();
+    file(&f.original.join("leaf"), b"actual retained attributes");
+    let source = SourceSession::new(&f.original);
+    let counted = Counted::default();
+    let hints = Arc::new(Mutex::new(Vec::new()));
+    let run = |mode| {
+        let policy = Hinted {
+            inner: SparsePolicy::new(mode),
+            hints: hints.clone(),
+        };
+        inspect_group_using(
+            &source,
+            admitted_request(&f.original),
+            &[TargetInspection {
+                target: 0,
+                logical_root: &f.target,
+                physical_directory: Some(&f.target),
+                context: &7,
+                policy: &policy,
+                comparator: &StatKey,
+            }],
+            &NoExecutionDemand,
+            Execution::Sequential,
+            &counted,
+            None,
+        )
+        .unwrap()
+        .pop()
+        .unwrap()
+        .outcome
+        .unwrap()
+    };
+    drop(run(SparseMode::KindOnly));
+    let acquired = run(SparseMode::Attributes);
+    let weak = Arc::downgrade(acquired.facts[0].source.as_ref().unwrap().attributes.as_ref().unwrap());
+    drop(acquired);
+    drop(run(SparseMode::KindOnly));
+    drop(run(SparseMode::Attributes));
+    assert_eq!(counted.count(Call::List, &f.original), 1);
+    assert_eq!(
+        counted.count(Call::Stat, &f.original.join("leaf")),
+        1,
+        "a later demand uses its admitted path, then retains that actual result"
+    );
+    let hints = hints.lock().unwrap();
+    assert_eq!(hints.len(), 4);
+    assert!(hints.iter().all(|h| *h == hints[0]));
+    assert_eq!(hints[0].origin(), FactOrigin::Listing);
+    drop(hints);
+    let diagnostics = source.diagnostics();
+    assert_eq!(diagnostics.paired.listings, 1);
+    assert_eq!(diagnostics.paired.cache_hits, 3);
+    assert_eq!(diagnostics.paired.metadata_acquisitions, 1);
+    assert!(diagnostics.retained_charged_capacity > std::mem::size_of::<Metadata>());
+    assert!(weak.upgrade().is_some());
+    source.set_cache_limits(SourceCacheLimits {
+        batches: 0,
+        charged_capacity: 0,
+    });
+    assert_eq!(source.diagnostics().retained_charged_capacity, 0);
+    assert!(weak.upgrade().is_none());
+    drop(run(SparseMode::Attributes));
+    drop(run(SparseMode::Attributes));
+    assert_eq!(counted.count(Call::List, &f.original), 3);
+    assert_eq!(counted.count(Call::Stat, &f.original.join("leaf")), 3);
+    assert_eq!(source.diagnostics().retained_batches, 0);
+}
+
+#[cfg(unix)]
+#[test]
+fn cached_source_optional_failures_are_call_local_original_causes_and_retry_only_the_missing_fact() {
+    let f = Fixture::new();
+    let roots = targets(&f, 2);
+    std::os::unix::fs::symlink("literal//./missing", f.original.join("link")).unwrap();
+    let source = SourceSession::new(&f.original);
+    let policies = [SparsePolicy::new(SparseMode::Link), SparsePolicy::new(SparseMode::KindOnly)];
+    let counted = Counted {
+        faults: vec![Fault::Custom(Call::Link, f.original.join("link"), Arc::new(Marker))],
+        ..Default::default()
+    };
+    let results = inspect_group_using(
+        &source,
+        admitted_request(&f.original),
+        &sparse_requests(&roots, &policies, &StatKey),
+        &NoExecutionDemand,
+        Execution::Sequential,
+        &counted,
+        None,
+    )
+    .unwrap();
+    let error = results[0].outcome.as_ref().unwrap_err();
+    let weak = Arc::downgrade(error);
+    assert!(io_cause(error).get_ref().unwrap().downcast_ref::<Arc<Marker>>().is_some());
+    assert!(results[1].outcome.is_ok());
+    drop(results);
+    assert!(weak.upgrade().is_none(), "retained observations must not own executable errors");
+    let good = Counted::default();
+    let results = inspect_group_using(
+        &source,
+        admitted_request(&f.original),
+        &sparse_requests(&roots, &policies, &StatKey),
+        &NoExecutionDemand,
+        Execution::Sequential,
+        &good,
+        None,
+    )
+    .unwrap();
+    assert!(results.iter().all(|r| r.outcome.is_ok()));
+    assert_eq!(good.count(Call::List, &f.original), 0);
+    assert_eq!(good.count(Call::Link, &f.original.join("link")), 1);
+    assert!(matches!(
+        results[1].outcome.as_ref().unwrap().facts(SlotId(0)).source.unwrap().literal_link,
+        Available::NotRequested
+    ));
+    assert_eq!(source.diagnostics().paired.link_acquisitions, 2);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_retained_listing_never_bypasses_fresh_source_route_admission() {
+    let f = Fixture::new();
+    fs::create_dir(f.original.join("q")).unwrap();
+    file(&f.original.join("q/leaf"), b"good source");
+    let source = SourceSession::new(&f.original);
+    let policy = SparsePolicy::new(SparseMode::Attributes);
+    let run = || {
+        inspect_group(
+            &source,
+            DirectoryRequest {
+                relative: Path::new("q"),
+                source_directory: Some(&f.original.join("q")),
+                purpose: Purpose::Copy,
+                admission: DirectoryAdmission::AlreadyAdmitted,
+            },
+            &[TargetInspection {
+                target: 0,
+                logical_root: &f.target,
+                physical_directory: None,
+                context: &7,
+                policy: &policy,
+                comparator: &StatKey,
+            }],
+            &NoExecutionDemand,
+            &InspectionEpoch::new(),
+            Execution::Sequential,
+        )
+        .unwrap()
+        .pop()
+        .unwrap()
+        .outcome
+    };
+    assert!(run().is_ok());
+    fs::rename(f.original.join("q"), f.original.join("old-q")).unwrap();
+    std::os::unix::fs::symlink("old-q", f.original.join("q")).unwrap();
+    assert!(matches!(run().unwrap_err().as_ref(), Error::NotDirectory { .. }));
+    assert_eq!(source.diagnostics().paired.cache_hits, 0);
+    assert_eq!(source.diagnostics().paired.listings, 1);
 }
 
 #[test]

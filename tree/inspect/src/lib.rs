@@ -14,6 +14,7 @@ mod prepared;
 mod roots;
 mod scope;
 pub mod selection;
+mod source;
 mod visitor;
 
 pub use acquire::{Available, Demand, EntryFacts, SideDemands, SideFacts};
@@ -35,9 +36,10 @@ pub use selection::{
     InstallIntent, Interior, InteriorInput, InteriorRole, Kind, LeafExpectation, LeafId, LeafKind, ManifestId, NativePlatform, NodeId, RemovalAuthority,
     SelectionDomain, SelectionError, SelectionParts, Shape, SlotId, SourceObservation,
 };
+pub use source::{SourceCacheLimits, SourceDiagnostics, SourceSession, SourceWork, SourceWorkDiagnostics};
 pub use visitor::shared::{
-    DirectoryAdmission, DirectoryComparison, DirectoryRequest, InspectionEpoch, SharedBindError, SharedInputError, SharedRoots, SourceCacheLimits,
-    SourceSession, TargetComparison, TargetInspection, TargetVisitor, inspect_group,
+    DirectoryAdmission, DirectoryComparison, DirectoryRequest, InspectionEpoch, SharedBindError, SharedInputError, SharedRoots, TargetComparison,
+    TargetInspection, TargetVisitor, inspect_group, inspect_group_with_work,
 };
 pub use visitor::{
     Action, Admission, CheckedScope, Container, Facts, Name, Names, NoVisitor, Operation, Operations, Presence, Visitor, VisitorRef, inspect_directory,

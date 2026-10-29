@@ -156,11 +156,55 @@ struct CellState {
     plain: Option<Arc<Facts>>,
     linked: Option<Arc<Facts>>,
 }
+#[derive(Default)]
+struct SuccessState {
+    listed: Option<observe::Entry>,
+    metadata: Option<Arc<Metadata>>,
+    link: Option<Arc<PathBuf>>,
+}
+/// Cross-call cells contain successes only. Errors and full compatibility views
+/// belong to one joined inspection's AcquisitionCell, never the retained batch.
+pub(crate) struct SuccessfulCell {
+    path: PathBuf,
+    state: Mutex<SuccessState>,
+}
+impl SuccessfulCell {
+    pub(crate) fn listed(entry: observe::Entry) -> Self {
+        Self {
+            path: entry.path(),
+            state: Mutex::new(SuccessState {
+                listed: Some(entry),
+                ..SuccessState::default()
+            }),
+        }
+    }
+    pub(crate) fn attach_listing(&self, entry: observe::Entry) {
+        let mut state = self.state.lock().expect("successful source cell poisoned");
+        if state.metadata.is_none() {
+            state.listed = Some(entry);
+        }
+    }
+    pub(crate) fn close_listing(&self) {
+        self.state.lock().expect("successful source cell poisoned").listed = None;
+    }
+    pub(crate) fn charge(&self) -> usize {
+        use std::mem::size_of;
+        let state = self.state.lock().expect("successful source cell poisoned");
+        // Arc headers are charged explicitly; Metadata has no owned external
+        // buffer on the supported std backends. This is a capacity model, not RSS.
+        size_of::<Self>()
+            + 2 * size_of::<usize>()
+            + self.path.capacity()
+            + state.metadata.as_ref().map_or(0, |_| size_of::<Metadata>() + 2 * size_of::<usize>())
+            + state.link.as_ref().map_or(0, |p| size_of::<PathBuf>() + 2 * size_of::<usize>() + p.capacity())
+    }
+}
 /// One present entry's retained outcomes. A failed optional fact does not poison kind.
 pub(crate) struct AcquisitionCell {
     path: PathBuf,
     hints: EarlyFacts,
     state: Mutex<CellState>,
+    successful: Option<(Arc<SuccessfulCell>, crate::source::SourceCounter)>,
 }
 impl AcquisitionCell {
     pub fn listed(entry: observe::Entry) -> Self {
@@ -174,6 +218,7 @@ impl AcquisitionCell {
                 plain: None,
                 linked: None,
             }),
+            successful: None,
         }
     }
     pub fn bound(path: PathBuf, metadata: Metadata) -> Self {
@@ -187,6 +232,21 @@ impl AcquisitionCell {
                 plain: None,
                 linked: None,
             }),
+            successful: None,
+        }
+    }
+    pub(crate) fn source(cell: Arc<SuccessfulCell>, hints: EarlyFacts, counter: crate::source::SourceCounter) -> Self {
+        Self {
+            path: cell.path.clone(),
+            hints,
+            state: Mutex::new(CellState {
+                listed: None,
+                metadata: None,
+                link: None,
+                plain: None,
+                linked: None,
+            }),
+            successful: Some((cell, counter)),
         }
     }
     pub fn hints(&self) -> EarlyFacts {
@@ -199,6 +259,22 @@ impl AcquisitionCell {
         state
             .metadata
             .get_or_insert_with(|| {
+                if let Some((cell, counter)) = &self.successful {
+                    let mut shared = cell.state.lock().expect("successful source cell poisoned");
+                    if let Some(metadata) = &shared.metadata {
+                        counter.hit();
+                        return Ok(metadata.clone());
+                    }
+                    counter.metadata();
+                    let metadata = shared
+                        .listed
+                        .take()
+                        .map_or_else(|| acquire.path_metadata(&cell.path), |entry| acquire.metadata(entry))
+                        .map(Arc::new)
+                        .map_err(Arc::new)?;
+                    shared.metadata = Some(metadata.clone());
+                    return Ok(metadata);
+                }
                 state
                     .listed
                     .take()
@@ -211,7 +287,20 @@ impl AcquisitionCell {
     fn link_locked(&self, state: &mut CellState, acquire: &impl Acquire) -> Outcome<PathBuf> {
         state
             .link
-            .get_or_insert_with(|| acquire.link(&self.path).map(Arc::new).map_err(Arc::new))
+            .get_or_insert_with(|| {
+                if let Some((cell, counter)) = &self.successful {
+                    let mut shared = cell.state.lock().expect("successful source cell poisoned");
+                    if let Some(link) = &shared.link {
+                        counter.hit();
+                        return Ok(link.clone());
+                    }
+                    counter.link();
+                    let link = acquire.link(&cell.path).map(Arc::new).map_err(Arc::new)?;
+                    shared.link = Some(link.clone());
+                    return Ok(link);
+                }
+                acquire.link(&self.path).map(Arc::new).map_err(Arc::new)
+            })
             .clone()
     }
     pub fn kind(&self, acquire: &impl Acquire) -> Result<(Kind, FactOrigin), Arc<Error>> {

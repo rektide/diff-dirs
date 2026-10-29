@@ -3,10 +3,7 @@
 use std::ffi::OsString;
 use std::fs::Metadata;
 use std::path::{Path, PathBuf};
-use std::sync::{
-    Arc,
-    atomic::{AtomicU64, Ordering},
-};
+use std::sync::Arc;
 
 pub(crate) use crate::acquire::{Acquire, Physical};
 use crate::acquire::{AcquisitionCell, EntryRuntime};
@@ -96,55 +93,6 @@ impl std::fmt::Display for SharedInputError {
 }
 impl std::error::Error for SharedInputError {}
 
-/// Runtime source-generation binding. It owns no policy or recursive progress.
-/// Cells currently share within a joined call; bounded cross-call retention is a
-/// separate subsequent implementation, not an unbounded implicit catalog here.
-#[derive(Debug)]
-pub struct SourceSession {
-    root: PathBuf,
-    generation: u64,
-    resources: diff_dirs_tree_observe::ObservationResources,
-}
-static GENERATION: AtomicU64 = AtomicU64::new(1);
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SourceCacheLimits {
-    pub batches: usize,
-    pub charged_capacity: usize,
-}
-impl Default for SourceCacheLimits {
-    fn default() -> Self {
-        Self {
-            batches: 32,
-            charged_capacity: 8 * 1024 * 1024,
-        }
-    }
-}
-impl SourceSession {
-    /// Establish runtime identity, not a lasting route certificate. Caller admits
-    /// routes before immediate inspection, as for the existing admitted API.
-    pub fn new(root: impl AsRef<Path>) -> Self {
-        Self::with_resources(root, diff_dirs_tree_observe::ObservationResources::default())
-    }
-    pub fn with_resources(root: impl AsRef<Path>, resources: diff_dirs_tree_observe::ObservationResources) -> Self {
-        let generation = GENERATION
-            .try_update(Ordering::Relaxed, Ordering::Relaxed, |v| v.checked_add(1))
-            .expect("source generation space exhausted");
-        Self {
-            root: root.as_ref().to_owned(),
-            generation,
-            resources,
-        }
-    }
-    pub fn root(&self) -> &Path {
-        &self.root
-    }
-    pub fn generation(&self) -> u64 {
-        self.generation
-    }
-    pub fn resources(&self) -> &diff_dirs_tree_observe::ObservationResources {
-        &self.resources
-    }
-}
 pub use crate::epoch::InspectionEpoch;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DirectoryAdmission {
@@ -184,14 +132,51 @@ pub fn inspect_group<P: Policy, M: Comparator, E: ExecutionDemand>(
     epoch: &InspectionEpoch,
     execution: Execution,
 ) -> Result<Vec<TargetComparison<PreparedDirectory<P::Context>>>, SharedInputError> {
-    let mut outcomes = inspect_group_using(source, at, lanes, execution_demand, execution, &Physical(source.resources()), None)?;
+    inspect_group_with_work(source, at, lanes, execution_demand, epoch, execution, SourceWork::Paired)
+}
+
+/// The same inspector with a diagnostic work attribution. Attribution never
+/// changes acquisition, selection, ordering, retention or execution semantics.
+#[allow(clippy::too_many_arguments)]
+pub fn inspect_group_with_work<P: Policy, M: Comparator, E: ExecutionDemand>(
+    source: &SourceSession,
+    at: DirectoryRequest<'_>,
+    lanes: &[TargetInspection<'_, P, M>],
+    execution_demand: &E,
+    epoch: &InspectionEpoch,
+    execution: Execution,
+    work: SourceWork,
+) -> Result<Vec<TargetComparison<PreparedDirectory<P::Context>>>, SharedInputError> {
+    validate_request(at, lanes)?;
+    if lanes.is_empty() {
+        return Ok(Vec::new());
+    }
+    // A retained observation is not a route certificate. Admit before checkout,
+    // including for early names-only policy callbacks.
+    if let Some(path) = at.source_directory {
+        let route = if at.relative.as_os_str().is_empty() && at.admission == DirectoryAdmission::RootGated {
+            path.parent().unwrap_or(path)
+        } else {
+            path
+        };
+        if let Err(error) = epoch.directory(&std::path::absolute(route).map_err(|_| SharedInputError::InvalidDirectory(at.relative.to_owned()))?) {
+            return Ok(lanes
+                .iter()
+                .map(|lane| TargetComparison {
+                    target: lane.target,
+                    outcome: Err(error.clone()),
+                })
+                .collect());
+        }
+    }
+    let mut outcomes = inspect_group_work_using(source, at, lanes, execution_demand, execution, &Physical(source.resources()), None, work)?;
     for (lane, outcome) in lanes.iter().zip(&mut outcomes) {
         if let Ok(prepared) = &outcome.outcome {
             let reused = (|| {
                 for i in 0..prepared.selection().len() {
                     let name = prepared.selection().entry(SlotId(i)).name();
                     let facts = prepared.facts(SlotId(i));
-                    for (directory, facts) in [(at.source_directory, facts.source), (lane.physical_directory, facts.target)] {
+                    for (is_source, directory, facts) in [(true, at.source_directory, facts.source), (false, lane.physical_directory, facts.target)] {
                         if let (Some(directory), Some(facts)) = (directory, facts)
                             && facts.kind == Kind::Directory
                             && let Some(metadata) = facts.attributes.known()
@@ -201,7 +186,13 @@ pub fn inspect_group<P: Policy, M: Comparator, E: ExecutionDemand>(
                             } else {
                                 directory.join(name)
                             };
-                            epoch.acquired_directory(&path, metadata)?;
+                            if is_source {
+                                // Retained attributes cannot install a fresh route
+                                // certificate for a child not admitted this call.
+                                epoch.directory(&std::path::absolute(&path).map_err(|e| Arc::new(Error::io(path.clone(), "resolve source route", e)))?)?;
+                            } else {
+                                epoch.acquired_directory(&path, metadata)?;
+                            }
                         }
                     }
                 }
@@ -233,16 +224,7 @@ struct Ready<C> {
 }
 type PreparedOutcome<C> = Option<Result<PreparedDirectory<C>, Arc<Error>>>;
 
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn inspect_group_using<P: Policy, M: Comparator, E: ExecutionDemand>(
-    source: &SourceSession,
-    at: DirectoryRequest<'_>,
-    lanes: &[TargetInspection<'_, P, M>],
-    demand: &E,
-    execution: Execution,
-    acquire: &impl Acquire,
-    bound: Option<(&Metadata, &[Metadata])>,
-) -> Result<Vec<TargetComparison<PreparedDirectory<P::Context>>>, SharedInputError> {
+fn validate_request<P: Policy, M: Comparator>(at: DirectoryRequest<'_>, lanes: &[TargetInspection<'_, P, M>]) -> Result<(), SharedInputError> {
     if !normal_relative(at.relative) {
         return Err(SharedInputError::InvalidDirectory(at.relative.to_owned()));
     }
@@ -262,6 +244,34 @@ pub(crate) fn inspect_group_using<P: Policy, M: Comparator, E: ExecutionDemand>(
     {
         return Err(SharedInputError::EmptyRoot);
     }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn inspect_group_using<P: Policy, M: Comparator, E: ExecutionDemand>(
+    source: &SourceSession,
+    at: DirectoryRequest<'_>,
+    lanes: &[TargetInspection<'_, P, M>],
+    demand: &E,
+    execution: Execution,
+    acquire: &impl Acquire,
+    bound: Option<(&Metadata, &[Metadata])>,
+) -> Result<Vec<TargetComparison<PreparedDirectory<P::Context>>>, SharedInputError> {
+    inspect_group_work_using(source, at, lanes, demand, execution, acquire, bound, SourceWork::Paired)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn inspect_group_work_using<P: Policy, M: Comparator, E: ExecutionDemand>(
+    source: &SourceSession,
+    at: DirectoryRequest<'_>,
+    lanes: &[TargetInspection<'_, P, M>],
+    demand: &E,
+    execution: Execution,
+    acquire: &impl Acquire,
+    bound: Option<(&Metadata, &[Metadata])>,
+    work: SourceWork,
+) -> Result<Vec<TargetComparison<PreparedDirectory<P::Context>>>, SharedInputError> {
+    validate_request(at, lanes)?;
     let mut outcomes: Vec<PreparedOutcome<P::Context>> = lanes.iter().map(|_| None).collect();
     let mut ready = Vec::new();
     for (position, lane) in lanes.iter().enumerate() {
@@ -350,7 +360,19 @@ pub(crate) fn inspect_group_using<P: Policy, M: Comparator, E: ExecutionDemand>(
         }
     }
     if !ready.is_empty() {
-        let listed_source = at.source_directory.map(|p| listed(p, acquire)).transpose();
+        // Compatibility inspection can expose distinct logical and physical
+        // roots. Such an override must never populate this generation's cache.
+        let source_lease = at
+            .source_directory
+            .filter(|path| *path == source.root().join(at.relative))
+            .map(|_| source.checkout(at.relative, work));
+        let listed_source = at
+            .source_directory
+            .map(|path| match &source_lease {
+                Some(lease) => lease.listed(path, acquire),
+                None => listed(path, acquire),
+            })
+            .transpose();
         match listed_source {
             Err(error) => {
                 let error = Arc::new(error);
