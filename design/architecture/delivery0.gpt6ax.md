@@ -34,6 +34,8 @@ sources:
     title: Implemented retained-fixture command adapter, verified tooling and remaining public-report extraction gate
   - resource: /design/architecture/execution1.sol61x.md
     title: Verified 0.4 contextual frontier/planning/data checkpoint and exact remaining effect-runtime handoff
+  - resource: /design/architecture/declared-handoff0.gpt6a.md
+    title: Accepted inspect-owned declared lookup and target census, actual manifest binding, missing-owned-route coverage and sparse-cache completeness
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -108,6 +110,7 @@ specific unresolved concern.
 | Shared effect-kernel design handoff | Astra xhigh (requested high), `opencode://ses_e79da1717ffeKJmKkEcTiGUEZa` | Returned at `1c36cbc9`; private runtime/kernel interfaces and enclosing listed-slice interpretation accepted. |
 | Contextual frontier/planning/data | Sol xhigh, `opencode://ses_e79d26e21ffestzkMAfQRZS702` | Returned through `c14abc87`; frontier complete, contextual effects handed off explicitly. |
 | Contextual effect runtime | Sol xhigh, `opencode://ses_e79941441ffeOpOYowx1qFCZXY` | Active: P/M executable owners, direct prepared effects, all recursive contexts, shared kernel and actual resumed-effect proof. |
+| Declared-input preparation design | Explicit Astra high, `opencode://ses_e799075e5ffeLWmQqtFubr3wPE` | Returned at `5643527f`; accepted for the subsequent manifest implementation. Completed runtime report confirms `#high`. |
 | Reused two-route evidence adapter | Sol xhigh, `opencode://ses_e79d11c23ffeYmXANCjX2wAB34` | Returned through `06a2ffb9`; report binding and actual route runs await public CLI. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
@@ -325,6 +328,27 @@ Provider packages/pins are 0.4.0. JW's 0.3 evidence remains attributed to that
 predecessor; its next adoption will consume a useful complete contextual effect
 runtime rather than repeatedly migrate an intermediate executor. The new Sol owner
 has the exact kernel and execution handoffs and is completing that boundary.
+
+### Declared acquisition design accepted
+
+The [declared-input handoff](declared-handoff0.gpt6a.md) (`5643527f`) closes the
+inspect-private preparation gap for the later manifest owner. Parent accepts
+`inspect_declared_group` with two closed inputs: exact declarations and actual
+target census for coupled removal. Inspection owns lookup/facts/preparation; sync
+owns immutable S/O relations, authority lowering and actual manifest binding.
+The existing persisted selection fields suffice.
+
+For an actually absent O-only structural prefix, existing no-effect PreserveTree
+can mark the observed absence; only the private manifest bind assigns exact,
+once-only descendant retirement credits. This happens before an application-need
+shortcut. No effect count or desired fulfillment follows from that action alone.
+Parent-first scheduling retains collapse ownership over subordinate O work, and
+expansion uses only its S declarations.
+
+The later source cache must distinguish sparse successful lookup cells from a
+complete original listing. Exact lookup cannot make unqueried names absent or
+strengthen later early hints. These constraints were sent to the effect owner for
+interface compatibility; actual declared preparation remains the later slice.
 
 ## Work ownership and navigation
 
