@@ -38,6 +38,8 @@ sources:
     title: Accepted inspect-owned declared lookup and target census, actual manifest binding, missing-owned-route coverage and sparse-cache completeness
   - resource: /design/architecture/execution2.sol61x.md
     title: Verified contextual production runtime and concrete shared-kernel/epoch handoff for consumer adoption and grouped/listed execution
+  - resource: /design/architecture/reporting-handoff0.gpt6a.md
+    title: Confirmed deviation-retention conflation and duplicate kept-container counts, with accepted once-only accounting and explicit schema3 correction
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -116,7 +118,7 @@ specific unresolved concern.
 | Reused two-route evidence adapter | Sol xhigh, `opencode://ses_e79d11c23ffeYmXANCjX2wAB34` | Returned through `06a2ffb9`; report binding and actual route runs await public CLI. |
 | JW contextual ordinary cohort | Sol xhigh, `opencode://ses_e79561af9ffecPXhjLCL1J5Mcl` | Active: provider adoption, inherited Search/SelectedMirror and one real N1/N2 ordinary runtime. |
 | Grouped opaque execution and source retention | Sol xhigh, `opencode://ses_e795502d3ffeuJ2kcDootC5FFb` | Active: real grouped recursion and bounded generation-owned cache. |
-| Effect-report accounting correction design | Explicit Astra high, `opencode://ses_e7951c1b6ffeyQeGeqQnqwkKil` | Active narrow review of deviation being reported as retention. |
+| Effect-report accounting correction design | Explicit Astra high, `opencode://ses_e7951c1b6ffeyQeGeqQnqwkKil` | Returned at `3664ad18`; correction accepted and assigned around the active grouped build. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -377,6 +379,34 @@ still consume comparison `deviated`, so proactive renewal may be mislabeled as
 retention alongside genuinely retained containers. A targeted Astra-high accounting
 review is active before public report/schema cutover; the grouped implementer has
 been alerted to preserve that correction seam.
+
+### Reporting correction selected
+
+[Astra's reporting handoff](reporting-handoff0.gpt6a.md) (`3664ad18`) confirms both
+deviation/retention conflation and duplicate credits for explicit kept containers.
+Parent accepts separate static `deviated` and `retained` selection/summary counts,
+explicit opaque and necessary-container additions, and removal of subtraction-based
+deduplication. No-effect selections can be accepted from `ApplicationNeed::None`
+while retaining their control window and future paired edges. Zero-planned opaque
+work and equal renewal still execute.
+
+**Schema3 is selected explicitly.** Old closed aggregates cannot reconstruct true
+retention, so comparison parts, sync parts and the example transport must reject
+v2 rather than invent zeros or reinterpret its mixed totals. This supersedes the
+earlier v2 transition plan for an evidence-backed semantic correction before the
+public native report is finalized.
+
+Parent adds one domain qualification to the handoff's static-retention table:
+the listed proof-only absent O-structural marker—PreserveTree, NotRequested source,
+absent target, no desired input/interior/grants—contributes **zero retention**.
+It settles absent owned obligations through manifest binding, not a preservation
+choice. Physical source-only preservation still contributes one selected boundary.
+
+Work anchor: `diffdir-tree-coordinated-reporting`. The grouped implementer received
+the accepted design and qualification, with a separate correction commit required;
+if its context budget cannot absorb the correction, a fresh owner completes it
+before native report cutover. The JW consumer owner was notified of the upcoming
+distinct fields and schema meaning. No reporting code is claimed by this review.
 
 ## Work ownership and navigation
 
