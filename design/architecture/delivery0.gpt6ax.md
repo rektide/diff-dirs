@@ -26,6 +26,8 @@ sources:
     title: Shared native command implementation checkpoint, producer and preview evidence, pending final rebuild and integration interfaces
   - resource: /design/architecture/execution0.sol61x.md
     title: Verified shared-selection and contextual-inspection foundation, version migration and exact next execution slice
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/native-checkpoint1.sol61x.md"
+    title: Fresh 0.3 receiving adoption, completed native gates and compact causal failure-report correction
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -96,7 +98,10 @@ specific unresolved concern.
 | Bounded verification preparation | Sol xhigh, `opencode://ses_e7a2227e7ffeTQH5TWAkgiaxOz` | Returned: native trace count command and concrete integration handoff. |
 | Shared native command implementation | Sol xhigh, `opencode://ses_e7a14b1afffe7eRp0y0L0JssYC` | Returned through `deb7fb75`; final native integration checks await the active provider rewrite. |
 | Provider selection/inspection foundation | Sol xhigh, `opencode://ses_e7a064cf8ffeJhoqfCnySR4Q6l` | Returned through `509e2704`; reviewed selection, policy, preparation and resource ownership. |
-| JW foundation adoption and remaining native checks | Sol xhigh, `opencode://ses_e79dd6eaeffeNFNkKJzrJKre9x` | Active against stable provider 0.3 checkpoint, including compact failure rendering correction. |
+| JW foundation adoption and remaining native checks | Sol xhigh, `opencode://ses_e79dd6eaeffeNFNkKJzrJKre9x` | Returned through `3a9602b2`; 20 native cases and 5 focused error cases passed. |
+| Shared effect-kernel design handoff | Astra high, `opencode://ses_e79da1717ffeKJmKkEcTiGUEZa` | Active targeted design for contextual, grouped and listed kernel reuse. |
+| Contextual traversal/effects | Sol xhigh, `opencode://ses_e79d26e21ffestzkMAfQRZS702` | Active: generic frontier/bindings, selected-work publication, contextual execution and v2 process continuation. |
+| Reused two-route evidence adapter | Sol xhigh, `opencode://ses_e79d11c23ffeYmXANCjX2wAB34` | Active independent tool build; actual route measurement awaits production correctness and CLI. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -232,6 +237,23 @@ The immediate next provider slice is generic contextual bindings/frontier/partia
 frames, direct prepared-batch execution through all opaque paths, work-only
 publication, complete v2 context transport and fresh-process proof. JW's remaining
 native checks run against this stable foundation before that rewrite starts.
+
+### Native gates cleared; contextual build advances
+
+JW now pins provider 0.3.0 at `516c4071`. `8a934bd8` fixes the final strict-Clippy
+large producer-error result while retaining its report/cause; `7d1e9b8c` fixes the
+parent-identified report dump. The
+[verification receipt](file:///home/rektide/src/jj-waltz/design/coordinated-refill/native-checkpoint1.sol61x.md)
+(`3a9602b2`) reports fresh **20/20 native command/N1 cases**, five focused causal/
+bounded-report cases, strict owner Clippy, formatting and document checks passed.
+Parent inspected the correction diffs and receipt. No native correctness failure
+was found. The former build blocker is closed, and the next provider rewrite starts.
+
+The native command/input, source-producer and preview foundations are verified;
+their public dispatch remains with the CLI cutover. The independent evidence tool
+slice prepares reused fixtures and route command handling while the provider's
+contextual traversal/effect work proceeds. Actual two-route timing remains after
+production semantic acceptance.
 
 ## Work ownership and navigation
 
