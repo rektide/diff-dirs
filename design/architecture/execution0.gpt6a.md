@@ -7,7 +7,7 @@ status: proposed-for-implementation
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-29 }
 sources:
   - resource: "opencode://ses_e7a2675f8ffe76VJT5Lt1Lwe5l"
-    title: Designs and reviews the provider contracts and build sequence, including full-visitor error precedence, partial-frontier context, provisional effect accounting and bounded source reuse
+    title: Designs and reviews provider contracts, then integrates the authorized native handoff into complete desired/owned manifest renewal with coupled transition ownership
   - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
     title: Parent commissions detailed Astra design and Sol implementation with broader future architecture included in this delivery
   - resource: /design/architecture/annealing0.gpt6ax.md
@@ -54,9 +54,12 @@ sources:
     title: Existing adapter order and overrideable late presets
   - resource: "file:///home/rektide/src/jj-waltz/transfer/workspace/src/streaming.rs"
     title: Current source-qualified consumer requirements, conditional routing and retained device guards
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution0.gpt6a.md#43-replacement-ownership-program"
+    revision: 2d2dfa2b
+    title: Parent-authorized same-wave native handoff requiring complete desired coverage, O-scoped ownership and intact coupled-collapse refusal
 verification:
   method: Source and prior-design inspection starting at diff-dirs 6e01c7da; explicit Markdown and provenance checking
-  scope: Implementable design, not production implementation or new runtime/performance evidence; independent native-design output was not consulted
+  scope: Implementable design, not production implementation or new runtime/performance evidence; native design was read only after explicit parent authorization and its proof is attributed rather than repeated
 extensions:
   related_work: [diffdir-tree-coordinated, diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse]
 ---
@@ -94,8 +97,9 @@ Deliver all of the following, in the sequence in section 12:
    resources and within-call route reuse.
 7. A production `apply_many` opaque cohort, plus bounded source observation reuse
    between opaque and subsequent paired work in the same source session.
-8. A reusable prepared leaf list and source-to-many listed installation API with
-   strict-create and explicitly authorized renewal modes.
+8. A reusable prepared desired/owned manifest and listed execution API with
+   strict-create, exact owned-leaf renewal/removal, coupled transitions and complete
+   desired-leaf coverage independent of physical name-union discovery.
 
 These are concrete physical-source capabilities. A generic input-provider registry,
 arbitrary executable work payloads and general generated/mapped tree enumeration
@@ -173,6 +177,9 @@ resolved kinds, `Comparison`, baseline proposal if available, final `Action`,
 installation authority, and optional interior context. Exclusions retain names
 without invented kinds. One containing coordinate replaces per-entry `PathBuf`s.
 The batch retains its input context so refresh has the exact policy input.
+Section 9.2 adds the declared-input domain, explicit NotRequested source observation,
+removal authority and interior-input selector needed by native manifest renewal.
+Those are part of this same contract, not a later extension after its API is fixed.
 
 Use explicit entry points over the same engine, with no generic lowering payload
 mistaken for saved context:
@@ -235,6 +242,9 @@ Sync adds only its own restrictions: correct source/target binding, two real roo
 for coordinated use, disjoint effect roots, matching barrier/window, lane state,
 copy policy, application totals and exact paired-child/context projection. Compare
 validates frontier membership/order/reduction, not JW's context internals.
+Listed selection additionally binds its manifest references to the supplied
+prepared values before effects. Structural decoding can check reference shapes,
+but cannot verify an external manifest's contents without that bind step.
 
 ## 3. Typed policy context and assessment stages
 
@@ -306,6 +316,11 @@ not lose to a later name's kind/metadata failure merely because new sparse polic
 resolve kinds first. In a mixed group, acquired outcomes may be shared, but each
 lane evaluates only its own profile's ordered demands. This is one acquisition
 engine with two explicit schedules, not a second full-fact implementation.
+For LegacyFull, rank the complete per-name outcome (source facts, target facts,
+then default comparison) before the next name's outcome. A comparison-time timestamp
+extraction error at name a must likewise precede name b's acquisition failure.
+Compute earlier valid-slot comparisons before selecting a later fact error; do
+not blindly concatenate global fact and comparison error lists.
 
 Comparison-only callers supply an empty execution-demand provider. Sync supplies
 its closed physical action demand table. This is a small inspection interface:
@@ -386,6 +401,9 @@ ladder as the architecture of the new executor. Break source APIs where needed,
 update all in-repo consumers, and publish coordinated pre-1.0 minor versions and
 exact internal pins under the project's version policy. Behavior compatibility
 for full visitors is required; universal source-compatibility adapters are not.
+The `EffectBinding` extraction in section 9 belongs in
+`transfer/sync/src/binding.rs`: validated physical roots and CopyPolicy can be lent
+to a listed program without borrowing an unrelated ordinary visitor/comparator.
 
 ## 4. Comparison identity and truthful result states
 
@@ -764,83 +782,258 @@ This deliberately combines **guaranteed immediate sharing for a joint opaque
 cohort** with **bounded opportunistic reuse across different recursive owners**.
 It avoids both an unbounded source catalog and a second saved walker. All runtime
 opaque state closes before `apply_many` returns; it introduces no interior pause.
+JW's native design selects fail-fast ordered apply-one for its ordinary command.
+That remains valid over the same cursor/source session. The generic apply-many
+helper's healthy-peer continuation is not silently substituted for that consumer
+policy; parent can select a different cohort failure contract explicitly if wanted.
 
 ## 9. Reusable prepared leaf lists and proactive inputs
 
-Extract current `seed_leaves` collection/sort/grouping into `transfer/sync/src/listed.rs`:
+The parent-authorized [native handoff](file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution0.gpt6a.md#43-replacement-ownership-program)
+makes this a **desired/owned program**, not just a faster `seed_leaves` loop.
+Desired S and previously owned O are independent immutable inputs. Implement it
+in `transfer/sync/src/listed.rs`, sharing validation/acquisition/effect primitives.
+Do not implement another copier in JW.
+
+### 9.1 Prepared inputs and exact provider API
 
 ```rust,ignore
-pub struct PreparedLeafList { /* immutable component-ordered names + parent groups */ }
+pub enum LeafKind { RegularFile, Symlink }
+pub enum LeafExpectation {
+    SupportedLeaf, // compatibility seed: actual supported leaf kind
+    Exact { kind: LeafKind, executable: Option<bool> },
+}
+pub struct DesiredLeaf {
+    pub relative: PathBuf,
+    pub expected: LeafExpectation,
+}
+pub struct PreparedLeafList {
+    /* immutable desired leaves, parent groups, component trie, semantic identity */
+}
+pub struct OwnedLeafSet {
+    /* immutable exact leaf paths and their structural prefixes; no physical facts */
+}
 impl PreparedLeafList {
     pub fn new<I, P>(paths: I) -> Result<Self, Failure>
     where I: IntoIterator<Item = P>, P: AsRef<Path>;
+    pub fn from_specs(leaves: impl IntoIterator<Item = DesiredLeaf>)
+        -> Result<Self, Failure>;
 }
 
-pub enum ListedIntent { CreateAbsent, RenewAuthorized }
-pub struct ListedTarget<'a, P: Policy, M: Comparator = StatKey> {
+pub enum ListedIntent { CreateAbsent, RenewOwned }
+pub struct ListedTarget<'a, G: ListedGuard> {
     pub id: &'a TargetId,
-    pub applier: &'a Applier<P, M>,
+    pub binding: &'a EffectBinding,
+    pub owned: &'a OwnedLeafSet,
     pub intent: ListedIntent,
+    pub guard: &'a G,
 }
-
-pub fn install_prepared<P: Policy, M: Comparator>(
+pub trait ListedGuard: Sync {
+    fn demand(&self, candidate: ListedCandidate<'_>) -> SideDemands;
+    fn check(&self, candidate: ListedCandidate<'_>, facts: EntryFacts<'_>)
+        -> Result<(), CheckError>;
+}
+pub fn reconcile_listed<G: ListedGuard>(
     source: &SourceSession,
-    leaves: &PreparedLeafList,
-    targets: &[ListedTarget<'_, P, M>],
+    desired: &PreparedLeafList,
+    targets: &[ListedTarget<'_, G>],
 ) -> Result<ListedReport, Error>;
 ```
 
-The constructor is filesystem-free. Normalize accepted normal-component spellings
-as the existing seed API does; reject empty/absolute/escaping/NUL paths, duplicate
-aliases and leaf/ancestor conflicts such as `a` plus `a/b` before any mutation.
-Store immutable parent groups once, share through `Arc`, and reuse for every
-receiver. A source tree identity or native membership index stays caller-owned.
+`EffectBinding` is the validated physical-root/copy-policy portion extracted from
+Applier; `Applier::binding()` lends it. Runtime policy/comparator are separate.
+The listed runner installs proactive desired work, so its physical comparison is
+NotAssessed. `ListedGuard` adds pure path/device/administration/source-attribute
+refusal and demand; it cannot broaden ownership or silently drop required work.
+Native code supplies the frozen O paths and declares RenewOwned. The provider
+does not discover whether those paths were native-owned.
 
-The new listed installer accepts a `SourceSession`, `&PreparedLeafList`, ordered
-targets and an explicit intent. Iterate one parent group over the cohort; observe
-each named source leaf once, and targets independently. Validate/acquire the
-selected group before its leaf effects. Keep a depth-sized verified route stack
-and parent-local staging as in current `seed_batch`. No unlisted source discovery.
+Constructors are filesystem-free. Normalize accepted normal-component spellings
+as existing seed does; reject empty/absolute/escaping/NUL paths, duplicate aliases
+and leaf/ancestor conflicts such as `a` plus `a/b` **within each leaf set**. Overlap
+between desired and owned sets is expected and encodes transitions. `Exact` requires
+the actual donor kind; `executable` is an optional regular-file requirement under
+the supported platform contract. Refuse an unsupported executable-bit requirement
+rather than guessing a cross-platform meaning. JW's initial native profile is Unix.
 
-`CreateAbsent` carries an `AbsentOnly` grant and refuses any occupied destination.
-`RenewAuthorized` is explicit desired work for listed leaves, with comparison
-NotAssessed and fresh-inode installation. Its lane policy must supply the applicable
-destination grant; the list itself grants no replacement. Existing target directories
-require explicit coupled tree-replacement authority and descendant context. A
-target leaf blocking a required parent similarly needs explicit parent replacement
-authority; otherwise refuse. The native adapter may perform its own authorized
-obstruction clearing before this seam instead.
+Prepare desired input once per S, owned input once per distinct O, share with Arc,
+and reuse immutable indexes without building a fresh S trie per receiver. Bind each
+lane's owned set independently. A semantic manifest identity describes its declared
+names/expectations, not a certificate of donor contents. Native tree/commit identity
+and cache bytes stay native-owned.
 
-The listed intent is a binding constraint, not an overrideable mirror proposal:
-policy may narrow/refuse a grant but cannot widen CreateAbsent into replacement.
-Every listed leaf is a required desired installation. A policy withholding one is
-an unsatisfied/refused listed group, not successful full-list completion. To request
-a subset, prepare that subset explicitly. This lets the native adapter distinguish
-complete tracked population from an intentionally filtered ordinary policy run.
+Define `ManifestId` in inspection as a versioned platform-tagged 32-byte digest.
+Prepared constructors compute BLAKE3 once over an unambiguous length-prefixed
+encoding of ordered native components and expectations, with separate desired/owned
+domain tags (Unix bytes; Windows UTF-16 units). The small hashing dependency belongs
+to sync's preparation, not observation of file contents. Rebinding a manifest
+recomputes/checks this declared-data identity; it is neither a source-content hash
+nor native authority. This avoids process-address identity and avoids storing a
+second copy of the full manifest inside every selected entry.
 
-Only desired listed leaves and their required containers enter this path. An
-unlisted target is outside the desired-input domain, not an observed source-absent
-slot. This is the concrete desired-input capability for the current build: named
-physical inputs plus proactive intent and per-target placement. It requires no fake
-directory listing, fabricated physical source facts or generalized handler registry.
+Every desired coordinate is looked up directly, including a leaf missing on **both
+physical sides**. Missing source, wrong kind or expected executable-bit mismatch
+fails that obligation; it cannot vanish because `read_dir` did not return it.
+Source-only physical children absent from the manifest never become candidates.
+This route does not enumerate source directories to discover desired content.
 
-Share the common shape/action validator and production install kernel. Keep a
-small wrapper for `seed_leaves` that prepares a list and selects CreateAbsent.
-Document the new grouped pre-effect failure boundary explicitly; don't accidentally
-claim the old leaf-by-leaf prefix behavior for the new API. No prepared list or
-native membership cache is a certificate of current source attributes.
+### 9.2 Explicit desired domain in the common selection contract
 
-`ListedReport` returns ordered per-target outcomes and actual work. Invalid list or
-binding input refuses before effects; a runtime failure closes that lane's scopes
-and retains actual progress. This is a coarse joined installation call, like the
-existing listed seed primitive. It does not introduce a second saved cursor or
-promise a checkpoint between its individual leaves. A native caller that saves
-between phases owns the prepared list's native descriptor and phase disposition.
+Pull this distinction into the new contract **before stage 1 fixes its fields**:
 
-The two JW renewal routes can share this input and kernel. JW decides which
-native transitions establish absence or replacement authority, what obsolete names
-may be removed and when native state can truthfully be adopted. The provider
-neither derives those decisions from S/D equality nor changes routes on failure.
+```rust,ignore
+pub enum SelectionDomain {
+    PhysicalUnion,
+    Listed { desired: ManifestId, owned: ManifestId },
+}
+pub enum SourceObservation {
+    Present(Kind),
+    Absent,       // actual union/lookup or established structural absence
+    NotRequested,
+}
+pub enum RemovalAuthority {
+    SourceAbsent,
+    OwnedLeaf { owned: ManifestId, leaf: LeafId },
+    CoupledOwned { owned: ManifestId, subtree: NodeId },
+}
+pub enum InteriorInput {
+    PhysicalDirectory,
+    Listed { desired: ManifestId, subtree: NodeId },
+}
+```
+
+`DirectorySelection<C>` carries the domain and entry source observation; `Presence`
+is a read-only projection for physical-union entries, not a forced classification
+of a listed obligation. Listed batches are still grouped at a real containing
+coordinate, but do not claim a complete physical union. Desired IDs, expected kinds,
+owned authority and the interior input are semantic fields. Raw facts remain live.
+Manifest IDs bind to actual prepared values, not arbitrary application assertions
+accepted as sufficient at an external execution boundary.
+
+Extend the one lower-level work validator accordingly. Physical-union deletion
+still requires true source absence and SourceAbsent authority. Listed obsolete
+deletion uses `SourceObservation::NotRequested` plus an exact OwnedLeaf grant; it
+must **not** pretend an unrelated, unlisted physical source name is absent. Common
+kind/action/coupling legality remains shared. Domain validation additionally proves
+each manifest reference, expected desired slot, covered ownership prefix and
+input-boundary relation against its supplied immutable manifests.
+
+Physical full visitors keep their honest full-union projection. For the existing
+listed seed Check interface, use a small `CheckedListedGuard` over the same actual
+facts; do not project NotRequested as absent through the legacy visitor.
+
+Add one semantic no-effect action, `Action::ConfirmAbsent`, for a listed obsolete
+owned leaf whose target was actually found absent. It requires a declared owned
+removal obligation, no desired leaf at/below that coordinate, NotRequested source
+and absent target. It is invalid in PhysicalUnion. Do not manufacture a present
+side or call an absent leaf KeepLeaf just to fit the old action table. A missing
+no-follow target ancestor can establish absence of its declared descendants;
+an intervening symlink cannot.
+Interior roles describe supplied recursive inputs, not independent absence evidence:
+a listed target-only removal input still carries NotRequested source and its
+explicit owned grant. SourceAbsent may not be inferred from that role name.
+
+`InteriorInput::Listed` is load-bearing: source-directory expansion must use the
+manifest subtree slice. Calling today's `copy_directory_selected` unchanged would
+enumerate and copy unselected donor children. Make recursive candidate acquisition
+an explicit closed choice between physical directory and prepared manifest input,
+while sharing the entry/permission/staging kernel. Compare accepts only
+PhysicalUnion selections; the listed call owns its entire runtime recursion,
+including matched routing directories. This is two concrete input domains, not an
+open provider/handler framework or a second saved traversal model.
+Its `ApplicationNeed` derives from the input domain too: a listed routing directory
+can own unstarted manifest descendants despite having no direct namespace effect.
+Source acquisition cells support either a real listed handle or a declared-path
+lookup; both preserve the same caching and requested-fact error contracts.
+
+### 9.3 Ownership trie and coupled transition ordering
+
+Walk the component-wise union of desired/owned **declarations**, with actual target
+shape checks at each relevant node. The source is queried only for desired leaves
+and their required real directory routes. Use one shared source group across lanes;
+targets, ownership decisions and failures remain independent.
+
+| Declared node / observed target | Selected obligation and authority |
+| --- | --- |
+| Desired leaf; target absent | Install that exact source leaf. Missing source is an error even if target is also absent. |
+| Desired leaf; target supported leaf | CreateAbsent refuses. RenewOwned requires an exact O leaf at that name; prepare fresh then replace even when equal. An S-only occupied local refuses. |
+| Desired leaf; target directory | RenewOwned may collapse only an O-derived structural directory, with the complete coupled preflight below. An exact former O leaf unexpectedly now holding a directory refuses. |
+| Desired descendants; target real directory | Retain container and traverse only the declared desired/owned children. Keep unrelated target contents. |
+| Desired descendants; target absent | Create needed route(s), checking actual source directory attributes. No unrelated source descendants enter the desired domain. |
+| Desired descendants; target supported leaf | RenewOwned requires exact O ownership of the blocking leaf. Prepare only the selected S subtree privately, then replace the owned leaf as one coupled transition. |
+| Obsolete exact O leaf, outside a coupled transition | If absent, settle owned absence without an effect. If a supported leaf, remove under OwnedLeaf authority. If now a directory/special kind, refuse. |
+| O-only structural directory | Retain it, including when it becomes empty. It is not an automatic prune obligation. |
+
+CreateAbsent has an empty effect ownership set and permits no overwrite/removal;
+passing a nonempty O index cannot broaden it. RenewOwned intersects O-derived
+permission with the guard's requirements. Declarations for `.jj`/`.git` and device
+boundaries are checked by the supplied guard at actual routes/entries.
+
+**Collapse is planned at its ancestor before subordinate obsolete work.** If desired
+S has leaf `q` and O has `q/a`, `q/b`, all removal beneath q belongs to the selected
+q replacement. Do not enqueue a global O-minus-S removal pass first. Before staging,
+chmod or dismantling q, enumerate its entire actual target subtree read-only:
+
+- Every removable actual leaf must be an exact O member and pass kind/device/admin
+  guards. An unowned local vetoes the entire collapse even if byte/stat-equal.
+- A directory must be in O's structural prefix closure. An unrelated empty local
+  directory also vetoes; no implicit authority arises merely from emptiness.
+- An exact O leaf encountered as a directory is an obstruction, not permission
+  for recursive deletion. Unsupported kinds and guarded descendants veto.
+- Missing O descendants are already absent; they do not justify ignoring other
+  actual children. The desired source leaf must also satisfy its source expectation.
+
+On veto, both the local and all subordinate O leaves remain intact. Unrelated earlier
+siblings may already have completed, as in today's directory-local failure contract.
+On success, prepare the source leaf, remove the coupled subtree under the same
+ownership context, and install. Keep the existing two-pass bounded-memory preflight
+if retaining all plans is too large; the second pass must use the same scoped grant.
+
+Expansion is similarly one owner: O leaf `p`, desired `p/a` and `p/b`. Stage only
+those desired descendants and required containers. If donor also has `p/local`, it
+is neither listed nor copied. Complete source/guard validation of each selected
+batch precedes its effects; the old target leaf survives failure of private
+preparation. Provisional staging progress becomes target progress only on install.
+
+### 9.4 Full manifest coverage and native adoption
+
+Return `ManifestCoverage` separately from effect counts and ordinary comparison:
+
+```rust,ignore
+pub struct ManifestCoverage {
+    pub desired: u64,
+    pub installed: u64,
+    pub owned_obsolete: u64,
+    pub owned_retired: u64, // old leaf removed/replaced/already absent, not unlink count
+    pub complete: bool,
+}
+```
+
+Only successful final-namespace installations count as installed. Exact native
+desired lists require every regular/link leaf installed; keep/preserve is not
+successful fulfillment. Every obsolete owned leaf must also be retired, including
+those consumed by coupled collapse/expansion, counted once by ownership of that
+transition. A retired O leaf's coordinate may now be a required S directory, so
+retirement does not claim that its path is absent. Already-absent target evidence
+can settle that retirement without an unlink. Existing structural directories are
+not missing obligations.
+Actual unlink/reflink/copy/create counters remain separate. Validate counter bounds
+and derive complete only after all required work and cleanup/permission finishes
+succeed. A returned error cannot carry `complete: true`; it retains accepted prefix
+coverage and actual returned progress without a post-failure census.
+
+For CreateAbsent, obsolete-owned obligations are empty. `seed_leaves` becomes a
+small wrapper preparing SupportedLeaf specs and selecting that mode. The new
+grouped pre-effect failure boundary is documented rather than confused with the old
+leaf-prefix boundary. All listed calls close live resources before returning;
+there is no saved interior manifest cursor or leaf-sized pause promise.
+
+JW must gate S-cache adoption on successful **complete** manifest coverage, then
+perform its native D restore/reparent/conformance sequence. Clear-first remains the
+parent-selected default/control; ReplaceAuthorized uses the independently proved
+same-tree-O child protocol. Generic provider success proves its declared installation
+and owned-removal work, not JJ cache truth, native parentage or final-D sharing.
+No fallback to the other route occurs on failure.
 
 ## 10. Saved schema and restoration
 
@@ -855,6 +1048,12 @@ frames/edges and expanded coverage counts. `SyncParts<C>` shares selection bodie
 in memory and transports their values. Its barrier stores exact input and child
 contexts, comparison state, authority, exclusions, selected actions and dispositions.
 The wire codec does not serialize Arc identity, packed-name offsets or runtime keys.
+The coordinated comparison/sync composition accepts PhysicalUnion selections only;
+listed execution is a separately callable coarse operation using the same lower
+selection contract. Its runtime manifest recursion is not silently inserted into
+the paired frontier or serialized as partial opaque progress. If a native phase
+is saved externally, that native owner binds the immutable manifest descriptors
+and saves only the supported returned-call disposition.
 
 Validation layers and order:
 
@@ -910,6 +1109,11 @@ fresh-process consumer. No representative timing claim precedes these gates.
 | Resource lifetimes | Buffer reuse at EOF and error, growth bound, concurrent borrow without waiting, reconfigure while leased, zero retention and unsupported backend controls. Save/rebind has no buffer/pool payload. |
 | Route boundaries | Within apply-many, shared source prefixes are checked once. Replace a route with a symlink between returned calls: next call refuses. Internal refresh+apply does not duplicate checks; standalone refresh does not create a lasting certificate. |
 | Prepared list | Prepare once, install into two targets without sorting/group-building twice or enumerating unlisted source. Duplicate and leaf/ancestor conflicts refuse before writes; occupied strict-create refuses even if policy tries to widen it; withheld required leaf cannot report satisfied; authorized equal renewal installs; unlisted local survives. |
+| Desired coverage beyond physical union | Desired leaf missing on both sides, wrong donor kind and wrong executable bit each fail with incomplete manifest coverage. An earlier successful sibling remains reported. No state-adoption success can be inferred from effects alone. |
+| Owned collapse veto | Desired leaf q, O leaves q/a and q/b, actual unowned q/local (also test an empty local directory). Refusal leaves q/a, q/b and local intact; no subordinate O-minus-S deletion, staging or chmod occurs first. |
+| Listed expansion boundary | O leaf p expands to desired p/a and p/b while donor also contains p/unlisted. Only a/b enter preparation and final target. A failed selected source leaves old p intact; source/staging/target accounting stays distinct. |
+| Owned obsolete semantics | Remove obsolete exact O leaves without querying unrelated physical source; already-absent obligations settle without a deletion count. Preserve empty structural directories. An O leaf now holding a directory refuses recursive deletion. |
+| Complete manifest gate | Success has installed every desired leaf and settled every obsolete owned leaf once, including coupled transitions. Clone/cleanup/restoration failure cannot return complete coverage, even if all desired leaf renames happened. |
 | Restore corruption | Context member/frame mismatch, wrong role, missing opaque context, omitted paired child, altered grant and lost partial reduction reject. Existing barrier/window/terminal-lane/counter-limit cases remain. |
 
 Run existing conditional-container, replacement-intact-refusal, output-mtime,
@@ -934,12 +1138,12 @@ Stages can span several commits; save predecessor state before review revisions.
 
 | Order | Build / primary paths | Parent review and exit |
 | --- | --- | --- |
-| 1 | Share current decisions; then introduce inspect `selection.rs` and eliminate duplicated sync semantic validation. Start `Comparison`, authority, coverage and `ApplicationNeed` together. | Review the complete legality/coverage table, equal-renewal and zero-planned opaque discriminators. Do not freeze a replacement schema containing only old fields. |
+| 1 | Share current decisions; then introduce inspect `selection.rs` and eliminate duplicated sync semantic validation. Start `Comparison`, declared versus physical input, source-observation state, install/removal authority, interior input, coverage and `ApplicationNeed` together. | Review the complete legality/coverage table, both-missing desired obligations, equal-renewal and zero-planned opaque discriminators. Do not freeze a replacement schema containing only old fields. |
 | 2 | `policy.rs`, `comparison.rs`, contextual prepared batches; generic compare frames/edges and sync barrier. FullVisitor projection uses the common engine. | Review root-interior context transition, role table, unstarted-refresh input and exact equality. Complete contextual paired/opaque propagation before calling this feature delivered. |
 | 3 | `acquire.rs`, `shared.rs`, observer listing/name representation and staged effect demand. Fix PlanWalk/parallel clean-work publication. | Full visitor behavior, second comparator, equal renewal and counted kind→attributes/source reuse pass. Inspect source/target failure isolation and fact release. |
 | 4 | Version-2 parts/transport and fresh-process contextual resume. Integrate runtime resource handle, raw-buffer pool and RouteEpoch through the already-migrated call graph. | Deep partial heads, A-accepted/B-unstarted, bind-before-I/O mismatch and all unstarted-refresh preflight pass. Public APIs and saved shapes are now ready for JW integration. |
 | 5 | Extract `kernel.rs`; add `opaque.rs` apply-many and bounded SourceSession cache sharing compare/sync. | Both-missing source-once with cache disabled, mixed bounded reuse, conditional ancestry, per-lane failure and closed runtime resources. No new saved recursive owner. |
-| 6 | `listed.rs` prepared input groups and source-to-many strict/proactive installation. Route through the same kernel and validator; retain convenience seed wrapper. | Prepare-once counts, collision authority, unchanged locals, fresh-private renewal and native-facing handoff reviewed with parent. |
+| 6 | `listed.rs` prepared desired/owned tries and strict/RenewOwned execution. Bind expected donor kind/mode, owned removal and listed-only expansion to the common kernel/validator; retain convenience seed wrapper. | Full manifest coverage including both-missing names, collapse veto before subordinate deletion, no unlisted source expansion, no empty-directory pruning and prepare-once counts reviewed with parent. This is a prerequisite to native S-cache adoption. |
 | 7 | Public owner guides, facade/CLI/examples, coordinated versions/pins and consumer integration receipts. | Relevant workspace feature matrix, strict clippy/Rustdoc, formatting and fresh-process suite pass; parent integrates native outcomes and bounded full-command measurements. |
 
 The schema design is reviewed before stage 2 coding; stage 4 completes its codec
@@ -960,8 +1164,9 @@ The recommendation is to accept these together:
 3. **Guaranteed grouped opaque sharing plus bounded mixed reuse**, with 32-batch /
    8 MiB charged cache defaults configurable and excluded from saved meaning.
 4. **Prepared proactive installation belongs in this provider build**; JW must
-   supply replacement and native-state authority. The replacement route cannot be
-   implemented by merely disabling strict existence checks.
+   supply complete desired/owned membership and native-state authority. The concrete
+   handoff is section 9's manifest program. The replacement route cannot be
+   implemented by merely disabling strict existence checks or physical union walking.
 5. **Resource and name representation work is included now**, because otherwise
    staged acquisition and source-session ownership would immediately be rebuilt.
 
@@ -986,6 +1191,10 @@ bounded retained preflight without changing selected-state or native authority.
 - [Dispatch](/design/actions/dispatch0.gpt61sxh.md#1-the-smallest-useful-boundary)
   separates desired work from physical classification; prepared physical renewal
   is the concrete implementation selected here, with ordinary finite dispatch.
+- [Native execution](file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution0.gpt6a.md#required-provider-handoff)
+  supplies the concrete both-missing, ownership and coupled-collapse requirements.
+  Section 9 integrates that now-authorized same-wave handoff; its installed-JJ proof
+  remains attributed to the native design, not repeated by this provider study.
 - [Architecture home](/doc/architecture/README.md#components-and-ownership) remains
   the maintained owner account. Parent should connect this design from the active
   delivery/index and promote verified contracts there as Sol builds them.
