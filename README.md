@@ -11,6 +11,8 @@ sources:
     title: Integrates the verified contextual-inspection foundation and explicit 0.3/v2 transition, with whole-traversal adoption still active
   - resource: /design/architecture/execution0.sol61x.md
     title: Shared selected-state, staged inspection and resource implementation checkpoint
+  - resource: /design/architecture/execution1.sol61x.md
+    title: Verified contextual traversal, clean-work publication and generic v2 data checkpoint
   - resource: opencode://ses_e7be6b24fffeDISpWdV1xNbqhD
     title: Adds explicit source-only conditional routing creation, effect/preview/continuation verification and the coordinated 0.2 public-interface marker
   - resource: opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY
@@ -282,7 +284,8 @@ The **0.3 inspection foundation** also exposes typed contextual `Policy`, explic
 comparators and `PreparedDirectory<C>` through the
 [immediate inspection API](tree/inspect/README.md#contextual-inspection-and-shared-selections).
 Selected semantics and runtime facts now have separate owners; full visitors below
-use that same engine. Generic contextual traversal/effects are being integrated in
+use that same engine. Typed paired traversal, work-only publication and contextual
+v2 data are delivered at 0.4; generic contextual effects are being integrated in
 the [active delivery](design/architecture/delivery0.gpt6ax.md). The following section
 describes the full-visitor compatibility contract.
 
@@ -771,14 +774,14 @@ use diff_dirs_tree_api::coordinated::{Bindings, Coordinated, TargetBinding, Targ
 let bindings = Bindings {
     source: "/source".into(),
     targets: vec![
-        TargetBinding { id: "a".into(), root: "/target-a".into(), policy: "mirror/v1".into() },
-        TargetBinding { id: "b".into(), root: "/target-b".into(), policy: "mirror/v1".into() },
+        TargetBinding::full("a".into(), "/target-a".into(), "mirror/v1".into()),
+        TargetBinding::full("b".into(), "/target-b".into(), "mirror/v1".into()),
     ],
 };
 let visitor = NoVisitor;
-let policies: Vec<_> = bindings.targets.iter().map(|target| TargetPolicy {
-    target: &target.id, descriptor: &target.policy, visitor: &visitor,
-}).collect();
+let policies: Vec<_> = bindings.targets.iter().map(|target|
+    TargetPolicy::full(&target.id, &target.policy, &visitor)
+).collect();
 let mut run = Coordinated::new(bindings.clone(), Execution::Sequential)?;
 run.bind(&policies)?;
 let first = run.next_group(&policies)?;
@@ -901,11 +904,12 @@ are silent in the library (the CLI still prints its final summary).
 
 ## Development and evidence
 
-The shared-selection/contextual-inspection foundation is marked **0.3.0** across
+The typed contextual frontier and planning interface is marked **0.4.0** across
 the five library packages and CLI, with exact internal dependency pins. Comparison
 and sync parts and the reconciliation example now use schema v2 and reject v1;
-the present transport is the unit-context adapter while generic context propagation
-is integrated. `CreateIfNeeded` was the earlier 0.2 interface addition. This is an
+the transport now carries generic contexts and bound comparison coverage. Contextual
+effect-runtime integration remains active. Shared selections were introduced at 0.3;
+`CreateIfNeeded` was the earlier 0.2 interface addition. This is an
 explicit pre-alpha source-interface marker, not a compatibility promise for
 unchanged version numbers. Development-only perf tools retain their `0.0.0`
 versions; consuming examples pin the reviewed library version and refresh their

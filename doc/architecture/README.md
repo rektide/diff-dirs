@@ -13,6 +13,8 @@ sources:
     title: Active execution account and architectural review boundaries
   - resource: /design/architecture/execution0.sol61x.md
     title: Verified shared selections, common validation, staged facts, resource ownership and v2 unit-context migration
+  - resource: /design/architecture/execution1.sol61x.md
+    title: Delivered contextual planning, partial frames, initial execution demand and generic v2 data
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
     title: Connects the human-directed architectural integration assessment and its proposed next-build ownership changes to the maintained architecture
   - resource: /design/architecture/annealing0.gpt6ax.md
@@ -177,9 +179,12 @@ The first [provider implementation checkpoint](/design/architecture/execution0.s
 now separates `DirectorySelection<C>` from runtime `PreparedDirectory<C>` facts.
 Default full visitors run through the same finite acquisition engine as new
 contextual policies. Groups, live plans and barriers share one immutable selected
-body; inspection owns its semantic validator. Comparison/sync and the example have
-explicit v2 unit-context adapters. Generic context propagation through the frontier,
-opaque effects and restored process transport remains the next build boundary.
+body; inspection owns its semantic validator. The subsequent
+[0.4 frontier checkpoint](/design/architecture/execution1.sol61x.md) carries typed
+context through paired frames/memberships, publishes selected work independently
+of diff, threads execution demand before publication and provides generic v2
+transport with fresh-process comparison evidence. Contextual opaque effects and
+actual resumed contextual application remain the next build boundary.
 The [inspection guide](/tree/inspect/README.md#contextual-inspection-and-shared-selections)
 owns the delivered API; the wider design also selects grouped opaque execution and
 complete desired/owned manifest renewal for subsequent integration.

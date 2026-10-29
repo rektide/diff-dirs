@@ -32,6 +32,8 @@ sources:
     title: Accepted concrete effect-call, lane, coordinate, demand, lease and provisional-progress handoff
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/verification1.sol61x.md"
     title: Implemented retained-fixture command adapter, verified tooling and remaining public-report extraction gate
+  - resource: /design/architecture/execution1.sol61x.md
+    title: Verified 0.4 contextual frontier/planning/data checkpoint and exact remaining effect-runtime handoff
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -104,7 +106,8 @@ specific unresolved concern.
 | Provider selection/inspection foundation | Sol xhigh, `opencode://ses_e7a064cf8ffeJhoqfCnySR4Q6l` | Returned through `509e2704`; reviewed selection, policy, preparation and resource ownership. |
 | JW foundation adoption and remaining native checks | Sol xhigh, `opencode://ses_e79dd6eaeffeNFNkKJzrJKre9x` | Returned through `3a9602b2`; 20 native cases and 5 focused error cases passed. |
 | Shared effect-kernel design handoff | Astra xhigh (requested high), `opencode://ses_e79da1717ffeKJmKkEcTiGUEZa` | Returned at `1c36cbc9`; private runtime/kernel interfaces and enclosing listed-slice interpretation accepted. |
-| Contextual traversal/effects | Sol xhigh, `opencode://ses_e79d26e21ffestzkMAfQRZS702` | Active: generic frontier/bindings, selected-work publication, contextual execution and v2 process continuation. |
+| Contextual frontier/planning/data | Sol xhigh, `opencode://ses_e79d26e21ffestzkMAfQRZS702` | Returned through `c14abc87`; frontier complete, contextual effects handed off explicitly. |
+| Contextual effect runtime | Sol xhigh, `opencode://ses_e79941441ffeOpOYowx1qFCZXY` | Active: P/M executable owners, direct prepared effects, all recursive contexts, shared kernel and actual resumed-effect proof. |
 | Reused two-route evidence adapter | Sol xhigh, `opencode://ses_e79d11c23ffeYmXANCjX2wAB34` | Returned through `06a2ffb9`; report binding and actual route runs await public CLI. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
@@ -301,6 +304,27 @@ effects, sharing counters and available phase times; unavailable values stay
 unavailable. It must also state the measured source-evidence profile: the current
 adapter argv includes an explicit live `--source-at` assertion, whose additional
 native work must not be silently presented as plain prepared-source reseed cost.
+
+### Contextual frontier review
+
+`139cdf7a` and `7ed693b6` deliver typed bindings, partial lane frames and child
+memberships, pre-I/O policy/context-schema/comparator checks, work-only publication
+and parallel seals, initial execution demand and generic v2 data. The
+[handoff](execution1.sol61x.md) is `c14abc87`. Parent inspected contextual binding
+validation, state ownership, paired preparation/publication and coverage helpers.
+Promoted child contexts/names remain independent of fact arenas; no second walker
+or selection validator was introduced.
+
+Reported gates: 245 all-feature workspace cases, 148 feature-disabled owner cases,
+18 reconcile cases, six final contextual discriminators and feature-disabled sparse
+publication passed, with strict lint/doc/format checks. Fresh processes verify
+partial contextual comparison and interpretation rejection; the actual contextual
+A-accepted/B-unstarted **effect** case remains for the active next slice.
+
+Provider packages/pins are 0.4.0. JW's 0.3 evidence remains attributed to that
+predecessor; its next adoption will consume a useful complete contextual effect
+runtime rather than repeatedly migrate an intermediate executor. The new Sol owner
+has the exact kernel and execution handoffs and is completing that boundary.
 
 ## Work ownership and navigation
 

@@ -5,12 +5,16 @@ description: Deterministic pair and source-to-many traversal, lane-local coverag
 resource: /tree/compare/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
-updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
+updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 verification:
   scope: Paired traversal, facade compatibility, partial-frontier continuation and lane-specific closed-reduction validation; effect and transport integration are verified separately
   method: Workspace default and all-feature nextest, affected default/all-feature checks, strict workspace clippy, doctests, Rustdoc, formatting and Rekon document validation
   result: 214 workspace-default and 217 all-feature tests passed; 163 feature-disabled library/consumer tests and 26 focused all-feature coordinated tests passed; 20 workspace all-feature doctests and strict checks passed
 sources:
+  - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
+    title: Reviews and promotes typed frontiers, initial execution demand, work-only publication and generic v2 comparison continuation
+  - resource: /design/architecture/execution1.sol61x.md
+    title: Verified 0.4 frontier checkpoint and remaining contextual effect-runtime boundary
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
     title: Reproduces and fixes inconsistent closed reductions on restoration while preserving lane-specific partial-child returns
   - resource: "opencode://ses_e7ea319dfffeZci454IqpWo77c"
@@ -38,12 +42,12 @@ Immediate inspection and validated plans come from
 [`diff-dirs-tree-inspect`](../inspect/README.md); the same types are re-exported,
 not copied or wrapped into incompatible public identities.
 
-The private pair adapter lowers finalized paired child names and coverage through
-read-only methods. Clean plans release their observations in the inspecting worker
-before frontier publication; differing plans retain their immutable full facts.
-One-sided directories remain opaque to comparison, and divergent parents still
-seal paired descent until delivery and caller control. Existing pair APIs and their
-parallel J/K behavior are unchanged. This crate never performs filesystem effects.
+The private pair adapter promotes finalized child names and contexts independently
+of each selection's facts. Plans with neither differences nor selected application
+work release observations in the inspecting worker. Work-only plans publish and
+seal paired descent just like divergent plans. One-sided interiors remain opaque
+to comparison. Parallel J/K and joined control behavior remain; this crate never
+performs filesystem effects.
 
 Features forward down the dependency graph: `parallel`, `native-dirent`, and the
 existing `parallel-diagnostics` / `parallel-bench` controls. Sequential execution
@@ -65,16 +69,14 @@ use diff_dirs_tree_compare::coordinated::{Bindings, Coordinated, TargetBinding, 
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 let bindings = Bindings {
     source: "/source".into(),
-    targets: vec![TargetBinding {
-        id: "receiver-a".into(), root: "/receiver-a".into(), policy: "mirror/v1".into(),
-    }],
+    targets: vec![TargetBinding::full(
+        "receiver-a".into(), "/receiver-a".into(), "mirror/v1".into(),
+    )],
 };
 let visitor = NoVisitor;
-let policies = [TargetPolicy {
-    target: &bindings.targets[0].id,
-    descriptor: &bindings.targets[0].policy,
-    visitor: &visitor,
-}];
+let policies = [TargetPolicy::full(
+    &bindings.targets[0].id, &bindings.targets[0].policy, &visitor,
+)];
 let mut run = Coordinated::new(bindings.clone(), Execution::Sequential)?;
 run.bind(&policies)?;
 if let Some(group) = run.next_group(&policies)? {
@@ -92,6 +94,14 @@ let summaries = run.prefix_summaries();
 ```
 
 ### Groups, independent lanes and controls
+
+`Coordinated<C>` stores typed context in bindings, partial lane frames and ordered
+child memberships. `TargetBinding::new` freezes policy/context-schema/comparator
+identities and initial context; `TargetPolicy` supplies executable P/M values,
+commonly borrowed references. The `full` constructors above select the legacy
+full-visitor/StatKey interpretation. Binding validates interpretation and saved
+contexts before filesystem access, without replaying admission. A root-derived
+interior context survives as the accepted frame's actual input.
 
 Each `next_group` attempts one complete immediate source-directory group, including
 clean/empty groups. The shared inspector lists source once and acquires each
@@ -164,12 +174,29 @@ stable across voluntary pauses; continuation is not a fresh scan after edits.
 ### Consumer lowering and resources
 
 `next_group_with(&policies, |target, plan| value)` advances the **same frontier**,
-while giving the consumer ownership of each successful validated `DirectoryPlan`.
+while giving the consumer ownership of each successful `PreparedDirectory<C>`.
 The consumer can lower exact selected decisions and optionally retain an ephemeral
 plan for an opaque application, without another comparison traversal. Lowering is
 pure projection, not effect acknowledgment; invocation order is unspecified, and
 `value` never enters `Parts`. Returning `Result` as the payload permits a consumer's
 separate lowering-refusal policy. Filesystem execution belongs to sync, not this API.
+
+`next_group_prepared(&policies, &execution_demand, lower)` also completes selected
+execution inputs during initial inspection, before publication. Comparison-only
+wrappers use `NoExecutionDemand`. `PolicyWalk<P,M,E>`, `walk_with_policy`,
+`walk_with_source` and `walk_in_pool_policy` use the existing sequential/parallel
+planner with that same demand boundary. `PlanWalk` is its full-visitor projection;
+plain `Walk` remains divergence-only. Equal renewal can therefore be comparison-clean
+while publishing work. `Summary::is_exhausted()` reports traversal termination;
+`is_complete()` additionally requires complete assessment coverage. `deviated`
+replaces the old action-deviation field `retained` and is not a completeness veto.
+
+Paired walkers retain one shared `SourceSession` across listings. `bind_with_source`
+can lend the same owner to another composition. Resource identity is runtime-only;
+route reuse and bounded cross-call source retention are subsequent work. Generic
+v2 comparison transport and fresh-process partial-head tests are verified in the
+[frontier checkpoint](/design/architecture/execution1.sol61x.md). Contextual opaque
+effects and actual contextual A-accepted/B-unstarted execution remain the next slice.
 
 Inter-group traversal is sequential. `Execution::Parallel` uses the current Rayon
 pool only for the shared inspector's within-group metadata work; callers can use

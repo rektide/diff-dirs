@@ -97,8 +97,9 @@ source-before-target error ordering.
 Root gating may derive a context for the root's contents. AlreadyAdmitted calls
 reuse their exact supplied input without root-policy replay. The
 [foundation account](/design/architecture/execution0.sol61x.md) records tested
-immediate behavior. Generic contextual frontier/opaque execution and fresh-process
-context transport are the next integration boundary. Source cells currently share
+immediate behavior. The [next checkpoint](/design/architecture/execution1.sol61x.md)
+delivers generic contextual frontiers and fresh-process comparison transport;
+contextual opaque effects remain the next integration boundary. Source cells currently share
 within one joined call; bounded cross-call retention and route-epoch reuse are
 pending. No cache or epoch placeholder supplies lasting route authority.
 
