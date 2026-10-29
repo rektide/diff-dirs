@@ -5,7 +5,10 @@ use std::sync::{
     Arc, Mutex,
     atomic::{AtomicU64, Ordering},
 };
-use std::{collections::HashMap, mem::size_of};
+use std::{
+    collections::HashMap,
+    mem::{align_of, size_of},
+};
 
 use crate::acquire::{Acquire, AcquisitionCell, SuccessfulCell};
 use crate::{EarlyFacts, Error, ObservationResources};
@@ -133,6 +136,28 @@ struct Cached {
     charge: usize,
     touched: u64,
 }
+
+fn cache_index_charge(capacity: usize) -> usize {
+    if capacity == 0 {
+        return 0;
+    }
+    // Current std SwissTable envelope, not a stable HashMap allocation ABI.
+    // Reviewed hashbrown 0.17.1 uses at most 16-byte control groups. Charge one
+    // control byte per bucket, the trailing group, and worst-case alignment slack.
+    // Recheck this bound on std/backend changes; it excludes allocator rounding/RSS.
+    const CONTROL_GROUP: usize = 16;
+    // Account for 7/8 loading even if deletions have reduced effective capacity.
+    // Cache::trim shrinks the index after removals; small tables have >=4 buckets.
+    let Some(buckets) = capacity.checked_mul(8).map(|c| c / 7).and_then(usize::checked_next_power_of_two) else {
+        return usize::MAX;
+    };
+    buckets
+        .max(4)
+        .saturating_mul(size_of::<(PathBuf, Cached)>() + 1)
+        .saturating_add(CONTROL_GROUP)
+        .saturating_add(align_of::<(PathBuf, Cached)>().max(CONTROL_GROUP) - 1)
+}
+
 struct Cache {
     limits: SourceCacheLimits,
     entries: HashMap<PathBuf, Cached>,
@@ -173,15 +198,7 @@ impl Cache {
             .fold((0, 0usize), |(n, bytes), e| (n + 1, bytes.saturating_add(e.charge)));
         // Conservatively charge the complete cache index to retained storage if
         // any idle entry exists, including control bytes and load-factor slack.
-        let index = if count == 0 {
-            0
-        } else {
-            self.entries
-                .capacity()
-                .saturating_add(1)
-                .next_power_of_two()
-                .saturating_mul(size_of::<(PathBuf, Cached)>() + 1)
-        };
+        let index = if count == 0 { 0 } else { cache_index_charge(self.entries.capacity()) };
         (count, bytes.saturating_add(index))
     }
 }
@@ -417,6 +434,11 @@ mod tests {
     use super::*;
     use crate::acquire::{Demand, Physical};
     use crate::test_support::{Fixture, file};
+    #[test]
+    fn cache_index_charge_handles_empty_and_overflow_without_undercharging() {
+        assert_eq!(cache_index_charge(0), 0);
+        assert_eq!(cache_index_charge(usize::MAX), usize::MAX);
+    }
     #[test]
     fn concurrent_consumers_coordinate_successful_listing_and_fact_cells() {
         use std::sync::{Barrier, atomic::AtomicUsize};
