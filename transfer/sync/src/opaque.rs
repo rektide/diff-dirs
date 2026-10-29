@@ -1,12 +1,15 @@
 //! Contextual recursive control over policy-free physical primitives.
+mod cohort;
 use crate::{
     Applier, Failure, Policy, Progress, Report,
     apply::{PhysicalExecutionDemand, inspection_failure, require_execution_inputs},
     kernel::{self, BoundDestination, DirectoryEnd, DirectoryScope, PreparedLeaf, StageSlot},
 };
+pub(crate) use cohort::apply_cohort;
 use diff_dirs_tree_inspect::{
     Action, Comparator, Container, DirectoryAdmission, DirectoryRequest, EntrySelectionRef, Execution, InspectionEpoch, Interior, InteriorRole, Kind,
-    NoExecutionDemand, Policy as SelectionPolicy, PreparedDirectory, Purpose, SelectionDomain, SlotId, SourceSession, TargetInspection, inspect_group,
+    NoExecutionDemand, Policy as SelectionPolicy, PreparedDirectory, Purpose, SelectionDomain, SlotId, SourceSession, SourceWork, TargetInspection,
+    inspect_group_with_work,
 };
 use std::fs::{Metadata, Permissions};
 use std::path::{Path, PathBuf};
@@ -167,9 +170,25 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             comparator: &self.binding.comparator,
         };
         let result = if effects {
-            inspect_group(call.source, request, &[lane], &PhysicalExecutionDemand, call.epoch, call.execution)
+            inspect_group_with_work(
+                call.source,
+                request,
+                &[lane],
+                &PhysicalExecutionDemand,
+                call.epoch,
+                call.execution,
+                SourceWork::Opaque,
+            )
         } else {
-            inspect_group(call.source, request, &[lane], &NoExecutionDemand, call.epoch, call.execution)
+            inspect_group_with_work(
+                call.source,
+                request,
+                &[lane],
+                &NoExecutionDemand,
+                call.epoch,
+                call.execution,
+                SourceWork::Opaque,
+            )
         }
         .map_err(|e| {
             Failure::io(

@@ -182,6 +182,18 @@ pub struct LaneReport {
     pub satisfied: bool,
 }
 
+/// Joined, independent application outcomes in frozen target-binding order.
+/// A returned failure disposes only that lane; no opaque interior is resumable.
+#[derive(Debug)]
+pub struct ApplicationsReport {
+    pub outcomes: Vec<ApplicationOutcome>,
+}
+#[derive(Debug)]
+pub struct ApplicationOutcome {
+    pub target: TargetId,
+    pub outcome: Result<Report, Failure>,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Limits {
     pub groups: u64,
@@ -705,52 +717,108 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
         token: &GroupToken,
         target: &TargetId,
     ) -> Result<Report, Error> {
+        let result = self
+            .apply_many(runtime, token, std::slice::from_ref(target))?
+            .outcomes
+            .pop()
+            .expect("one selected application")
+            .outcome;
+        result.map_err(|failure| Error::Application {
+            target: target.clone(),
+            failure: Box::new(failure),
+        })
+    }
+
+    /// Validate the entire subset before filesystem work. Restored pending
+    /// decisions ALL refresh before any resumed effect, including unselected
+    /// peers. Source-owning opaque children are joined before child inspection;
+    /// local failures do not stop healthy lanes. The ordinary drive helper stays
+    /// ordered apply-one, so consumer fail-fast/budget policy is unchanged.
+    pub fn apply_many<P: Policy<Context = C>, M: Comparator>(
+        &mut self,
+        runtime: &SyncRuntime<P, M>,
+        token: &GroupToken,
+        targets: &[TargetId],
+    ) -> Result<ApplicationsReport, Error> {
         if self.current_token().as_ref() != Some(token) {
             return Err(Error::InvalidControl("stale or foreign group token"));
         }
-        let i = self.index(target)?;
-        let app = self
-            .current
-            .as_ref()
-            .and_then(|b| b.applications.iter().find(|a| a.target == i))
-            .ok_or(Error::InvalidControl("target not in current group"))?;
-        if app.state != ApplicationState::Unstarted {
-            return Err(Error::InvalidControl("application already disposed"));
+        if targets.is_empty() {
+            return Err(Error::InvalidControl("empty application subset"));
         }
+        let mut indices = Vec::with_capacity(targets.len());
+        for target in targets {
+            let i = self.index(target)?;
+            if indices.contains(&i) {
+                return Err(Error::InvalidControl("duplicate application target"));
+            }
+            let app = self
+                .current
+                .as_ref()
+                .and_then(|b| b.applications.iter().find(|a| a.target == i))
+                .ok_or(Error::InvalidControl("target not in current group"))?;
+            if app.state != ApplicationState::Unstarted {
+                return Err(Error::InvalidControl("application already disposed"));
+            }
+            if self.lanes[i].applications == u64::MAX {
+                return Err(Error::InvalidState("application count overflow"));
+            }
+            indices.push(i);
+        }
+        indices.sort_unstable();
         let epoch = InspectionEpoch::new();
         self.refresh_with(runtime, &epoch)?;
-        let app = self
-            .current
-            .as_ref()
-            .expect("barrier")
-            .applications
-            .iter()
-            .find(|a| a.target == i)
-            .expect("pending target");
-        let retained = app.decision.coverage().deviated;
-        let relative = app.decision.relative().to_owned();
-        if let Err(failure) = self.route(i, &relative, &epoch) {
-            self.fail(i, End::ApplicationFailed);
-            return Err(Error::Application {
-                target: target.clone(),
-                failure: Box::new(failure),
-            });
-        }
-        // The saved bound on totals plus this pre-effect call-count increment
-        // guarantees u128 cumulative sums can hold every returned u64 counter.
-        self.lanes[i].applications = self.lanes[i]
-            .applications
-            .checked_add(1)
-            .ok_or(Error::InvalidState("application count overflow"))?;
-        let plan = self.plans[i].take().expect("fresh validated plan");
-        #[cfg(feature = "parallel")]
-        let parallel = self.execution == Execution::Parallel;
-        #[cfg(not(feature = "parallel"))]
-        let parallel = false;
         let source = Arc::clone(self.comparison.source_session().ok_or(Error::NotBound)?);
-        let result = runtime.target(target)?.applier.apply_ready(&source, &epoch, plan, parallel);
+        let mut results: Vec<_> = indices.iter().map(|_| None).collect();
+        let mut dispatched = Vec::new();
+        let mut applications = Vec::new();
+        for (position, &i) in indices.iter().enumerate() {
+            let app = self
+                .current
+                .as_ref()
+                .unwrap()
+                .applications
+                .iter()
+                .find(|a| a.target == i)
+                .expect("validated pending application");
+            let retained = app.decision.coverage().deviated;
+            let relative = app.decision.relative().to_owned();
+            if let Err(failure) = self.route(i, &relative, &epoch) {
+                self.fail(i, End::ApplicationFailed);
+                results[position] = Some(Err(failure));
+                continue;
+            }
+            self.lanes[i].applications += 1;
+            let target = &self.comparison.parts().bindings.targets[i].id;
+            applications.push((&runtime.target(target)?.applier, self.plans[i].take().expect("fresh validated plan")));
+            dispatched.push((position, i, retained));
+        }
+        let call = crate::opaque::EffectCall {
+            source: &source,
+            epoch: &epoch,
+            execution: self.execution,
+        };
+        for ((position, i, retained), result) in dispatched.into_iter().zip(crate::opaque::apply_cohort(&call, applications)) {
+            self.record_application(i, retained, &result);
+            results[position] = Some(result);
+        }
+        Ok(ApplicationsReport {
+            outcomes: indices
+                .into_iter()
+                .zip(results)
+                .map(|(i, outcome)| ApplicationOutcome {
+                    target: self.comparison.parts().bindings.targets[i].id.clone(),
+                    outcome: outcome.expect("joined selected application"),
+                })
+                .collect(),
+        })
+    }
+
+    // Isolated accounting boundary: policy deviation/retention correction can
+    // change this contract independently of the runtime cohort/cache scheduler.
+    fn record_application(&mut self, i: usize, retained: u64, result: &Result<Report, Failure>) {
         let totals = &mut self.lanes[i];
-        let (planned, completed, policy) = match &result {
+        let (planned, completed, policy) = match result {
             Ok(r) => (r.planned, &r.completed, &r.policy),
             Err(f) => (f.planned, &f.completed, f.policy.as_ref()),
         };
@@ -764,7 +832,7 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
                 .expect("kernel counts immediate retention before execution"),
         );
         match result {
-            Ok(report) => {
+            Ok(_) => {
                 self.current
                     .as_mut()
                     .expect("barrier")
@@ -773,14 +841,9 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
                     .find(|a| a.target == i)
                     .expect("application")
                     .state = ApplicationState::Accepted;
-                Ok(report)
             }
-            Err(failure) => {
+            Err(_) => {
                 self.fail(i, End::ApplicationFailed);
-                Err(Error::Application {
-                    target: target.clone(),
-                    failure: Box::new(failure),
-                })
             }
         }
     }
