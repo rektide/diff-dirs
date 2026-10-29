@@ -18,6 +18,8 @@ sources:
     title: Current library ownership and persistence boundaries
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/verification0.sol61x.md"
     title: Independent Sol verification-tooling preparation, counted trace capability and remaining real-command fixture requirements
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution0.gpt6a.md"
+    title: Native command design and bounded same-tree-child replacement proof accepted for implementation
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -80,9 +82,9 @@ specific unresolved concern.
 | Work | Owner / session | Standing |
 | --- | --- | --- |
 | Provider contract design | Astra high, `opencode://ses_e7a2675f8ffe76VJT5Lt1Lwe5l` | In progress; inspect/compare/sync and observation ownership. |
-| Native and command design | Astra high, `opencode://ses_e7a26147bffeOIk9jHWPYXJrHI` | In progress; includes a bounded native replacement proof. |
+| Native and command design | Astra high, `opencode://ses_e7a26147bffeOIk9jHWPYXJrHI` | Returned and reviewed; commit `2d2dfa2b`, six bounded native cases. |
 | Bounded verification preparation | Sol xhigh, `opencode://ses_e7a2227e7ffeTQH5TWAkgiaxOz` | Returned: native trace count command and concrete integration handoff. |
-| Implementation | Sol xhigh | Begins from reviewed contracts. |
+| Shared native command implementation | Sol xhigh, `opencode://ses_e7a14b1afffe7eRp0y0L0JssYC` | Active: shared bindings/native inputs, receiver operation, structured reports and coherent producer/preview extraction. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -103,6 +105,36 @@ The existing campaign creates donors per sample and fixes D=S. The integrated
 evidence slice must instead reuse one owned donor and at most two receivers,
 exercise mixed N2 and independent S/D, and run both routes through the actual
 public command. Native protocol and production results remain pending.
+
+### Native design review
+
+Accepted the [JW execution design](file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution0.gpt6a.md)
+as the implementation basis for command/source ownership, producer, preview,
+reporting and the two native sequences. Its new replacement protocol is:
+
+```text
+save O → new child of O → authorized full-S renewal → adopt S
+       → optional restore D → rebase only the new change onto D → verify
+```
+
+Astra's six scratch cases establish availability on the installed exact JJ build,
+including D≠S, clean renewal, matching unowned locals and a retained collapse
+descendant. Peak owned residency was 31 entries / 65,812 bytes. Production-kernel
+verification remains required. Replacement adds a full snapshot/reparent boundary;
+clear-first stays the default/control pending matched full-route evidence.
+
+The first Sol command slice can proceed against these ownership contracts. The
+provider integration review must settle **complete desired-leaf obligations**:
+missing S names cannot disappear from a physical name union; O alone supplies
+occupied-name/removal authority; preserved descendants veto a coupled collapse
+before subordinate deletion; full manifest coverage precedes donor-state adoption.
+This is a concrete reason to bring desired-work representation into the build now.
+
+The parent also accepts final-only tracked preparation conformance, explicit
+`PLANNED` preview unknowns, and initial support for the actually proved JJ build.
+The chosen CLI mechanism selector is `--renewal-route` with clear-first as default;
+`--replace-content` retains its separate authority. Deployment remains a deliberate
+later action.
 
 ## Work ownership and navigation
 
