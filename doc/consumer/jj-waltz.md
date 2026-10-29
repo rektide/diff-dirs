@@ -5,9 +5,12 @@ description: Current library adoption, demonstrated help, sharing limits and arc
 resource: /doc/consumer/jj-waltz.md
 status: maintained-assessment
 generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-28 }
+updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/discussion0.gpt6ax.md"
+    title: Subsequent human constraints, concrete native-transition discussion, verified fact reuse and separately tracked requirements
   - resource: "opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY"
-    title: Assesses both architectures after implementation and connects consumer outcomes and library opportunities without selecting new defaults
+    title: Assesses both architectures and records subsequent staged requirements for persistence-preserving lightness, inherited decisions, modular comparison and retained fact reuse
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/reseed-checkin0.gpt6ax.md"
     title: Integrated parent assessment, actual artifact identities and rechecked historical performance evidence
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/reseed-checkin0.gpt61sxh.md"
@@ -41,6 +44,13 @@ This account records the October 28 assessment at JW **`76fb0656`** and diff-dir
 **`10361cf0` / 0.2.0**. It is the library-side counterpart of the
 [consumer's integrated check-in](file:///home/rektide/src/jj-waltz/design/coordinated-refill/reseed-checkin0.gpt6ax.md).
 Improvement requests below are recommendations, not accepted implementation scope.
+
+The [follow-on discussion](file:///home/rektide/src/jj-waltz/design/coordinated-refill/discussion0.gpt6ax.md)
+adds an explicit constraint: **keep one persisted execution design with its advanced
+checkpoint semantics.** Lightness should right-size representations and work within
+that design. The human wants inherited region judgments and modular comparison
+developed in separate turns. The discussion records the corresponding requirement
+tickets and verifies current backend-specific metadata reuse.
 
 ## Current use versus intended use
 
