@@ -30,6 +30,8 @@ sources:
     title: Fresh 0.3 receiving adoption, completed native gates and compact causal failure-report correction
   - resource: /design/architecture/kernel-handoff0.gpt6a.md
     title: Accepted concrete effect-call, lane, coordinate, demand, lease and provisional-progress handoff
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/verification1.sol61x.md"
+    title: Implemented retained-fixture command adapter, verified tooling and remaining public-report extraction gate
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -103,7 +105,7 @@ specific unresolved concern.
 | JW foundation adoption and remaining native checks | Sol xhigh, `opencode://ses_e79dd6eaeffeNFNkKJzrJKre9x` | Returned through `3a9602b2`; 20 native cases and 5 focused error cases passed. |
 | Shared effect-kernel design handoff | Astra xhigh (requested high), `opencode://ses_e79da1717ffeKJmKkEcTiGUEZa` | Returned at `1c36cbc9`; private runtime/kernel interfaces and enclosing listed-slice interpretation accepted. |
 | Contextual traversal/effects | Sol xhigh, `opencode://ses_e79d26e21ffestzkMAfQRZS702` | Active: generic frontier/bindings, selected-work publication, contextual execution and v2 process continuation. |
-| Reused two-route evidence adapter | Sol xhigh, `opencode://ses_e79d11c23ffeYmXANCjX2wAB34` | Active independent tool build; actual route measurement awaits production correctness and CLI. |
+| Reused two-route evidence adapter | Sol xhigh, `opencode://ses_e79d11c23ffeYmXANCjX2wAB34` | Returned through `06a2ffb9`; report binding and actual route runs await public CLI. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -281,6 +283,24 @@ For later listed execution, an interior node identifies an enclosing desired sli
 not a claim that every O-only target descendant has a desired node. The actual
 desired lookup may be empty; exact removal authority remains with the owned input.
 This interpretation was reviewed and sent to the active contextual implementer.
+
+### Reused evidence adapter checkpoint
+
+JW commits `12105eb8` and `d8d12abf` add `jw-perf renewal init|accept|sample` over
+the existing runner. The [handoff](file:///home/rektide/src/jj-waltz/design/coordinated-refill/verification1.sol61x.md)
+is `06a2ffb9`. It reuses one donor/two receivers with independent S/D, four
+semantic shapes, four mirrored native samples and separately invoked count probes.
+Eighteen focused tests, package lint/format/document checks and one native setup/
+reset smoke passed; its calculated ordinary residency with staging reserve was
+84 entries / 1,018 bytes. Parent reviewed the lifecycle and report gate.
+
+No production route ran. `report_evidence` deliberately remains an integration
+blocker until the real public schema exists. The final evidence slice must bind
+actual route/cohort/pins, full manifest/finish outcomes, clone/copy and ordinary
+effects, sharing counters and available phase times; unavailable values stay
+unavailable. It must also state the measured source-evidence profile: the current
+adapter argv includes an explicit live `--source-at` assertion, whose additional
+native work must not be silently presented as plain prepared-source reseed cost.
 
 ## Work ownership and navigation
 
