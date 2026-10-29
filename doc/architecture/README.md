@@ -5,8 +5,12 @@ description: Current component ownership, coordinated source-to-many comparison 
 resource: /doc/architecture/README.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-20 }
-updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-28 }
+updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
+  - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
+    title: Connects the human-directed architectural integration assessment and its proposed next-build ownership changes to the maintained architecture
+  - resource: /design/architecture/annealing0.gpt6ax.md
+    title: Proposed interleaving of shared inputs, immutable selection, inherited region context, comparison composition and whole-command delivery
   - resource: "opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY"
     title: Integrates the coordinated rebuild and connects the subsequent consumer-led architecture/performance reassessment and library improvement requests
   - resource: /doc/consumer/jj-waltz.md
@@ -150,6 +154,14 @@ architecture check-in: retain these owner boundaries while assessing lighter liv
 execution, repeated route/decision costs and source sharing in opaque work. The
 consumer's actual N1 adoption and planned cohort remain distinct; these are
 improvement requests rather than changes to the implemented contracts below.
+
+The subsequent [architectural integration assessment](/design/architecture/annealing0.gpt6ax.md)
+responds to the human's request to fold those requirements into present construction.
+It proposes carrying accepted region judgments through both paired traversal and
+opaque sync, and aligning comparison meaning, selected-state ownership and restore
+validation before the next cohort integration hardens their interfaces. Its
+[delivery sequence](/design/architecture/annealing0.gpt6ax.md#annealing-delivery)
+joins those changes to JW's whole-command trajectory; it is proposed scope.
 
 | Component | Contract and owner |
 | --- | --- |

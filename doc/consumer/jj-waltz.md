@@ -7,6 +7,10 @@ status: maintained-assessment
 generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-28 }
 updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
+  - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
+    title: Integrates the latest request to make inherited judgments and modular comparison part of architectural construction, with a proposed interleaved build sequence
+  - resource: /design/architecture/annealing0.gpt6ax.md
+    title: Source-grounded integration of trajectory1, the three-lane queue, inherited context and persisted selection contracts
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/discussion0.gpt6ax.md"
     title: Subsequent human constraints, concrete native-transition discussion, verified fact reuse and separately tracked requirements
   - resource: "opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY"
@@ -53,11 +57,19 @@ developed in separate turns. The discussion records the corresponding requiremen
 tickets and verifies current backend-specific metadata reuse.
 
 The [actionable work map](file:///home/rektide/src/jj-waltz/design/coordinated-refill/work-map0.gpt6ax.md)
-is the operational entrance: native epic `jjwaltz-reseed-coordinated` owns command
-delivery; existing `diffdir-tree-coordinated` and `diffdir-tree-observe` retain their
-provider work. Decision sharing is the first bounded lightness change. JW's optional
-backend experiment is `jjwaltz-reseed-dirent`; broader inherited-policy/comparison
-and opaque-sharing work are later candidates rather than gates on all delivery.
+records native epic `jjwaltz-reseed-coordinated` for command delivery and existing
+`diffdir-tree-coordinated` / `diffdir-tree-observe` for provider work. Decision sharing
+is its first bounded lightness change; JW's optional backend experiment is
+`jjwaltz-reseed-dirent`.
+
+The latest [architectural integration assessment](/design/architecture/annealing0.gpt6ax.md)
+responds to further human steering: these requirements should shape present and
+future architecture, rather than arrive as late passes. It recommends moving real
+inherited-region propagation and the minimum comparison/selection contract into
+the next integrated build. That revises the map's proposed sequencing of those
+topics as later discussions. The [build proposal](/design/architecture/annealing0.gpt6ax.md#annealing-delivery)
+retains one persisted model, shared source/command ownership and the actual N1/N2
+command milestone; detailed implementation scope awaits selection.
 
 ## Current use versus intended use
 

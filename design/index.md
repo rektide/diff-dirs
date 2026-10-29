@@ -5,8 +5,10 @@ description: Reading paths through consumer fit, I/O research, implementation de
 resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-28 }
+updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
+  - resource: opencode://ses_e7a559acfffeNLFScKfuc7htqW
+    title: Connects the new architectural integration assessment to the build reading path, inherited-region research and current consumer work
   - resource: opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY
     title: Recovered design chronology, integrated the coordinated rebuild and connected the subsequent independent JW/library architecture and performance check-in
   - resource: opencode://ses_ea82ab643ffel2vtvMoX2vqoZa
@@ -60,6 +62,12 @@ capabilities and the remaining measurement follow-up. The current account below
 records commits and verification rather than treating old research closure as
 implementation completion.
 
+- [Annealing architecture into the next delivery](architecture/annealing0.gpt6ax.md):
+  current proposed integration of JW's trajectory1 and subsequent human steering.
+  Recommends real inherited region context and explicit comparison composition in
+  the next build, alongside shared inputs and lighter decision ownership. Traces
+  present code constraints, saved-state implications and a coherent N1/N2 delivery
+  sequence; implementation scope remains proposed.
 - [Current rebuild and checkpoints](architecture/rebuild0.gpt6a.md): the October 28
   commission, independently assessed scope, partial multi-destination heads and
   traversal/decision checkpoints. Shared immediate inspection and the coordinated
