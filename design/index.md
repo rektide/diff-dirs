@@ -5,8 +5,10 @@ description: Reading paths through consumer fit, I/O research, implementation de
 resource: /design/index.md
 status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
+updated: { by: "model:openai/gpt-6-astra#medium", at: 2026-10-30 }
 sources:
+  - resource: opencode://ses_e74ed67f6ffeB43O854roApY4C
+    title: Links the commissioned optional reflink-aware retention design and its provider/native contract boundaries
   - resource: opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4
     title: Records the execution commission and connects the active cross-project delivery account
   - resource: opencode://ses_e7a559acfffeNLFScKfuc7htqW
@@ -56,6 +58,14 @@ sources:
 # Design and implementation evidence
 
 The [root specification](../README.md) owns the current public contract.
+
+## Optional comparison research
+
+- [Donor-sharing observation and proof-qualified retention](comparison/reflink0.gpt6a.md):
+  proposed Btrfs FIEMAP profile, compressed/inline limitations, ephemeral evidence
+  and an explicit ensure-sharing tracked intent for JW. Explains why an ordinary
+  comparator cannot bypass RenewOwned or complete-installation adoption coverage.
+  Design only; defaults and production code are unchanged.
 
 ## Start here: the rebuild and its design sequence
 

@@ -5,8 +5,10 @@ description: Current library adoption, demonstrated help, sharing limits and arc
 resource: /doc/consumer/jj-waltz.md
 status: maintained-assessment
 generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-28 }
-updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
+updated: { by: "model:openai/gpt-6-astra#medium", at: 2026-10-30 }
 sources:
+  - resource: "opencode://ses_e74ed67f6ffeB43O854roApY4C"
+    title: Connects the human-commissioned optional reflink-aware retention design to JW's churn-reduction needs
   - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
     title: Commissions the joined build and reviews actual contextual JW cohort adoption, retaining predecessor assessment and pending native cutover boundaries
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution1.sol61x.md"
@@ -75,6 +77,16 @@ The [active delivery](/design/architecture/delivery0.gpt6ax.md) now owns the
 commissioned broader scope and actual implementation receipts.
 
 ## Current contextual adoption
+
+An optional [donor-sharing retention design](/design/comparison/reflink0.gpt6a.md)
+addresses the later request to avoid replacing already-private, already-shared
+receiver inodes even if comparison costs more. It proposes conservative Btrfs
+observations and a distinct tracked ensure-sharing intent with verified-retention
+coverage before native adoption. Compressed/inline evidence remains unsupported;
+this is design-only and leaves current defaults intact. The consumer's
+[policy/scale investigation](file:///home/rektide/src/jj-waltz/design/coordinated-refill/policy-scale0.gpt6a.md)
+explains why ordinary StatKey comparison already retains clean payload while both
+tracked routes still install every S leaf.
 
 **Public delivery is now JW 0.11 / provider 0.7.** Both native renewal routes use
 complete manifest coverage, the real contextual ordinary cohort and loaded finish.
