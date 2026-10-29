@@ -209,8 +209,29 @@ pub fn walk_in_pool_policy<P: Policy, M: Comparator, E: ExecutionDemand>(
     comparator: M,
     demand: E,
 ) -> Result<ParallelPolicyWalk<'_, P, M, E>, Error> {
-    let mut walk = crate::walk_with_policy(
-        original,
+    walk_in_pool_with_source(
+        std::sync::Arc::new(crate::SourceSession::new(original)),
+        target,
+        pool,
+        limits,
+        policy,
+        comparator,
+        demand,
+    )
+}
+
+/// Borrow a pool while retaining the caller's actual source/resources owner.
+pub fn walk_in_pool_with_source<P: Policy, M: Comparator, E: ExecutionDemand>(
+    source: std::sync::Arc<crate::SourceSession>,
+    target: impl AsRef<Path>,
+    pool: &ThreadPool,
+    limits: ParallelLimits,
+    policy: P,
+    comparator: M,
+    demand: E,
+) -> Result<ParallelPolicyWalk<'_, P, M, E>, Error> {
+    let mut walk = crate::walk_with_source(
+        source,
         target,
         WalkOptions {
             execution: Execution::Parallel,

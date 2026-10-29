@@ -1,14 +1,14 @@
-//! Selected contextual recursion. Physical primitives deliberately have no policy.
-
+//! Contextual recursive control over policy-free physical primitives.
 use crate::{
     Applier, Failure, Policy, Progress, Report,
     apply::{PhysicalExecutionDemand, inspection_failure, require_execution_inputs},
-    kernel::{self, BoundDestination, DirectoryEnd, DirectoryScope},
+    kernel::{self, BoundDestination, DirectoryEnd, DirectoryScope, PreparedLeaf, StageSlot},
 };
 use diff_dirs_tree_inspect::{
-    Action, Comparator, Container, DirectoryAdmission, DirectoryRequest, EntrySelectionRef, Execution, InspectionEpoch, Interior, InteriorRole,
+    Action, Comparator, Container, DirectoryAdmission, DirectoryRequest, EntrySelectionRef, Execution, InspectionEpoch, Interior, InteriorRole, Kind,
     NoExecutionDemand, Policy as SelectionPolicy, PreparedDirectory, Purpose, SelectionDomain, SlotId, SourceSession, TargetInspection, inspect_group,
 };
+use std::fs::{Metadata, Permissions};
 use std::path::{Path, PathBuf};
 use std::sync::{
     Arc,
@@ -20,8 +20,6 @@ pub(crate) struct EffectCall<'a> {
     pub(crate) epoch: &'a InspectionEpoch,
     pub(crate) execution: Execution,
 }
-
-/// Lane-local cancellation/counters; no healthy future cohort shares these.
 pub(crate) struct LaneCall<'a, P, M> {
     pub(crate) binding: &'a Applier<P, M>,
     stopped: AtomicBool,
@@ -29,20 +27,17 @@ pub(crate) struct LaneCall<'a, P, M> {
     excluded: AtomicU64,
     planned: AtomicU64,
 }
-
 pub(crate) struct BatchPlace<'a> {
     pub(crate) relative: &'a Path,
     pub(crate) source_directory: Option<&'a Path>,
     pub(crate) observed_target_directory: Option<&'a Path>,
     pub(crate) output_directory: &'a Path,
 }
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RecursionOwner {
     PairedFrontier,
     ThisCall,
 }
-
 fn conditional<C>(entry: &EntrySelectionRef<'_, C>) -> bool {
     matches!(
         entry.action,
@@ -52,18 +47,52 @@ fn conditional<C>(entry: &EntrySelectionRef<'_, C>) -> bool {
         }
     )
 }
-
 struct PendingDirectory {
     scope: Arc<DirectoryScope>,
-    donor: std::fs::Permissions,
+    donor: Permissions,
     created: bool,
     needed: bool,
 }
 
+/// Promoted recursion/finish frames, not a second selection or operation catalog.
+/// Only selected interiors survive the immediate arena. Leaf-only work is done
+/// while facts are borrowed; a collapse retains its prepared descriptors instead
+/// of retaining source facts through the second removal pass.
+struct Child<C> {
+    relative: PathBuf,
+    from: Option<PathBuf>,
+    to: PathBuf,
+    interior: Option<Interior<C>>,
+    work: ChildWork,
+}
+enum ChildWork {
+    Create {
+        donor: Permissions,
+        descend: bool,
+    },
+    Conditional {
+        donor: Permissions,
+    },
+    Reconcile {
+        remove: bool,
+    },
+    Expand {
+        slot: SlotId,
+        donor: Permissions,
+        descend: bool,
+        old_kind: Kind,
+        old_attributes: Option<Metadata>,
+        grant: diff_dirs_tree_inspect::DestinationGrant,
+    },
+    Collapse {
+        slot: StageSlot,
+        leaf: PreparedLeaf,
+        grant: diff_dirs_tree_inspect::DestinationGrant,
+    },
+}
+type EntryResult<C> = Result<(Progress, bool, Option<Child<C>>), Failure>;
+
 impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
-    pub(crate) fn add_excluded(&self, count: u64) {
-        self.excluded.fetch_add(count, Ordering::Relaxed);
-    }
     pub(crate) fn new(binding: &'a Applier<P, M>) -> Self {
         Self {
             binding,
@@ -72,6 +101,9 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             excluded: AtomicU64::new(0),
             planned: AtomicU64::new(0),
         }
+    }
+    pub(crate) fn add_excluded(&self, count: u64) {
+        self.excluded.fetch_add(count, Ordering::Relaxed);
     }
     pub(crate) fn finish(&self, result: Result<Progress, Failure>) -> Result<Report, Failure> {
         let policy = Policy {
@@ -93,16 +125,10 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             }
         }
     }
-    fn count(&self, prepared: &PreparedDirectory<P::Context>) {
-        let selected = prepared.selection();
-        self.retained.fetch_add(selected.coverage().deviated, Ordering::Relaxed);
-        self.excluded.fetch_add(selected.coverage().excluded, Ordering::Relaxed);
-    }
-    fn planned(&self, prepared: &PreparedDirectory<P::Context>) {
-        self.planned.fetch_add(
-            prepared.selection().entries().filter(|e| e.has_work() && !conditional(e)).count() as u64,
-            Ordering::Relaxed,
-        );
+    fn count(&self, batch: &PreparedDirectory<P::Context>) {
+        let c = batch.selection().coverage();
+        self.retained.fetch_add(c.deviated, Ordering::Relaxed);
+        self.excluded.fetch_add(c.excluded, Ordering::Relaxed);
     }
     pub(crate) fn inspect(
         &self,
@@ -116,7 +142,7 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             kernel::route(call.epoch, source)?;
         }
         if let Some(target) = place.observed_target_directory {
-            kernel::route(call.epoch, if root { target.parent().expect("bound target has parent") } else { target })?;
+            kernel::route(call.epoch, if root { target.parent().expect("bound parent") } else { target })?;
         }
         let request = DirectoryRequest {
             relative: place.relative,
@@ -152,14 +178,14 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
                 std::io::Error::new(std::io::ErrorKind::InvalidInput, e),
             )
         })?;
-        result.into_iter().next().expect("one requested lane").outcome.map_err(inspection_failure)
+        result.into_iter().next().expect("one lane").outcome.map_err(inspection_failure)
     }
-    fn gate(&self, call: &EffectCall<'_>, prepared: &PreparedDirectory<P::Context>, place: &BatchPlace<'_>) -> Result<(), Failure> {
-        let s = prepared.selection();
-        if prepared.source_root() != self.binding.original()
-            || prepared.target_root() != self.binding.target()
+    fn gate(&self, call: &EffectCall<'_>, batch: &PreparedDirectory<P::Context>, place: &BatchPlace<'_>) -> Result<(), Failure> {
+        let s = batch.selection();
+        if batch.source_root() != self.binding.original()
+            || batch.target_root() != self.binding.target()
             || call.source.root() != self.binding.original()
-            || prepared.source_generation() != call.source.generation()
+            || batch.source_generation() != call.source.generation()
             || s.relative() != place.relative
             || s.policy() != self.binding.selection.identity()
             || s.context_schema() != self.binding.selection.context_schema()
@@ -169,248 +195,343 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             return Err(Failure::invalid(
                 "bind prepared effects",
                 place.relative,
-                "preparation does not match this live physical interpretation",
+                "preparation does not match live physical interpretation",
             ));
         }
-        require_execution_inputs(prepared)
+        require_execution_inputs(batch)
     }
-
     pub(crate) fn apply_ready(
         &self,
         call: &EffectCall<'_>,
-        prepared: &PreparedDirectory<P::Context>,
+        batch: PreparedDirectory<P::Context>,
         place: BatchPlace<'_>,
         owner: RecursionOwner,
         selected: Option<&[(std::ffi::OsString, u8)]>,
     ) -> Result<Progress, Failure> {
-        self.gate(call, prepared, &place)?; // Pure whole-batch gate BEFORE scope/I/O.
-        self.count(prepared);
-        let entries: Vec<_> = (0..prepared.selection().len())
-            .filter(|&index| {
-                let entry = prepared.selection().entry(SlotId(index));
+        self.gate(call, &batch, &place)?;
+        let scope = DirectoryScope::new(
+            if batch.selection().is_root() {
+                place.output_directory.parent().expect("bound parent")
+            } else {
+                place.output_directory
+            },
+            batch.selection().entries().map(|e| e.name()),
+        );
+        let result = self.dispatch(call, batch, &place, &scope, owner, selected, None).map(|(p, _)| p);
+        let complete = result.is_ok() && !self.stopped.load(Ordering::Acquire);
+        scope.finish(result, DirectoryEnd::Retained, complete, call.epoch)
+    }
+    fn map<T: Sync, U: Send>(&self, call: &EffectCall<'_>, items: &[T], parallel: bool, operation: impl Fn(&T) -> U + Sync) -> Vec<U> {
+        #[cfg(feature = "parallel")]
+        if parallel && call.execution == Execution::Parallel {
+            use rayon::prelude::*;
+            return items.par_iter().map(&operation).collect();
+        }
+        let _ = (call, parallel);
+        items.iter().map(operation).collect()
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn dispatch(
+        &self,
+        call: &EffectCall<'_>,
+        batch: PreparedDirectory<P::Context>,
+        place: &BatchPlace<'_>,
+        scope: &DirectoryScope,
+        owner: RecursionOwner,
+        selected: Option<&[(std::ffi::OsString, u8)]>,
+        mut pending: Option<(&DirectoryScope, &mut Vec<PendingDirectory>)>,
+    ) -> Result<(Progress, bool), Failure> {
+        self.gate(call, &batch, place)?;
+        self.count(&batch);
+        let slots: Vec<_> = (0..batch.selection().len())
+            .filter(|&i| {
                 selected.is_none_or(|names| {
                     names
-                        .binary_search_by(|(n, _)| n.as_encoded_bytes().cmp(entry.name().as_encoded_bytes()))
+                        .binary_search_by(|(n, _)| n.as_encoded_bytes().cmp(batch.selection().entry(SlotId(i)).name().as_encoded_bytes()))
                         .is_ok()
                 })
             })
+            .map(SlotId)
             .collect();
         self.planned.fetch_add(
-            entries
+            slots
                 .iter()
                 .filter(|&&i| {
-                    let e = prepared.selection().entry(SlotId(i));
+                    let e = batch.selection().entry(i);
                     e.has_work() && !conditional(&e)
                 })
                 .count() as u64,
             Ordering::Relaxed,
         );
-        let scope = DirectoryScope::new(
-            if prepared.selection().is_root() {
-                place.output_directory.parent().expect("bound root has parent")
-            } else {
-                place.output_directory
-            },
-            prepared.selection().entries().map(|e| e.name()),
-        );
-        let result = self.batch(call, &entries, |&index| {
-            self.execute_entry(call, prepared, SlotId(index), &place, &scope, owner).map(|(p, _)| p)
-        });
-        let complete = result.is_ok() && !self.stopped.load(Ordering::Acquire);
-        scope.finish(result, DirectoryEnd::Retained, complete, call.epoch)
-    }
-
-    fn batch<T: Sync>(&self, call: &EffectCall<'_>, entries: &[T], operation: impl Fn(&T) -> Result<Progress, Failure> + Sync) -> Result<Progress, Failure> {
-        let run = |entry: &T| {
+        let prepare = |slot: &SlotId| {
             if self.stopped.load(Ordering::Acquire) {
-                return Ok(Progress::default());
+                return Ok((Progress::default(), true, None));
             }
-            let result = operation(entry);
+            let result = self.prepare_entry(call, &batch, *slot, place, scope, owner);
             if result.is_err() {
                 self.stopped.store(true, Ordering::Release);
             }
             result
         };
-        #[cfg(feature = "parallel")]
-        if call.execution == Execution::Parallel {
-            use rayon::prelude::*;
-            let results: Vec<_> = entries.par_iter().map(run).collect();
-            return crate::model::merge(results);
+        let staged = if let Some((parent, chain)) = pending.as_mut() {
+            let mut staged = Vec::with_capacity(slots.len());
+            for slot in slots {
+                let entry = batch.selection().entry(slot);
+                let result = if !self.stopped.load(Ordering::Acquire) && entry.has_work() && !conditional(&entry) {
+                    self.materialize_pending(call, parent, chain).and_then(|()| prepare(&slot))
+                } else {
+                    prepare(&slot)
+                };
+                if result.is_err() {
+                    self.stopped.store(true, Ordering::Release);
+                }
+                staged.push(result);
+            }
+            staged
+        } else {
+            self.map(call, &slots, true, prepare)
+        };
+        let mut kept = batch.selection().coverage().excluded != 0;
+        // No child/finish frame borrows the selected name table or fact slab.
+        drop(batch);
+        let mut outcomes = Vec::with_capacity(staged.len());
+        let mut children = Vec::new();
+        for result in staged {
+            let index = outcomes.len();
+            outcomes.push(match result {
+                Ok((p, k, child)) => {
+                    kept |= k;
+                    if let Some(child) = child {
+                        children.push((index, child));
+                    }
+                    Ok(p)
+                }
+                Err(f) => Err(f),
+            });
         }
-        let _ = call;
-        crate::model::merge(entries.iter().map(run))
+        let results = if let Some((parent, chain)) = pending {
+            let mut results = Vec::with_capacity(children.len());
+            for (_, child) in &children {
+                results.push(self.run_child(call, child, scope, Some((parent, &mut *chain))));
+            }
+            results
+        } else {
+            self.map(call, &children, true, |(_, child)| self.run_child(call, child, scope, None))
+        };
+        for ((index, _), result) in children.into_iter().zip(results) {
+            match result {
+                Ok((p, k)) => {
+                    kept |= k;
+                    kernel::add_progress(&mut outcomes[index], p);
+                }
+                Err(mut f) => {
+                    let earlier = std::mem::replace(&mut outcomes[index], Ok(Progress::default()));
+                    match earlier {
+                        Ok(p) => f.completed += p,
+                        Err(mut prior) => {
+                            prior.append(f);
+                            f = prior;
+                        }
+                    }
+                    outcomes[index] = Err(f);
+                }
+            }
+        }
+        crate::model::merge(outcomes).map(|p| (p, kept))
     }
-
-    fn execute_entry(
+    fn prepare_entry(
         &self,
         call: &EffectCall<'_>,
-        prepared: &PreparedDirectory<P::Context>,
+        batch: &PreparedDirectory<P::Context>,
         slot: SlotId,
         place: &BatchPlace<'_>,
         scope: &DirectoryScope,
         owner: RecursionOwner,
-    ) -> Result<(Progress, bool), Failure> {
-        let entry = prepared.selection().entry(slot);
-        let relative = if prepared.selection().is_root() {
-            place.relative.to_owned()
-        } else {
-            place.relative.join(entry.name())
-        };
-        let from = if prepared.selection().is_root() {
-            place.source_directory.map(Path::to_owned)
-        } else {
-            place.source_directory.map(|p| p.join(entry.name()))
-        };
-        let to = if prepared.selection().is_root() {
+    ) -> EntryResult<P::Context> {
+        let entry = batch.selection().entry(slot);
+        let root = batch.selection().is_root();
+        let relative = if root { place.relative.to_owned() } else { place.relative.join(entry.name()) };
+        let from = place.source_directory.map(|p| if root { p.to_owned() } else { p.join(entry.name()) });
+        let to = if root {
             place.output_directory.to_owned()
         } else {
             place.output_directory.join(entry.name())
         };
         #[cfg(all(test, feature = "parallel"))]
         crate::apply::tests::observe(&to);
-        let facts = prepared.facts(slot);
-        match entry.action {
-            Action::ConfirmAbsent => Err(Failure::invalid(
-                "apply physical plan",
-                &relative,
-                "listed absence obligation in physical execution",
-            )),
-            Action::PreserveTree | Action::KeepLeaf => Ok((Progress::default(), entry.target.is_some())),
-            Action::InstallLeaf | Action::ReplaceWithLeaf => {
-                if entry.action == Action::ReplaceWithLeaf {
-                    self.removable(call, &to, &relative, entry.interior.as_ref().expect("selected removal interior"))?;
-                }
+        let facts = batch.facts(slot);
+        let work = match entry.action {
+            Action::ConfirmAbsent => return Err(Failure::invalid("apply physical plan", &relative, "listed obligation in physical execution")),
+            Action::PreserveTree | Action::KeepLeaf => return Ok((Progress::default(), entry.target.is_some(), None)),
+            Action::InstallLeaf => {
                 let staged = scope.stage_slot(slot, &to, call.epoch)?;
-                let mut destination = BoundDestination::new(&to, scope, entry.install.expect("selected install authority").destination, entry.target)?;
-                let leaf = kernel::prepare_leaf(
-                    from.as_deref().expect("selected source leaf"),
-                    facts.source.expect("source leaf"),
+                let leaf = kernel::prepare_leaf(from.as_deref().unwrap(), facts.source.unwrap(), &staged, &to, self.binding.policy)?;
+                return kernel::publish_leaf(
+                    leaf,
                     &staged,
-                    &to,
-                    self.binding.policy,
-                )?;
-                let removed = if entry.action == Action::ReplaceWithLeaf {
-                    let (removed, retained) = self.reconcile_directory(call, None, &to, &relative, entry.interior.as_ref().unwrap(), true, scope)?;
-                    if retained {
-                        let mut f = Failure::invalid("replace directory", &to, "target subtree retained by policy");
-                        f.completed = removed;
-                        return Err(f);
-                    }
-                    destination.cleared();
-                    removed
-                } else {
-                    Progress::default()
-                };
-                let mut result = kernel::publish_leaf(leaf, &staged, &destination, call.epoch);
-                kernel::add_progress(&mut result, removed);
-                result.map(|p| (p, false))
+                    &BoundDestination::new(&to, scope, entry.install.unwrap().destination, entry.target)?,
+                    call.epoch,
+                )
+                .map(|p| (p, false, None));
             }
             Action::RemoveLeaf => {
                 scope.ensure_writable(call.epoch)?;
-                kernel::remove_leaf(&to, facts.target.expect("target leaf"), call.epoch).map(|p| (p, false))
+                return kernel::remove_leaf(&to, facts.target.unwrap(), call.epoch).map(|p| (p, false, None));
+            }
+            Action::ReplaceWithLeaf => {
+                self.removable(call, &to, &relative, entry.interior.as_ref().unwrap())?;
+                let staged = scope.stage_slot(slot, &to, call.epoch)?;
+                let leaf = kernel::prepare_leaf(from.as_deref().unwrap(), facts.source.unwrap(), &staged, &to, self.binding.policy)?;
+                ChildWork::Collapse {
+                    slot: staged,
+                    leaf,
+                    grant: entry.install.unwrap().destination,
+                }
             }
             Action::Directory {
                 container: Container::Create,
                 descend,
-            } => {
-                scope.ensure_writable(call.epoch)?;
-                self.copy_directory(
-                    call,
-                    from.as_deref().unwrap(),
-                    &to,
-                    &relative,
-                    facts.source.unwrap().attributes.known().unwrap().permissions(),
-                    entry.interior.as_ref(),
-                    descend,
-                )
-                .map(|p| (p, false))
-            }
+            } => ChildWork::Create {
+                donor: facts.source.unwrap().attributes.known().unwrap().permissions(),
+                descend,
+            },
             Action::Directory {
                 container: Container::CreateIfNeeded,
                 ..
-            } => self
-                .copy_pending(
-                    call,
-                    from.as_deref().unwrap(),
-                    &to,
-                    &relative,
-                    facts.source.unwrap().attributes.known().unwrap().permissions(),
-                    entry.interior.as_ref().unwrap(),
-                    scope,
-                    &mut Vec::new(),
-                )
+            } => ChildWork::Conditional {
+                donor: facts.source.unwrap().attributes.known().unwrap().permissions(),
+            },
+            Action::ReplaceWithDirectory { descend } => ChildWork::Expand {
+                slot,
+                donor: facts.source.unwrap().attributes.known().unwrap().permissions(),
+                descend,
+                old_kind: entry.target.unwrap(),
+                old_attributes: if cfg!(windows) && entry.target == Some(Kind::Symlink) {
+                    facts.target.unwrap().attributes.known().cloned()
+                } else {
+                    None
+                },
+                grant: entry.install.unwrap().destination,
+            },
+            Action::Directory { container, descend } => {
+                if !descend
+                    || entry
+                        .interior
+                        .as_ref()
+                        .is_some_and(|i| i.role == InteriorRole::Paired && owner == RecursionOwner::PairedFrontier)
+                {
+                    return Ok((Progress::default(), true, None));
+                }
+                ChildWork::Reconcile {
+                    remove: container == Container::Remove,
+                }
+            }
+        };
+        let from = if entry
+            .interior
+            .as_ref()
+            .is_some_and(|i| matches!(i.role, InteriorRole::TargetOnly | InteriorRole::RemoveForReplacement))
+        {
+            None
+        } else {
+            from
+        };
+        Ok((
+            Progress::default(),
+            false,
+            Some(Child {
+                relative,
+                from,
+                to,
+                interior: entry.interior.clone(),
+                work,
+            }),
+        ))
+    }
+    fn run_child(
+        &self,
+        call: &EffectCall<'_>,
+        child: &Child<P::Context>,
+        parent: &DirectoryScope,
+        pending: Option<(&DirectoryScope, &mut Vec<PendingDirectory>)>,
+    ) -> Result<(Progress, bool), Failure> {
+        if self.stopped.load(Ordering::Acquire) {
+            return Ok((Progress::default(), true));
+        }
+        let result = match &child.work {
+            ChildWork::Create { donor, descend } => parent
+                .ensure_writable(call.epoch)
+                .and_then(|()| self.copy_directory(call, child, child.to.as_path(), donor.clone(), *descend))
                 .map(|p| (p, false)),
-            Action::ReplaceWithDirectory { descend } => {
-                let staged = scope.stage_slot(slot, &to, call.epoch)?;
-                let result = self.copy_directory(
-                    call,
-                    from.as_deref().unwrap(),
-                    staged.path(),
-                    &relative,
-                    facts.source.unwrap().attributes.known().unwrap().permissions(),
-                    entry.interior.as_ref(),
-                    descend,
-                );
-                match result {
+            ChildWork::Conditional { donor } => if let Some((parent, pending)) = pending {
+                self.copy_pending(call, child, donor.clone(), parent, pending)
+            } else {
+                self.copy_pending(call, child, donor.clone(), parent, &mut Vec::new())
+            }
+            .map(|p| (p, false)),
+            ChildWork::Reconcile { remove } => self.reconcile_directory(call, child, *remove, parent),
+            ChildWork::Expand {
+                slot,
+                donor,
+                descend,
+                old_kind,
+                old_attributes,
+                grant,
+            } => (|| {
+                let staged = parent.stage_slot(*slot, &child.to, call.epoch)?;
+                let prepared = self.copy_directory(call, child, staged.path(), donor.clone(), *descend);
+                match prepared {
                     Ok(progress) if !self.stopped.load(Ordering::Acquire) => {
-                        let removed = kernel::remove_leaf(&to, facts.target.expect("old leaf"), call.epoch)?;
-                        let mut destination = BoundDestination::new(&to, scope, entry.install.unwrap().destination, entry.target)?;
+                        let removed = kernel::remove_leaf_kind(&child.to, *old_kind, old_attributes.as_ref(), call.epoch)?;
+                        let mut destination = BoundDestination::new(&child.to, parent, *grant, Some(*old_kind))?;
                         destination.cleared();
                         let mut result = kernel::publish(&staged, &destination, call.epoch).map(|()| progress);
                         kernel::add_progress(&mut result, removed);
-                        result.map(|p| (p, false))
+                        result
                     }
-                    result => kernel::discard_private(result).map(|p| (p, false)),
+                    result => kernel::discard_private(result),
                 }
-            }
-            Action::Directory { container, descend } => {
-                if !descend {
-                    return Ok((Progress::default(), true));
+            })()
+            .map(|p| (p, false)),
+            ChildWork::Collapse { slot, leaf, grant } => (|| {
+                let (removed, retained) = self.reconcile_directory(call, child, true, parent)?;
+                if retained {
+                    let mut f = Failure::invalid("replace directory", &child.to, "target subtree retained by policy");
+                    f.completed = removed;
+                    return Err(f);
                 }
-                let interior = entry.interior.as_ref().expect("selected interior");
-                if interior.role == InteriorRole::Paired && owner == RecursionOwner::PairedFrontier {
-                    return Ok((Progress::default(), true));
-                }
-                self.reconcile_directory(
-                    call,
-                    if interior.role == InteriorRole::Paired { from.as_deref() } else { None },
-                    &to,
-                    &relative,
-                    interior,
-                    container == Container::Remove,
-                    scope,
-                )
-            }
+                let mut destination = BoundDestination::new(&child.to, parent, *grant, Some(Kind::Directory))?;
+                destination.cleared();
+                let mut result = kernel::publish_borrowed_leaf(leaf, slot, &destination, call.epoch);
+                kernel::add_progress(&mut result, removed);
+                result
+            })()
+            .map(|p| (p, false)),
+        };
+        if result.is_err() {
+            self.stopped.store(true, Ordering::Release);
         }
+        result
     }
-
-    fn copy_directory(
-        &self,
-        call: &EffectCall<'_>,
-        from: &Path,
-        to: &Path,
-        relative: &Path,
-        donor: std::fs::Permissions,
-        interior: Option<&Interior<P::Context>>,
-        descend: bool,
-    ) -> Result<Progress, Failure> {
+    fn copy_directory(&self, call: &EffectCall<'_>, child: &Child<P::Context>, to: &Path, donor: Permissions, descend: bool) -> Result<Progress, Failure> {
         let scope = DirectoryScope::new(to, std::iter::empty());
         kernel::create_directory(&scope, call.epoch)?;
-        // Creation is owned immediately. Every subsequent failure finalizes and
-        // reports it, including post-umask metadata/lease setup failures.
         let result = (|| {
             scope.ensure_writable(call.epoch)?;
             if !descend {
                 return Ok(Progress::default());
             }
             let place = BatchPlace {
-                relative,
-                source_directory: Some(from),
+                relative: &child.relative,
+                source_directory: child.from.as_deref(),
                 observed_target_directory: None,
                 output_directory: to,
             };
-            let batch = self.inspect(call, &place, &interior.expect("selected source context").context, false, true)?;
-            self.execute_in_scope(call, &batch, &place, &scope)
+            let batch = self.inspect(call, &place, &child.interior.as_ref().unwrap().context, false, true)?;
+            self.gate(call, &batch, &place)?;
+            scope.reserve_names(batch.selection().entries().map(|e| e.name()));
+            scope.ensure_writable(call.epoch)?;
+            self.dispatch(call, batch, &place, &scope, RecursionOwner::ThisCall, None, None).map(|(p, _)| p)
         })();
         let complete = result.is_ok() && !self.stopped.load(Ordering::Acquire);
         let mut result = scope.finish(result, DirectoryEnd::Created { donor }, complete, call.epoch);
@@ -423,84 +544,32 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
         );
         result
     }
-    fn execute_in_scope(
-        &self,
-        call: &EffectCall<'_>,
-        batch: &PreparedDirectory<P::Context>,
-        place: &BatchPlace<'_>,
-        scope: &DirectoryScope,
-    ) -> Result<Progress, Failure> {
-        self.gate(call, batch, place)?;
-        self.count(batch);
-        self.planned(batch);
-        self.batch(call, &(0..batch.selection().len()).collect::<Vec<_>>(), |&i| {
-            self.execute_entry(call, batch, SlotId(i), place, scope, RecursionOwner::ThisCall)
-                .map(|(p, _)| p)
-        })
-    }
-
-    #[allow(clippy::too_many_arguments)]
     fn copy_pending(
         &self,
         call: &EffectCall<'_>,
-        from: &Path,
-        to: &Path,
-        relative: &Path,
-        donor: std::fs::Permissions,
-        interior: &Interior<P::Context>,
+        child: &Child<P::Context>,
+        donor: Permissions,
         parent: &DirectoryScope,
         pending: &mut Vec<PendingDirectory>,
     ) -> Result<Progress, Failure> {
-        if self.stopped.load(Ordering::Acquire) {
-            return Ok(Progress::default());
-        }
         let place = BatchPlace {
-            relative,
-            source_directory: Some(from),
+            relative: &child.relative,
+            source_directory: child.from.as_deref(),
             observed_target_directory: None,
-            output_directory: to,
+            output_directory: &child.to,
         };
-        let batch = self.inspect(call, &place, &interior.context, false, true)?;
+        let batch = self.inspect(call, &place, &child.interior.as_ref().unwrap().context, false, true)?;
         self.gate(call, &batch, &place)?;
-        self.count(&batch);
-        self.planned(&batch);
-        let scope = Arc::new(DirectoryScope::new(to, batch.selection().entries().map(|e| e.name())));
+        let scope = Arc::new(DirectoryScope::new(&child.to, batch.selection().entries().map(|e| e.name())));
         pending.push(PendingDirectory {
             scope: Arc::clone(&scope),
             donor,
             created: false,
             needed: false,
         });
-        let result = crate::model::merge((0..batch.selection().len()).map(|i| {
-            if self.stopped.load(Ordering::Acquire) {
-                return Ok(Progress::default());
-            }
-            let entry = batch.selection().entry(SlotId(i));
-            let result = if conditional(&entry) {
-                self.copy_pending(
-                    call,
-                    &from.join(entry.name()),
-                    &to.join(entry.name()),
-                    &relative.join(entry.name()),
-                    batch.facts(SlotId(i)).source.unwrap().attributes.known().unwrap().permissions(),
-                    entry.interior.as_ref().unwrap(),
-                    parent,
-                    pending,
-                )
-            } else {
-                (|| {
-                    if entry.has_work() {
-                        self.materialize_pending(call, parent, pending)?;
-                    }
-                    self.execute_entry(call, &batch, SlotId(i), &place, &scope, RecursionOwner::ThisCall)
-                        .map(|(p, _)| p)
-                })()
-            };
-            if result.is_err() {
-                self.stopped.store(true, Ordering::Release);
-            }
-            result
-        }));
+        let result = self
+            .dispatch(call, batch, &place, &scope, RecursionOwner::ThisCall, None, Some((parent, pending)))
+            .map(|(p, _)| p);
         let frame = pending.pop().expect("active conditional directory");
         if frame.needed {
             self.planned.fetch_add(1, Ordering::Relaxed);
@@ -539,46 +608,27 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
         }
         Ok(())
     }
-
-    #[allow(clippy::too_many_arguments)]
     fn reconcile_directory(
         &self,
         call: &EffectCall<'_>,
-        source: Option<&Path>,
-        path: &Path,
-        relative: &Path,
-        interior: &Interior<P::Context>,
+        child: &Child<P::Context>,
         remove: bool,
         parent: &DirectoryScope,
     ) -> Result<(Progress, bool), Failure> {
         let place = BatchPlace {
-            relative,
-            source_directory: source,
-            observed_target_directory: Some(path),
-            output_directory: path,
+            relative: &child.relative,
+            source_directory: child.from.as_deref(),
+            observed_target_directory: Some(&child.to),
+            output_directory: &child.to,
         };
-        let batch = self.inspect(call, &place, &interior.context, false, true)?;
+        let batch = self.inspect(call, &place, &child.interior.as_ref().unwrap().context, false, true)?;
         self.gate(call, &batch, &place)?;
-        self.count(&batch);
-        self.planned(&batch);
-        let scope = DirectoryScope::new(path, batch.selection().entries().map(|e| e.name()));
-        let mut kept = !remove || batch.selection().coverage().excluded != 0;
-        let mut progress = Progress::default();
-        let result = (|| {
-            for i in 0..batch.selection().len() {
-                match self.execute_entry(call, &batch, SlotId(i), &place, &scope, RecursionOwner::ThisCall) {
-                    Ok((done, retained)) => {
-                        progress += done;
-                        kept |= retained;
-                    }
-                    Err(mut f) => {
-                        f.completed += progress;
-                        return Err(f);
-                    }
-                }
-            }
-            Ok(progress)
-        })();
+        let scope = DirectoryScope::new(&child.to, batch.selection().entries().map(|e| e.name()));
+        let mut kept = !remove;
+        let result = self.dispatch(call, batch, &place, &scope, RecursionOwner::ThisCall, None, None).map(|(p, k)| {
+            kept |= k;
+            p
+        });
         let complete = result.is_ok() && !self.stopped.load(Ordering::Acquire);
         let result = scope.clean(result, complete, call.epoch);
         let result = result.and_then(|p| {
@@ -588,7 +638,7 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             }
             let mut removed = (|| {
                 parent.ensure_writable(call.epoch)?;
-                kernel::remove_directory(path, call.epoch)
+                kernel::remove_directory(&child.to, call.epoch)
             })();
             kernel::add_progress(&mut removed, p);
             removed
@@ -600,7 +650,6 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
         };
         scope.finish(result, end, complete, call.epoch).map(|p| (p, kept))
     }
-
     fn removable(&self, call: &EffectCall<'_>, path: &Path, relative: &Path, interior: &Interior<P::Context>) -> Result<(), Failure> {
         let batch = self.inspect(
             call,
@@ -621,41 +670,60 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
                 "target descendant preserved before observation",
             ));
         }
-        for entry in batch.selection().entries() {
-            match entry.action {
-                Action::RemoveLeaf => {}
+        let children = batch
+            .selection()
+            .entries()
+            .map(|entry| match entry.action {
+                Action::RemoveLeaf => Ok(None),
                 Action::Directory {
                     container: Container::Remove,
                     descend: true,
-                } => self.removable(call, &path.join(entry.name()), &relative.join(entry.name()), entry.interior.as_ref().unwrap())?,
-                _ => {
-                    return Err(Failure::invalid(
-                        "replace directory",
-                        &self.binding.target.join(relative).join(entry.name()),
-                        "target descendant retained by policy",
-                    ));
-                }
+                } => Ok(Some((entry.name().to_owned(), entry.interior.as_ref().unwrap().clone()))),
+                _ => Err(Failure::invalid(
+                    "replace directory",
+                    &self.binding.target.join(relative).join(entry.name()),
+                    "target descendant retained by policy",
+                )),
+            })
+            .collect::<Vec<_>>();
+        drop(batch);
+        for child in children {
+            if let Some((name, interior)) = child? {
+                self.removable(call, &path.join(&name), &relative.join(name), &interior)?;
             }
         }
         Ok(())
     }
-
-    pub(crate) fn preview(&self, call: &EffectCall<'_>, batch: &PreparedDirectory<P::Context>) -> Result<bool, Failure> {
-        self.count(batch);
-        self.planned(batch);
+    pub(crate) fn preview(&self, call: &EffectCall<'_>, batch: PreparedDirectory<P::Context>) -> Result<bool, Failure> {
+        self.count(&batch);
+        self.planned.fetch_add(
+            batch.selection().entries().filter(|e| e.has_work() && !conditional(e)).count() as u64,
+            Ordering::Relaxed,
+        );
+        let entries = batch
+            .selection()
+            .entries()
+            .map(|entry| {
+                (
+                    if batch.selection().is_root() {
+                        PathBuf::new()
+                    } else {
+                        batch.selection().relative().join(entry.name())
+                    },
+                    entry.has_work() && !conditional(&entry),
+                    conditional(&entry),
+                    entry.interior.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        drop(batch);
         let mut needed = false;
-        for entry in batch.selection().entries() {
-            let relative = if batch.selection().is_root() {
-                PathBuf::new()
-            } else {
-                batch.selection().relative().join(entry.name())
-            };
-            let from = self.binding.original.join(&relative);
-            let to = self.binding.target.join(&relative);
-            let mut work = entry.has_work() && !conditional(&entry);
-            if let Some(interior) = &entry.interior {
+        for (relative, mut work, conditional, interior) in entries {
+            if let Some(interior) = interior {
+                let from = self.binding.original.join(&relative);
+                let to = self.binding.target.join(&relative);
                 if interior.role == InteriorRole::RemoveForReplacement {
-                    self.removable(call, &to, &relative, interior)?;
+                    self.removable(call, &to, &relative, &interior)?;
                 }
                 let source = matches!(
                     interior.role,
@@ -679,9 +747,9 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
                     false,
                     false,
                 )?;
-                work |= self.preview(call, &child)?;
+                work |= self.preview(call, child)?;
             }
-            if conditional(&entry) && work {
+            if conditional && work {
                 self.planned.fetch_add(1, Ordering::Relaxed);
             }
             needed |= work;

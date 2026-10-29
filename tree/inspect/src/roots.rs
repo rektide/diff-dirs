@@ -40,6 +40,15 @@ impl PairedRoots {
         }
         let target = self.target.join(dir);
         let from = self.original.join(dir);
+        let epoch = crate::InspectionEpoch::new();
+        for path in [&from, &target] {
+            let absolute = std::path::absolute(path).map_err(|source| Error::Io {
+                path: path.to_owned(),
+                operation: "resolve inspection route",
+                source,
+            })?;
+            epoch.directory(&absolute).map_err(crate::visitor::shared::owned_error)?;
+        }
         let outcomes = crate::visitor::shared::inspect_group_using(
             source,
             crate::DirectoryRequest {

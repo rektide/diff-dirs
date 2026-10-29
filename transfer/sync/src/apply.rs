@@ -52,7 +52,7 @@ impl ExecutionDemand for PhysicalExecutionDemand {
 pub(crate) fn require_execution_inputs<C>(batch: &PreparedDirectory<C>) -> Result<(), Failure> {
     for i in 0..batch.selection().len() {
         let entry = batch.selection().entry(SlotId(i));
-        let needed = PhysicalExecutionDemand.for_entry(entry.clone());
+        let needed = PhysicalExecutionDemand.for_entry(entry);
         let facts = batch.facts(SlotId(i));
         let relative = if batch.selection().is_root() {
             batch.selection().relative().to_owned()
@@ -124,14 +124,14 @@ impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
             epoch,
             execution: execution(parallel),
         };
-        let relative = prepared.selection().relative();
-        let from = self.original.join(relative);
-        let to = self.target.join(relative);
+        let relative = prepared.selection().relative().to_owned();
+        let from = self.original.join(&relative);
+        let to = self.target.join(&relative);
         let result = lane.apply_ready(
             &call,
-            &prepared,
+            prepared,
             BatchPlace {
-                relative,
+                relative: &relative,
                 source_directory: Some(&from),
                 observed_target_directory: Some(&to),
                 output_directory: &to,
@@ -252,7 +252,7 @@ impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
             excluded -= prepared.selection().coverage().excluded;
             lane.apply_ready(
                 &call,
-                &prepared,
+                prepared,
                 BatchPlace {
                     relative: &relative,
                     source_directory: Some(&from),
@@ -265,59 +265,6 @@ impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
         })();
         lane.add_excluded(excluded);
         lane.finish(result)
-    }
-
-    /// External preparation is refreshed under this binding. It never authorizes
-    /// a caller-selected output/staging mapping or historical live metadata.
-    pub fn apply_selection(&self, selection: &DirectorySelection<P::Context>) -> Result<Report, Failure> {
-        if selection.policy() != self.selection.identity()
-            || selection.context_schema() != self.selection.context_schema()
-            || selection.comparator() != self.comparator.identity()
-            || selection.is_root()
-        {
-            return Err(Failure::invalid(
-                "apply selection",
-                selection.relative(),
-                "incompatible selection interpretation",
-            ));
-        }
-        self.selection
-            .validate_context(
-                diff_dirs_tree_inspect::ContextSite {
-                    relative: selection.relative(),
-                    structural_root: false,
-                    role: None,
-                },
-                selection.input_context(),
-            )
-            .map_err(|cause| {
-                inspection_failure(Arc::new(diff_dirs_tree_inspect::Error::Refused {
-                    path: self.target.join(selection.relative()),
-                    source: cause,
-                }))
-            })?;
-        let source = SourceSession::new(&self.original);
-        let epoch = InspectionEpoch::new();
-        let lane = LaneCall::new(self);
-        let call = EffectCall {
-            source: &source,
-            epoch: &epoch,
-            execution: Execution::Sequential,
-        };
-        let relative = selection.relative();
-        let from = self.original.join(relative);
-        let to = self.target.join(relative);
-        let place = BatchPlace {
-            relative,
-            source_directory: Some(&from),
-            observed_target_directory: Some(&to),
-            output_directory: &to,
-        };
-        let prepared = lane.inspect(&call, &place, selection.input_context(), false, true)?;
-        if prepared.selection().as_ref() != selection {
-            return Err(Failure::invalid("apply selection", relative, "selected interpretation changed"));
-        }
-        lane.finish(lane.apply_ready(&call, &prepared, place, RecursionOwner::PairedFrontier, None))
     }
 
     pub fn preview(&self) -> Result<Report, Failure> {
@@ -342,7 +289,7 @@ impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
             true,
             false,
         )?;
-        lane.finish(lane.preview(&call, &prepared).map(|_| Progress::default()))
+        lane.finish(lane.preview(&call, prepared).map(|_| Progress::default()))
     }
 
     pub(crate) fn initialize_reported(&self, parallel: bool) -> Result<Report, Failure> {
@@ -373,7 +320,7 @@ impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
             output_directory: &self.target,
         };
         let prepared = lane.inspect(&call, &place, &self.selection.initial_context(), true, true)?;
-        lane.finish(lane.apply_ready(&call, &prepared, place, RecursionOwner::ThisCall, None))
+        lane.finish(lane.apply_ready(&call, prepared, place, RecursionOwner::ThisCall, None))
     }
     pub(crate) fn whole_root(&self, source: &SourceSession, parallel: bool) -> Result<Option<Report>, Failure> {
         match std::fs::symlink_metadata(&self.target) {
@@ -432,9 +379,92 @@ pub fn clear_with_visitor<V: Visitor>(target: impl AsRef<Path>, visitor: V) -> R
         output_directory: &target,
     };
     let prepared = lane.inspect(&call, &place, &(), true, true)?;
-    lane.finish(lane.apply_ready(&call, &prepared, place, RecursionOwner::ThisCall, None))
+    lane.finish(lane.apply_ready(&call, prepared, place, RecursionOwner::ThisCall, None))
 }
 
 #[cfg(all(test, feature = "parallel"))]
 #[path = "apply_parallel_tests.rs"]
 pub(crate) mod tests;
+
+#[cfg(test)]
+mod readiness_tests {
+    use super::*;
+    use diff_dirs_tree_inspect::{
+        Choices, DestinationGrant, DirectoryAdmission, DirectoryRequest, InstallAuthority, InstallIntent, NoExecutionDemand, SemanticId, ShapeChoices,
+        SizeAndLink, TargetInspection, inspect_group,
+    };
+    struct Renew;
+    impl SelectionPolicy for Renew {
+        type Context = ();
+        fn identity(&self) -> &SemanticId {
+            static ID: std::sync::LazyLock<SemanticId> = std::sync::LazyLock::new(|| SemanticId::new("test.sparse-renew", 1, vec![]));
+            &ID
+        }
+        fn initial_context(&self) {}
+        fn shape(&self, _: &(), batch: &mut ShapeChoices<'_, ()>) -> Result<(), diff_dirs_tree_inspect::CheckError> {
+            for mut e in batch.entries_mut() {
+                if e.shape().source.kind() == Some(Kind::File) {
+                    e.omit_comparison();
+                }
+            }
+            Ok(())
+        }
+        fn select(&self, _: &(), batch: &mut Choices<'_, ()>) -> Result<(), diff_dirs_tree_inspect::CheckError> {
+            for mut e in batch.entries_mut() {
+                if e.shape().source.kind() == Some(Kind::File) {
+                    e.set_action(Action::InstallLeaf);
+                    e.set_install(InstallAuthority {
+                        intent: InstallIntent::Renew,
+                        destination: DestinationGrant::AbsentOnly,
+                    });
+                }
+            }
+            Ok(())
+        }
+    }
+    #[test]
+    fn a_prepared_selection_without_required_inputs_refuses_without_fallback_observation_or_effect() {
+        let scratch = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.test-agent/sync-tests");
+        std::fs::create_dir_all(&scratch).unwrap();
+        let fixture = tempfile::tempdir_in(std::fs::canonicalize(scratch).unwrap()).unwrap();
+        let from = fixture.path().join("source");
+        let to = fixture.path().join("target");
+        std::fs::create_dir(&from).unwrap();
+        std::fs::create_dir(&to).unwrap();
+        std::fs::write(from.join("a"), b"a").unwrap();
+        std::fs::write(from.join("z"), b"z").unwrap();
+        let source = SourceSession::new(&from);
+        let epoch = InspectionEpoch::new();
+        let prepared = inspect_group(
+            &source,
+            DirectoryRequest {
+                relative: Path::new(""),
+                source_directory: Some(&from),
+                purpose: diff_dirs_tree_inspect::Purpose::Compare,
+                admission: DirectoryAdmission::RootGated,
+            },
+            &[TargetInspection {
+                target: 0,
+                logical_root: &to,
+                physical_directory: Some(&to),
+                context: &(),
+                policy: &Renew,
+                comparator: &SizeAndLink,
+            }],
+            &NoExecutionDemand,
+            &epoch,
+            Execution::Sequential,
+        )
+        .unwrap()
+        .pop()
+        .unwrap()
+        .outcome
+        .unwrap();
+        assert!(prepared.facts(SlotId(0)).source.unwrap().attributes.known().is_none());
+        let binding = Applier::new_policy(&from, &to, CopyPolicy::Copy, Renew, SizeAndLink).unwrap();
+        let f = binding.apply_ready(&source, &epoch, prepared, false).unwrap_err();
+        assert_eq!(f.primary.operation, "require execution inputs");
+        assert_eq!(f.completed, Progress::default());
+        assert_eq!(std::fs::read_dir(to).unwrap().count(), 0);
+    }
+}

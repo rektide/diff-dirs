@@ -1096,7 +1096,7 @@ fn equal_renewal_and_distinct_comparator_meanings_use_real_observation() {
                 comparator: &comparator,
             }],
             &NoExecutionDemand,
-            &mut InspectionEpoch::new(),
+            &InspectionEpoch::new(),
             Execution::Sequential,
         )
         .unwrap()
@@ -1178,7 +1178,7 @@ fn root_derived_context_and_child_context_are_owned_and_validated() {
             comparator: &StatKey,
         }],
         &NoExecutionDemand,
-        &mut InspectionEpoch::new(),
+        &InspectionEpoch::new(),
         Execution::Sequential,
     )
     .unwrap()
@@ -1376,7 +1376,7 @@ fn comparison_gaps_are_explicit_and_default_mirror_cannot_silently_keep_them() {
                 admitted_request(&f.original),
                 &[mirror],
                 &NoExecutionDemand,
-                &mut InspectionEpoch::new(),
+                &InspectionEpoch::new(),
                 Execution::Sequential
             )
             .unwrap()
@@ -1399,7 +1399,7 @@ fn comparison_gaps_are_explicit_and_default_mirror_cannot_silently_keep_them() {
             admitted_request(&f.original),
             &[lane],
             &NoExecutionDemand,
-            &mut InspectionEpoch::new(),
+            &InspectionEpoch::new(),
             Execution::Sequential,
         )
         .unwrap()

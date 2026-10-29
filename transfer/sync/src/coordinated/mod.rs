@@ -36,6 +36,10 @@ pub enum RefreshIssue {
         target: TargetId,
         failure: Box<Failure>,
     },
+    Inputs {
+        target: TargetId,
+        failure: Box<Failure>,
+    },
 }
 
 #[derive(Debug)]
@@ -267,6 +271,9 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
     pub fn current(&self) -> Option<&Barrier<C>> {
         self.current.as_ref()
     }
+    pub fn source_session(&self) -> Option<&Arc<diff_dirs_tree_inspect::SourceSession>> {
+        self.comparison.source_session()
+    }
     pub fn current_token(&self) -> Option<GroupToken> {
         self.comparison.current_token()
     }
@@ -313,14 +320,63 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
                 return Err(Error::RuntimeMismatch(bindings.targets[i].id.clone()));
             }
         }
-        runtime.with_policies(|p| self.comparison.validate_policies(p)).map_err(Error::Comparison)
+        runtime.with_policies(|p| self.comparison.validate_policies(p)).map_err(Error::Comparison)?;
+        for app in self
+            .current
+            .iter()
+            .flat_map(|b| &b.applications)
+            .filter(|a| a.state == ApplicationState::Unstarted)
+        {
+            let id = &bindings.targets[app.target].id;
+            let policy = &runtime.target(id)?.applier.selection;
+            for entry in app.decision.entries() {
+                if let Some(interior) = &entry.interior {
+                    let relative = if app.decision.is_root() {
+                        app.decision.relative().to_owned()
+                    } else {
+                        app.decision.relative().join(entry.name())
+                    };
+                    policy
+                        .validate_context(
+                            diff_dirs_tree_inspect::ContextSite {
+                                relative: &relative,
+                                structural_root: app.decision.is_root(),
+                                role: Some(interior.role),
+                            },
+                            &interior.context,
+                        )
+                        .map_err(|cause| {
+                            Error::Comparison(compare::Error::Context {
+                                target: id.clone(),
+                                relative,
+                                cause,
+                            })
+                        })?;
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Reconstruct execution separately. Descriptor checks precede tree access;
     /// existing ancestors must be real, all resolved roots remain disjoint, and
     /// no root/ancestor visitor decision is replayed.
     pub fn bind<P: Policy<Context = C>, M: Comparator>(&mut self, runtime: &SyncRuntime<P, M>) -> Result<(), Error> {
+        self.bind_with_source(
+            runtime,
+            Arc::new(diff_dirs_tree_inspect::SourceSession::new(&self.comparison.parts().bindings.source)),
+        )
+    }
+
+    /// Bind an actual caller-owned observation/resource lifetime. No handle or
+    /// route observation enters saved Parts; rebind clears all live preparations.
+    pub fn bind_with_source<P: Policy<Context = C>, M: Comparator>(
+        &mut self,
+        runtime: &SyncRuntime<P, M>,
+        source: Arc<diff_dirs_tree_inspect::SourceSession>,
+    ) -> Result<(), Error> {
         self.validate_runtime(runtime)?;
+        require(source.root() == self.comparison.parts().bindings.source, "source session root mismatch")?;
         self.bound = false;
         self.plans.iter_mut().for_each(|p| *p = None);
         if !self.is_terminal() {
@@ -348,7 +404,9 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
                 }
             }
         }
-        runtime.with_policies(|p| self.comparison.bind(p)).map_err(Error::Comparison)?;
+        runtime
+            .with_policies(|p| self.comparison.bind_with_source(p, source))
+            .map_err(Error::Comparison)?;
         self.bound = true;
         Ok(())
     }
@@ -597,6 +655,14 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
                         self.fail(i, End::RefreshFailed);
                     }
                     Ok(plan) => {
+                        if let Err(failure) = crate::apply::require_execution_inputs(&plan) {
+                            issues.push(RefreshIssue::Inputs {
+                                target: self.comparison.parts().bindings.targets[i].id.clone(),
+                                failure: Box::new(failure),
+                            });
+                            self.fail(i, End::RefreshFailed);
+                            continue;
+                        }
                         let expected = &self
                             .current
                             .as_ref()

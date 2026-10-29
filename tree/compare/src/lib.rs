@@ -24,7 +24,7 @@ pub use model::{ScanState, Summary, WalkOptions};
 #[cfg(feature = "parallel")]
 pub use parallel::{
     ParallelLimits, ParallelPlanWalk, ParallelPolicyWalk, ParallelWalk, walk_in_pool, walk_in_pool_checked, walk_in_pool_policy, walk_in_pool_scoped,
-    walk_in_pool_visitor,
+    walk_in_pool_visitor, walk_in_pool_with_source,
 };
 #[doc(hidden)]
 #[cfg(feature = "parallel-bench")]

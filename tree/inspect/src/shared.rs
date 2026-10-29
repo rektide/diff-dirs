@@ -181,10 +181,38 @@ pub fn inspect_group<P: Policy, M: Comparator, E: ExecutionDemand>(
     at: DirectoryRequest<'_>,
     lanes: &[TargetInspection<'_, P, M>],
     execution_demand: &E,
-    _epoch: &InspectionEpoch,
+    epoch: &InspectionEpoch,
     execution: Execution,
 ) -> Result<Vec<TargetComparison<PreparedDirectory<P::Context>>>, SharedInputError> {
-    inspect_group_using(source, at, lanes, execution_demand, execution, &Physical(source.resources()), None)
+    let mut outcomes = inspect_group_using(source, at, lanes, execution_demand, execution, &Physical(source.resources()), None)?;
+    for (lane, outcome) in lanes.iter().zip(&mut outcomes) {
+        if let Ok(prepared) = &outcome.outcome {
+            let reused = (|| {
+                for i in 0..prepared.selection().len() {
+                    let name = prepared.selection().entry(SlotId(i)).name();
+                    let facts = prepared.facts(SlotId(i));
+                    for (directory, facts) in [(at.source_directory, facts.source), (lane.physical_directory, facts.target)] {
+                        if let (Some(directory), Some(facts)) = (directory, facts)
+                            && facts.kind == Kind::Directory
+                            && let Some(metadata) = facts.attributes.known()
+                        {
+                            let path = if prepared.selection().is_root() {
+                                directory.to_owned()
+                            } else {
+                                directory.join(name)
+                            };
+                            epoch.acquired_directory(&path, metadata)?;
+                        }
+                    }
+                }
+                Ok(())
+            })();
+            if let Err(error) = reused {
+                outcome.outcome = Err(error);
+            }
+        }
+    }
+    Ok(outcomes)
 }
 
 type Listed = Vec<(OsString, Arc<AcquisitionCell>)>;
@@ -1034,7 +1062,7 @@ pub(crate) fn inspect_legacy_directory<V: Visitor>(
         purpose,
         admission: DirectoryAdmission::AlreadyAdmitted,
     };
-    let outcome = inspect_group(&session, request, &[lane], &NoExecutionDemand, &mut InspectionEpoch::new(), execution)
+    let outcome = inspect_group(&session, request, &[lane], &NoExecutionDemand, &InspectionEpoch::new(), execution)
         .map_err(|e| refusal(dir, Box::new(e)))?
         .pop()
         .expect("one lane")

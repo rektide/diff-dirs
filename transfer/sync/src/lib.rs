@@ -146,11 +146,12 @@ impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
             policy: Policy::default(),
             observed: None,
         };
+        let epoch = diff_dirs_tree_inspect::InspectionEpoch::new();
         let mut applied_retained = 0;
         while let Some(item) = walk.next() {
             let result = item.map_err(Failure::comparison).and_then(|prepared| {
                 applied_retained += prepared.selection().coverage().deviated;
-                self.apply_ready(&source, &diff_dirs_tree_inspect::InspectionEpoch::new(), prepared, false)
+                self.apply_ready(&source, &epoch, prepared, false)
             });
             if let Err(mut failure) = accumulate(&mut accumulated, result) {
                 let observed = walk.into_summary();
@@ -188,8 +189,8 @@ impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
         if let Some(report) = pool.install(|| self.whole_root(&source, true))? {
             return Ok(report);
         }
-        let mut walk = diff_dirs_tree_compare::walk_in_pool_policy(
-            &self.original,
+        let mut walk = diff_dirs_tree_compare::walk_in_pool_with_source(
+            Arc::clone(&source),
             &self.target,
             pool,
             limits,
@@ -206,11 +207,12 @@ impl<P: SelectionPolicy, M: Comparator> Applier<P, M> {
             policy: Policy::default(),
             observed: None,
         };
+        let epoch = diff_dirs_tree_inspect::InspectionEpoch::new();
         let mut applied_retained = 0;
         while let Some(item) = walk.next() {
             let result = item.map_err(Failure::comparison).and_then(|prepared| {
                 applied_retained += prepared.selection().coverage().deviated;
-                pool.install(|| self.apply_ready(&source, &diff_dirs_tree_inspect::InspectionEpoch::new(), prepared, true))
+                pool.install(|| self.apply_ready(&source, &epoch, prepared, true))
             });
             if let Err(mut failure) = accumulate(&mut accumulated, result) {
                 let observed = walk.into_summary();

@@ -121,8 +121,16 @@ pub(crate) fn prepare_leaf(from: &Path, facts: SideFacts<'_>, slot: &StageSlot, 
 }
 
 pub(crate) fn publish_leaf(prepared: PreparedLeaf, slot: &StageSlot, destination: &BoundDestination<'_>, epoch: &InspectionEpoch) -> Result<Progress, Failure> {
+    publish_borrowed_leaf(&prepared, slot, destination, epoch)
+}
+pub(crate) fn publish_borrowed_leaf(
+    prepared: &PreparedLeaf,
+    slot: &StageSlot,
+    destination: &BoundDestination<'_>,
+    epoch: &InspectionEpoch,
+) -> Result<Progress, Failure> {
     publish(slot, destination, epoch)?;
-    Ok(prepared.progress)
+    Ok(prepared.progress.clone())
 }
 
 pub(crate) fn publish(slot: &StageSlot, destination: &BoundDestination<'_>, epoch: &InspectionEpoch) -> Result<(), Failure> {
@@ -134,9 +142,12 @@ pub(crate) fn publish(slot: &StageSlot, destination: &BoundDestination<'_>, epoc
 }
 
 pub(crate) fn remove_leaf(path: &Path, facts: SideFacts<'_>, epoch: &InspectionEpoch) -> Result<Progress, Failure> {
-    platform::remove_leaf(path, facts.kind, facts.attributes.known()).map_err(|e| Failure::io("remove leaf", path, e))?;
+    remove_leaf_kind(path, facts.kind, facts.attributes.known(), epoch)
+}
+pub(crate) fn remove_leaf_kind(path: &Path, kind: Kind, attributes: Option<&Metadata>, epoch: &InspectionEpoch) -> Result<Progress, Failure> {
+    platform::remove_leaf(path, kind, attributes).map_err(|e| Failure::io("remove leaf", path, e))?;
     epoch.invalidate_subtree(path);
-    Ok(if facts.kind == Kind::Symlink {
+    Ok(if kind == Kind::Symlink {
         Progress {
             symlinks_removed: 1,
             ..Progress::default()
@@ -174,7 +185,7 @@ pub(crate) enum DirectoryEnd {
 /// constructing it, including for an absent conditional ancestor, does no I/O.
 pub(crate) struct DirectoryScope {
     path: PathBuf,
-    prefix: String,
+    prefix: Mutex<String>,
     temporary: Mutex<Option<tempfile::TempDir>>,
     lease: Mutex<Option<(Permissions, bool)>>,
 }
@@ -195,13 +206,19 @@ impl DirectoryScope {
         let index = (0..).find(|i| !reserved.contains(i)).unwrap();
         Self {
             path: path.to_owned(),
-            prefix: format!(".diff-dirs-sync-{index}-"),
+            prefix: Mutex::new(format!(".diff-dirs-sync-{index}-")),
             temporary: Mutex::new(None),
             lease: Mutex::new(None),
         }
     }
     pub(crate) fn path(&self) -> &Path {
         &self.path
+    }
+    pub(crate) fn reserve_names<'n>(&self, names: impl Iterator<Item = &'n OsStr>) {
+        // Newly owned containers are created before child inspection. Install
+        // that inspection's reservations before any child can allocate an arena.
+        let reserved = Self::new(&self.path, names);
+        *self.prefix.lock().expect("arena prefix poisoned") = reserved.prefix.into_inner().unwrap();
     }
     pub(crate) fn ensure_writable(&self, epoch: &InspectionEpoch) -> Result<(), Failure> {
         let mut lease = self.lease.lock().expect("directory lease poisoned");
@@ -222,7 +239,8 @@ impl DirectoryScope {
         let mut temporary = self.temporary.lock().expect("arena poisoned");
         if temporary.is_none() {
             let mut builder = tempfile::Builder::new();
-            builder.prefix(&self.prefix);
+            let prefix = self.prefix.lock().expect("arena prefix poisoned").clone();
+            builder.prefix(&prefix);
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
@@ -412,3 +430,7 @@ fn prepare_file(from: &Path, staged: &Path, to: &Path, metadata: &Metadata, poli
         _output: Some(output),
     })
 }
+
+#[cfg(all(test, unix))]
+#[path = "kernel_tests.rs"]
+mod tests;
