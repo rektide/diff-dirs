@@ -57,6 +57,12 @@ impl Coordinate<'_> {
 pub trait Policy: Sync {
     type Context: Clone + Eq + Debug + Send + Sync;
     fn identity(&self) -> &SemanticId;
+    /// Saved separately from policy/comparator meaning. By default policy
+    /// versions conservatively version their context schema too; policies with
+    /// an independently versioned context contract should override this.
+    fn context_schema(&self) -> &SemanticId {
+        self.identity()
+    }
     fn initial_context(&self) -> Self::Context;
     fn scoped(&self) -> bool {
         true
@@ -243,6 +249,7 @@ impl ExecutionDemand for NoExecutionDemand {
 }
 
 static MIRROR_ID: LazyLock<SemanticId> = LazyLock::new(|| SemanticId::new("diff-dirs.mirror", 1, Vec::new()));
+static UNIT_SCHEMA: LazyLock<SemanticId> = LazyLock::new(|| SemanticId::new("diff-dirs.context.unit", 1, Vec::new()));
 /// Baseline mirror; refuses unassessed/unresolved inputs instead of inventing Keep.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Mirror;
@@ -250,6 +257,9 @@ impl Policy for Mirror {
     type Context = ();
     fn identity(&self) -> &SemanticId {
         &MIRROR_ID
+    }
+    fn context_schema(&self) -> &SemanticId {
+        &UNIT_SCHEMA
     }
     fn initial_context(&self) {}
     fn scoped(&self) -> bool {
@@ -267,6 +277,9 @@ impl<V: Visitor> Policy for FullVisitor<V> {
     type Context = ();
     fn identity(&self) -> &SemanticId {
         &FULL_ID
+    }
+    fn context_schema(&self) -> &SemanticId {
+        &UNIT_SCHEMA
     }
     fn initial_context(&self) {}
     fn scoped(&self) -> bool {
@@ -304,6 +317,9 @@ impl<P: Policy + ?Sized> Policy for &P {
     type Context = P::Context;
     fn identity(&self) -> &SemanticId {
         (**self).identity()
+    }
+    fn context_schema(&self) -> &SemanticId {
+        (**self).context_schema()
     }
     fn initial_context(&self) -> Self::Context {
         (**self).initial_context()

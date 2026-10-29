@@ -257,6 +257,7 @@ pub struct SelectionParts<C = ()> {
     pub domain: SelectionDomain,
     pub input_context: C,
     pub policy: SemanticId,
+    pub context_schema: SemanticId,
     pub comparator: SemanticId,
     pub scoped: bool,
     pub root_excluded: bool,
@@ -273,6 +274,7 @@ pub struct DirectorySelection<C = ()> {
     domain: SelectionDomain,
     input_context: C,
     policy: SemanticId,
+    context_schema: SemanticId,
     comparator: SemanticId,
     root_excluded: bool,
     excluded_names: Vec<OsString>,
@@ -356,6 +358,7 @@ impl<C: Clone + Eq> DirectorySelection<C> {
             domain: parts.domain,
             input_context: parts.input_context,
             policy: parts.policy,
+            context_schema: parts.context_schema,
             comparator: parts.comparator,
             root_excluded: parts.root_excluded,
             excluded_names: parts.excluded_names,
@@ -373,6 +376,7 @@ impl<C: Clone + Eq> DirectorySelection<C> {
             domain: self.domain,
             input_context: self.input_context.clone(),
             policy: self.policy.clone(),
+            context_schema: self.context_schema.clone(),
             comparator: self.comparator.clone(),
             scoped: self.coverage.scoped,
             root_excluded: self.root_excluded,
@@ -405,6 +409,9 @@ impl<C> DirectorySelection<C> {
     }
     pub fn policy(&self) -> &SemanticId {
         &self.policy
+    }
+    pub fn context_schema(&self) -> &SemanticId {
+        &self.context_schema
     }
     pub fn comparator(&self) -> &SemanticId {
         &self.comparator

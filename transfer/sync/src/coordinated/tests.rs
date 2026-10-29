@@ -491,6 +491,20 @@ fn rejects_overlap_forged_barrier_and_incompatible_runtime_before_effects() {
     let mut bad = parts.current.as_ref().unwrap().applications[0].decision.to_parts();
     bad.entries[0].entry.source = diff_dirs_tree_inspect::SourceObservation::Present(Kind::Directory);
     assert!(diff_dirs_tree_inspect::DirectorySelection::from_parts(bad).is_err());
+    for change_schema in [true, false] {
+        let mut changed = parts.current.as_ref().unwrap().applications[0].decision.to_parts();
+        if change_schema {
+            changed.context_schema.version += 1;
+        } else {
+            changed.comparator.parameters.push(1);
+        }
+        let mut bad = parts.clone();
+        bad.current.as_mut().unwrap().applications[0].decision = Arc::new(diff_dirs_tree_inspect::DirectorySelection::from_parts(changed).unwrap());
+        assert!(matches!(
+            SyncCursor::from_parts(bad, Execution::Sequential),
+            Err(Error::InvalidState("legacy runtime cannot bind a different policy/comparator interpretation"))
+        ));
+    }
     let mut runtime = runtime;
     runtime.targets[0].descriptor = "changed/v2".into();
     let mut run = SyncCursor::from_parts(parts, Execution::Sequential).unwrap();

@@ -56,7 +56,7 @@ pub enum FactOrigin {
     Listing,
     /// Reused mandatory no-follow structural-root metadata.
     RootMetadata,
-    /// Explicit no-follow acquisition needed to resolve an unknown listing kind.
+    /// Explicit no-follow acquisition, also used to resolve unknown listing kinds.
     AcquiredMetadata,
 }
 

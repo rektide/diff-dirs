@@ -17,7 +17,9 @@ pub(super) fn validate_decision(selected: &DirectorySelection<()>) -> Result<(),
     require(selected.domain() == SelectionDomain::PhysicalUnion, "comparison sync requires a physical union")?;
     require(selected.purpose() == Purpose::Compare, "sync requires comparison selections")?;
     require(
-        selected.policy() == FullVisitor(NoVisitor).identity() && selected.comparator() == StatKey.identity(),
+        selected.policy() == FullVisitor(NoVisitor).identity()
+            && selected.context_schema() == FullVisitor(NoVisitor).context_schema()
+            && selected.comparator() == StatKey.identity(),
         "legacy runtime cannot bind a different policy/comparator interpretation",
     )?;
     if selected.is_root() {

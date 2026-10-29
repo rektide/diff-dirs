@@ -722,6 +722,7 @@ fn assess_admitted<P: Policy, M: Comparator, E: ExecutionDemand>(
         domain: SelectionDomain::PhysicalUnion,
         input_context: context.clone(),
         policy: lane.policy.identity().clone(),
+        context_schema: lane.policy.context_schema().clone(),
         comparator: lane.comparator.identity().clone(),
         scoped: lane.policy.scoped(),
         root_excluded: admitted.root_excluded,

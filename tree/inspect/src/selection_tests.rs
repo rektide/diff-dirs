@@ -38,6 +38,7 @@ fn parts(entry: EntrySelection<u8>) -> SelectionParts<u8> {
         domain: SelectionDomain::PhysicalUnion,
         input_context: 7,
         policy: SemanticId::new("test", 1, vec![]),
+        context_schema: SemanticId::new("test.u8", 1, vec![]),
         comparator: StatKey.identity().clone(),
         scoped: false,
         root_excluded: false,
