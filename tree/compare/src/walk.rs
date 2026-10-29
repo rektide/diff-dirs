@@ -1,9 +1,11 @@
-use std::ffi::OsString;
 use std::iter::FusedIterator;
 use std::path::{Path, PathBuf};
 
-use crate::pair::Roots;
-use crate::{Check, CheckedScope, DirDiff, DirectoryPlan, Error, NoCheck, NoScope, NoVisitor, ScanState, Scope, Summary, Visitor, WalkOptions};
+use crate::pair::{Child, Roots};
+use crate::{
+    Check, CheckedScope, Comparator, DirDiff, DirectoryPlan, Error, ExecutionDemand, FullVisitor, NoCheck, NoExecutionDemand, NoScope, NoVisitor, Policy,
+    PreparedDirectory, ScanState, Scope, StatKey, Summary, Visitor, WalkOptions,
+};
 
 /// Construct a lazy default comparison of two existing real directory roots.
 /// Source-only and target-only directories remain opaque comparison boundaries.
@@ -47,7 +49,7 @@ pub fn walk_with_options_scoped<C: Check, S: Scope>(
 /// must be real directories. One-sided directory interiors remain opaque here;
 /// synchronization recursively inspects them with the same visitor semantics.
 #[derive(Debug)]
-pub struct Walk<C = NoCheck, S = NoScope> {
+pub struct Walk<C: Check = NoCheck, S: Scope = NoScope> {
     pub(crate) inner: PlanWalk<CheckedScope<C, S>>,
 }
 impl<C: Check, S: Scope> Walk<C, S> {
@@ -97,46 +99,121 @@ pub fn walk_with_options_visitor<V: Visitor>(
 /// finalized discarded descent cannot create speculative descendant jobs. J/K,
 /// demand reservation and observed-divergence seals are shared with plain walks.
 #[derive(Debug)]
-pub struct PlanWalk<V = NoVisitor> {
+pub struct PlanWalk<V: Visitor = NoVisitor> {
+    pub(crate) inner: PolicyWalk<FullVisitor<V>, StatKey, NoExecutionDemand>,
+}
+
+impl<V: Visitor> PlanWalk<V> {
+    fn new(roots: Roots, options: WalkOptions, visitor: V) -> Self {
+        Self {
+            inner: PolicyWalk::new(roots, options, FullVisitor(visitor), StatKey, NoExecutionDemand),
+        }
+    }
+    pub fn prune_here(&mut self) -> bool {
+        self.inner.prune_here()
+    }
+    pub fn into_summary(self) -> Summary {
+        self.inner.into_summary()
+    }
+    #[cfg(feature = "parallel")]
+    pub(crate) fn next_in_pool(&mut self, pool: &rayon::ThreadPool) -> Option<Result<DirectoryPlan, Error>> {
+        self.inner
+            .next_in_pool(pool)
+            .map(|r| r.map(|p| p.into_full_plan().expect("full-visitor walker")))
+    }
+}
+impl<V: Visitor> Iterator for PlanWalk<V> {
+    type Item = Result<DirectoryPlan, Error>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|r| r.map(|p| p.into_full_plan().expect("full-visitor walker")))
+    }
+}
+impl<V: Visitor> FusedIterator for PlanWalk<V> {}
+
+/// Typed contextual plans over the same DFS and joined parallel frontier used by
+/// full visitors. Work-only publications retain their prepared facts and seal
+/// paired descendants just like divergent publications.
+pub fn walk_with_policy<P: Policy, M: Comparator, E: ExecutionDemand>(
+    original: impl AsRef<Path>,
+    target: impl AsRef<Path>,
+    options: WalkOptions,
+    policy: P,
+    comparator: M,
+    demand: E,
+) -> Result<PolicyWalk<P, M, E>, Error> {
+    Ok(PolicyWalk::new(Roots::new(original, target)?, options, policy, comparator, demand))
+}
+
+pub fn walk_with_source<P: Policy, M: Comparator, E: ExecutionDemand>(
+    source: std::sync::Arc<crate::SourceSession>,
+    target: impl AsRef<Path>,
+    options: WalkOptions,
+    policy: P,
+    comparator: M,
+    demand: E,
+) -> Result<PolicyWalk<P, M, E>, Error> {
+    Ok(PolicyWalk::new(Roots::with_source(source, target)?, options, policy, comparator, demand))
+}
+
+#[derive(Debug)]
+pub struct PolicyWalk<P: Policy, M = StatKey, E = NoExecutionDemand> {
     roots: Roots,
-    visitor: V,
-    frames: Vec<Frame>,
+    policy: P,
+    comparator: M,
+    demand: E,
+    frames: Vec<Frame<P::Context>>,
     start: bool,
     prune_eligible: bool,
     summary: Summary,
     options: WalkOptions,
     #[cfg(feature = "parallel")]
-    pub(crate) frontier: Option<Box<crate::frontier::Frontier>>,
+    pub(crate) frontier: Option<Box<crate::frontier::Frontier<P::Context>>>,
     #[cfg(feature = "parallel")]
     use_frontier: bool,
 }
 #[derive(Debug)]
-struct Frame {
+struct Frame<C> {
     dir: PathBuf,
-    children: std::vec::IntoIter<OsString>,
+    children: std::vec::IntoIter<Child<C>>,
     direct_ancestor: bool,
     subtree_changed: bool,
 }
 
-impl<V: Visitor> PlanWalk<V> {
-    #[cfg(feature = "parallel")]
-    pub(crate) fn next_in_pool(&mut self, pool: &rayon::ThreadPool) -> Option<Result<DirectoryPlan, Error>> {
-        let roots = &self.roots;
-        let visitor = &self.visitor;
-        let frontier = self.frontier.as_mut().expect("explicit pool frontier");
-        pool.install(|| frontier.next_plan_with(|dir| roots.inspect_visitor(dir.to_path_buf(), crate::Execution::Sequential, visitor)))
+impl<P: Policy, M: Comparator, E: ExecutionDemand> PolicyWalk<P, M, E> {
+    pub fn source_session(&self) -> &std::sync::Arc<crate::SourceSession> {
+        self.roots.source_session()
     }
-    fn new(roots: Roots, options: WalkOptions, visitor: V) -> Self {
+    #[cfg(feature = "parallel")]
+    pub(crate) fn initial_context(&self) -> P::Context {
+        self.policy.initial_context()
+    }
+    #[cfg(feature = "parallel")]
+    pub(crate) fn comparator_id(&self) -> &crate::SemanticId {
+        self.comparator.identity()
+    }
+    #[cfg(feature = "parallel")]
+    pub(crate) fn next_in_pool(&mut self, pool: &rayon::ThreadPool) -> Option<Result<PreparedDirectory<P::Context>, Error>> {
+        let roots = &self.roots;
+        let policy = &self.policy;
+        let comparator = &self.comparator;
+        let demand = &self.demand;
+        let frontier = self.frontier.as_mut().expect("explicit pool frontier");
+        pool.install(|| frontier.next_plan_with(|dir, context| roots.inspect_policy(dir, context, crate::Execution::Sequential, policy, comparator, demand)))
+    }
+    fn new(roots: Roots, options: WalkOptions, policy: P, comparator: M, demand: E) -> Self {
+        let summary = Summary {
+            comparator: Some(comparator.identity().clone()),
+            ..Summary::default()
+        };
         Self {
             roots,
-            visitor,
+            policy,
+            comparator,
+            demand,
             frames: Vec::new(),
             start: true,
             prune_eligible: false,
-            summary: Summary {
-                comparator: Some(crate::Comparator::identity(&crate::StatKey).clone()),
-                ..Summary::default()
-            },
+            summary,
             options,
             #[cfg(feature = "parallel")]
             frontier: None,
@@ -164,7 +241,7 @@ impl<V: Visitor> PlanWalk<V> {
     pub fn into_summary(mut self) -> Summary {
         #[cfg(feature = "parallel")]
         if self.use_frontier {
-            return self.frontier.map_or_else(Summary::default, |f| f.into_summary());
+            return self.frontier.map_or(self.summary, |f| f.into_summary());
         }
         while !self.frames.is_empty() {
             self.finish_frame();
@@ -180,14 +257,14 @@ impl<V: Visitor> PlanWalk<V> {
             }
         }
     }
-    fn advance(&mut self) -> Result<Option<DirectoryPlan>, Error> {
+    fn advance(&mut self) -> Result<Option<PreparedDirectory<P::Context>>, Error> {
         loop {
-            let (dir, direct_ancestor) = if self.start {
+            let (dir, context, direct_ancestor) = if self.start {
                 self.start = false;
-                (PathBuf::new(), false)
+                (PathBuf::new(), self.policy.initial_context(), false)
             } else if let Some(frame) = self.frames.last_mut() {
-                if let Some(name) = frame.children.next() {
-                    (frame.dir.join(name), frame.direct_ancestor)
+                if let Some(child) = frame.children.next() {
+                    (frame.dir.join(child.name), child.context, frame.direct_ancestor)
                 } else {
                     self.finish_frame();
                     continue;
@@ -196,7 +273,9 @@ impl<V: Visitor> PlanWalk<V> {
                 self.summary.state = ScanState::Complete;
                 return Ok(None);
             };
-            let pair = self.roots.inspect_visitor(dir, self.options.execution, &self.visitor)?;
+            let pair = self
+                .roots
+                .inspect_policy(&dir, &context, self.options.execution, &self.policy, &self.comparator, &self.demand)?;
             let changed = !pair.diff.is_empty();
             self.summary.examined_directories += 1;
             self.summary.add_coverage(pair.coverage, &pair.comparator);
@@ -216,15 +295,22 @@ impl<V: Visitor> PlanWalk<V> {
         }
     }
 }
-impl<V: Visitor> Iterator for PlanWalk<V> {
-    type Item = Result<DirectoryPlan, Error>;
+impl<P: Policy, M: Comparator, E: ExecutionDemand> Iterator for PolicyWalk<P, M, E> {
+    type Item = Result<PreparedDirectory<P::Context>, Error>;
     fn next(&mut self) -> Option<Self::Item> {
         #[cfg(feature = "parallel")]
         if self.use_frontier {
-            let frontier = self
-                .frontier
-                .get_or_insert_with(|| Box::new(crate::frontier::Frontier::new(crate::ParallelLimits::for_threads(rayon::current_num_threads()))));
-            return frontier.next_plan_with(|dir| self.roots.inspect_visitor(dir.to_path_buf(), crate::Execution::Sequential, &self.visitor));
+            let frontier = self.frontier.get_or_insert_with(|| {
+                Box::new(crate::frontier::Frontier::with_context(
+                    crate::ParallelLimits::for_threads(rayon::current_num_threads()),
+                    self.policy.initial_context(),
+                    self.comparator.identity().clone(),
+                ))
+            });
+            return frontier.next_plan_with(|dir, context| {
+                self.roots
+                    .inspect_policy(dir, context, crate::Execution::Sequential, &self.policy, &self.comparator, &self.demand)
+            });
         }
         self.prune_eligible = false;
         if self.summary.state != ScanState::Incomplete {
@@ -243,7 +329,7 @@ impl<V: Visitor> Iterator for PlanWalk<V> {
         }
     }
 }
-impl<V: Visitor> FusedIterator for PlanWalk<V> {}
+impl<P: Policy, M: Comparator, E: ExecutionDemand> FusedIterator for PolicyWalk<P, M, E> {}
 
 #[doc(hidden)]
 #[cfg(feature = "parallel-bench")]
@@ -255,6 +341,6 @@ pub fn walk_per_frame(original: impl AsRef<Path>, target: impl AsRef<Path>) -> R
             execution: crate::Execution::Parallel,
         },
     )?;
-    walk.inner.use_frontier = false;
+    walk.inner.inner.use_frontier = false;
     Ok(walk)
 }

@@ -17,6 +17,66 @@ pub struct PairedRoots {
 }
 
 impl PairedRoots {
+    /// Contextual immediate preparation with this binding's actual root facts and
+    /// a caller-owned source/resources lifetime. Routes remain caller-admitted;
+    /// a child request never repeats structural-root policy admission.
+    #[allow(clippy::too_many_arguments)]
+    pub fn inspect_policy<P: crate::Policy, M: crate::Comparator, E: crate::ExecutionDemand>(
+        &self,
+        source: &crate::SourceSession,
+        dir: &Path,
+        context: &P::Context,
+        policy: &P,
+        comparator: &M,
+        demand: &E,
+        execution: Execution,
+    ) -> Result<crate::PreparedDirectory<P::Context>, Error> {
+        if source.root() != self.original {
+            return Err(Error::Io {
+                path: self.original.clone(),
+                operation: "bind source session",
+                source: std::io::Error::new(std::io::ErrorKind::InvalidInput, "source session root mismatch"),
+            });
+        }
+        let target = self.target.join(dir);
+        let from = self.original.join(dir);
+        let outcomes = crate::visitor::shared::inspect_group_using(
+            source,
+            crate::DirectoryRequest {
+                relative: dir,
+                source_directory: Some(&from),
+                purpose: Purpose::Compare,
+                admission: if dir.as_os_str().is_empty() {
+                    crate::DirectoryAdmission::RootGated
+                } else {
+                    crate::DirectoryAdmission::AlreadyAdmitted
+                },
+            },
+            &[crate::TargetInspection {
+                target: 0,
+                logical_root: &self.target,
+                physical_directory: Some(&target),
+                context,
+                policy,
+                comparator,
+            }],
+            demand,
+            execution,
+            &crate::visitor::shared::Physical(source.resources()),
+            Some((&self.original_metadata, std::slice::from_ref(&self.target_metadata))),
+        )
+        .map_err(|e| Error::Io {
+            path: dir.to_owned(),
+            operation: "inspect contextual pair",
+            source: std::io::Error::new(std::io::ErrorKind::InvalidInput, e),
+        })?;
+        outcomes
+            .into_iter()
+            .next()
+            .expect("one requested lane")
+            .outcome
+            .map_err(crate::visitor::shared::owned_error)
+    }
     /// Validate original then target as real directories, without listing them.
     pub fn new(original: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Self, Error> {
         Self::new_checked(original, target, &crate::NoCheck)

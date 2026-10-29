@@ -716,6 +716,10 @@ pub(crate) fn validate_entry_at<C>(domain: SelectionDomain, e: &EntrySelection<C
 }
 
 pub fn validate_selection<C>(parts: &SelectionParts<C>) -> Result<(), SelectionError> {
+    require(
+        parts.policy.valid() && parts.context_schema.valid() && parts.comparator.valid(),
+        "invalid semantic identity",
+    )?;
     require(normal_relative(&parts.relative), "invalid selection coordinate")?;
     require(
         !matches!(parts.domain, SelectionDomain::Listed { .. }) || parts.excluded_names.is_empty(),

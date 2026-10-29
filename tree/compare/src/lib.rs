@@ -22,13 +22,16 @@ pub use diff_dirs_tree_inspect::*;
 pub use frontier::ParallelDiagnostics;
 pub use model::{ScanState, Summary, WalkOptions};
 #[cfg(feature = "parallel")]
-pub use parallel::{ParallelLimits, ParallelPlanWalk, ParallelWalk, walk_in_pool, walk_in_pool_checked, walk_in_pool_scoped, walk_in_pool_visitor};
+pub use parallel::{
+    ParallelLimits, ParallelPlanWalk, ParallelPolicyWalk, ParallelWalk, walk_in_pool, walk_in_pool_checked, walk_in_pool_policy, walk_in_pool_scoped,
+    walk_in_pool_visitor,
+};
 #[doc(hidden)]
 #[cfg(feature = "parallel-bench")]
 pub use walk::walk_per_frame;
 pub use walk::{
-    PlanWalk, Walk, walk, walk_checked, walk_scoped, walk_with_options, walk_with_options_checked, walk_with_options_scoped, walk_with_options_visitor,
-    walk_with_visitor,
+    PlanWalk, PolicyWalk, Walk, walk, walk_checked, walk_scoped, walk_with_options, walk_with_options_checked, walk_with_options_scoped,
+    walk_with_options_visitor, walk_with_policy, walk_with_source, walk_with_visitor,
 };
 
 #[cfg(test)]

@@ -28,7 +28,8 @@
 pub use diff_dirs_tree_compare::ParallelDiagnostics;
 #[cfg(feature = "parallel")]
 pub use diff_dirs_tree_compare::{
-    ParallelLimits, ParallelPlanWalk, ParallelWalk, walk_in_pool, walk_in_pool_checked, walk_in_pool_scoped, walk_in_pool_visitor,
+    ParallelLimits, ParallelPlanWalk, ParallelPolicyWalk, ParallelWalk, walk_in_pool, walk_in_pool_checked, walk_in_pool_policy, walk_in_pool_scoped,
+    walk_in_pool_visitor,
 };
 
 pub use diff_dirs_tree_compare::coordinated;
@@ -37,8 +38,8 @@ pub use diff_dirs_tree_compare::coordinated;
 pub use diff_dirs_tree_compare::walk_per_frame;
 pub use diff_dirs_tree_compare::{Audit, AuditFailure, ScanState, Summary, WalkOptions, audit, audit_scoped, audit_with_visitor};
 pub use diff_dirs_tree_compare::{
-    PlanWalk, Walk, walk, walk_checked, walk_scoped, walk_with_options, walk_with_options_checked, walk_with_options_scoped, walk_with_options_visitor,
-    walk_with_visitor,
+    PlanWalk, PolicyWalk, Walk, walk, walk_checked, walk_scoped, walk_with_options, walk_with_options_checked, walk_with_options_scoped,
+    walk_with_options_visitor, walk_with_policy, walk_with_source, walk_with_visitor,
 };
 pub use diff_dirs_tree_inspect::{
     Action, AddedRemoved, Admission, ChangedAddedRemoved, Check, CheckError, CheckRef, CheckedScope, Container, DirDiff, DirectoryPlan, EarlyFacts, Entry,

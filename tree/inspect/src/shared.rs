@@ -217,7 +217,7 @@ struct Ready<C> {
 type PreparedOutcome<C> = Option<Result<PreparedDirectory<C>, Arc<Error>>>;
 
 #[allow(clippy::too_many_arguments)]
-fn inspect_group_using<P: Policy, M: Comparator, E: ExecutionDemand>(
+pub(crate) fn inspect_group_using<P: Policy, M: Comparator, E: ExecutionDemand>(
     source: &SourceSession,
     at: DirectoryRequest<'_>,
     lanes: &[TargetInspection<'_, P, M>],
@@ -1124,7 +1124,7 @@ fn inspect_legacy_root_cells<V: Visitor>(
     .map(|prepared| DirectoryPlan { prepared })
     .map_err(owned_error)
 }
-fn owned_error(error: Arc<Error>) -> Error {
+pub(crate) fn owned_error(error: Arc<Error>) -> Error {
     Arc::try_unwrap(error).unwrap_or_else(|shared| Error::Refused {
         path: shared.path().to_owned(),
         source: Box::new(shared),

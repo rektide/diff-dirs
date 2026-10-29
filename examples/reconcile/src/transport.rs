@@ -24,44 +24,44 @@ pub const MAX_BYTES: u64 = 32 * 1024 * 1024;
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Snapshot {
+pub struct Snapshot<C = ()> {
     pub schema: String,
     pub version: u32,
     pub policies: Vec<PolicyConfig>,
-    pub state: State,
+    pub state: State<C>,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct State {
+pub struct State<C = ()> {
     pub version: u32,
-    pub comparison: Comparison,
+    pub comparison: Comparison<C>,
     pub copy_policies: Vec<String>,
     pub lanes: Vec<Totals>,
-    pub current: Option<PendingGroup>,
+    pub current: Option<PendingGroup<C>>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Comparison {
+pub struct Comparison<C = ()> {
     pub version: u32,
     pub source: NativeString,
-    pub targets: Vec<Binding>,
+    pub targets: Vec<Binding<C>>,
     pub lanes: Vec<ObservedLane>,
     pub root_pending: bool,
-    pub frames: Vec<Frame>,
+    pub frames: Vec<Frame<C>>,
     pub window: Option<Window>,
     pub next_sequence: u64,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Binding {
+pub struct Binding<C = ()> {
     pub id: String,
     pub root: NativeString,
     pub policy: String,
     pub policy_id: Meaning,
     pub context_schema: Meaning,
     pub comparator: Meaning,
-    pub initial_context: (),
+    pub initial_context: C,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -96,32 +96,32 @@ pub struct Observation {
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Frame {
+pub struct Frame<C = ()> {
     pub sequence: u64,
     pub relative: NativeString,
-    pub lanes: Vec<FrameLane>,
-    pub remaining: Vec<Edge>,
+    pub lanes: Vec<FrameLane<C>>,
+    pub remaining: Vec<Edge<C>>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct FrameLane {
+pub struct FrameLane<C = ()> {
     pub target: usize,
-    pub context: (),
+    pub context: C,
     pub direct_changed: bool,
     pub direct_ancestor: bool,
     pub subtree_changed: bool,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Edge {
+pub struct Edge<C = ()> {
     pub name: NativeString,
-    pub members: Vec<Member>,
+    pub members: Vec<Member<C>>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Member {
+pub struct Member<C = ()> {
     pub target: usize,
-    pub context: (),
+    pub context: C,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -165,36 +165,36 @@ pub struct Totals {
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PendingGroup {
+pub struct PendingGroup<C = ()> {
     pub sequence: u64,
-    pub applications: Vec<PendingApplication>,
+    pub applications: Vec<PendingApplication<C>>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PendingApplication {
+pub struct PendingApplication<C = ()> {
     pub target: usize,
-    pub decision: Decision,
+    pub decision: Decision<C>,
     pub state: String,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Decision {
+pub struct Decision<C = ()> {
     pub relative: NativeString,
     pub purpose: String,
     pub structural_root: bool,
     pub domain: String,
-    pub input_context: (),
+    pub input_context: C,
     pub policy: Meaning,
     pub context_schema: Meaning,
     pub comparator: Meaning,
     pub scoped: bool,
     pub root_excluded: bool,
     pub excluded_names: Vec<NativeString>,
-    pub entries: Vec<Entry>,
+    pub entries: Vec<Entry<C>>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Entry {
+pub struct Entry<C = ()> {
     pub name: NativeString,
     pub source: String,
     pub target: Option<String>,
@@ -204,7 +204,7 @@ pub struct Entry {
     pub action: String,
     pub install: Option<Installation>,
     pub source_absent_removal: bool,
-    pub interior: Option<Inside>,
+    pub interior: Option<Inside<C>>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -239,10 +239,10 @@ pub struct Installation {
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Inside {
+pub struct Inside<C = ()> {
     pub role: String,
     pub input: String,
-    pub context: (),
+    pub context: C,
 }
 
 macro_rules! vocabulary {
@@ -420,14 +420,14 @@ impl Observation {
         })
     }
 }
-impl From<&DirectoryDecision> for Decision {
-    fn from(v: &DirectoryDecision) -> Self {
+impl<C: Clone> From<&DirectoryDecision<C>> for Decision<C> {
+    fn from(v: &DirectoryDecision<C>) -> Self {
         Self {
             relative: native_path(v.relative()),
             purpose: purpose(v.purpose()),
             structural_root: v.is_root(),
             domain: "physical-union".into(),
-            input_context: (),
+            input_context: v.input_context().clone(),
             policy: v.policy().into(),
             context_schema: v.context_schema().into(),
             comparator: v.comparator().into(),
@@ -464,7 +464,7 @@ impl From<&DirectoryDecision> for Decision {
                         interior: e.interior.as_ref().map(|i| Inside {
                             role: role(i.role),
                             input: "physical-directory".into(),
-                            context: (),
+                            context: i.context.clone(),
                         }),
                     }
                 })
@@ -472,8 +472,8 @@ impl From<&DirectoryDecision> for Decision {
         }
     }
 }
-impl Decision {
-    fn decode(self) -> Result<DirectoryDecision> {
+impl<C: Clone + Eq> Decision<C> {
+    fn decode(self) -> Result<DirectoryDecision<C>> {
         if self.domain != "physical-union" {
             return Err("example comparison codec only accepts physical unions".into());
         }
@@ -482,7 +482,7 @@ impl Decision {
             purpose: parse_purpose(&self.purpose)?,
             structural_root: self.structural_root,
             domain: SelectionDomain::PhysicalUnion,
-            input_context: (),
+            input_context: self.input_context,
             policy: self.policy.into(),
             context_schema: self.context_schema.into(),
             comparator: self.comparator.into(),
@@ -509,7 +509,7 @@ impl Decision {
                             }
                             Ok(Interior {
                                 role: parse_role(&i.role)?,
-                                context: (),
+                                context: i.context,
                                 input: InteriorInput::PhysicalDirectory,
                             })
                         })
@@ -548,8 +548,163 @@ impl Decision {
     }
 }
 
-impl Snapshot {
-    pub fn new(parts: &SyncParts, policies: Vec<PolicyConfig>) -> Result<Self> {
+impl<C: Clone + Eq> Comparison<C> {
+    /// Comparison-only applications use this same explicit v2 DTO without
+    /// fabricating an effect barrier or treating selection as completed work.
+    pub fn new(parts: &Parts<C>) -> Result<Self> {
+        parts.validate()?;
+        Ok(Self {
+            version: parts.version,
+            source: native_path(&parts.bindings.source),
+            targets: parts
+                .bindings
+                .targets
+                .iter()
+                .map(|b| Binding {
+                    id: b.id.0.clone(),
+                    root: native_path(&b.root),
+                    policy: b.policy.clone(),
+                    policy_id: (&b.policy_id).into(),
+                    context_schema: (&b.context_schema).into(),
+                    comparator: (&b.comparator).into(),
+                    initial_context: b.initial_context.clone(),
+                })
+                .collect(),
+            lanes: parts
+                .lanes
+                .iter()
+                .map(|lane| ObservedLane {
+                    status: status(lane.status),
+                    summary: (&lane.summary).into(),
+                })
+                .collect(),
+            root_pending: parts.root_pending,
+            frames: parts
+                .frames
+                .iter()
+                .map(|frame| Frame {
+                    sequence: frame.sequence,
+                    relative: native_path(&frame.relative),
+                    lanes: frame
+                        .lanes
+                        .iter()
+                        .map(|lane| FrameLane {
+                            target: lane.target,
+                            context: lane.context.clone(),
+                            direct_changed: lane.direct_changed,
+                            direct_ancestor: lane.direct_ancestor,
+                            subtree_changed: lane.subtree_changed,
+                        })
+                        .collect(),
+                    remaining: frame
+                        .remaining
+                        .iter()
+                        .map(|edge| Edge {
+                            name: NativeString::new(&edge.name),
+                            members: edge
+                                .members
+                                .iter()
+                                .map(|member| Member {
+                                    target: member.target,
+                                    context: member.context.clone(),
+                                })
+                                .collect(),
+                        })
+                        .collect(),
+                })
+                .collect(),
+            window: parts.window.as_ref().map(|window| Window {
+                sequence: window.sequence,
+                successful: window.successful.clone(),
+                pruned: window.pruned.clone(),
+            }),
+            next_sequence: parts.next_sequence,
+        })
+    }
+    pub fn decode(self) -> Result<Parts<C>> {
+        let parts = Parts {
+            version: self.version,
+            bindings: Bindings {
+                source: self.source.into_os()?.into(),
+                targets: self
+                    .targets
+                    .into_iter()
+                    .map(|binding| {
+                        Ok(TargetBinding {
+                            id: binding.id.as_str().into(),
+                            root: binding.root.into_os()?.into(),
+                            policy: binding.policy,
+                            policy_id: binding.policy_id.into(),
+                            context_schema: binding.context_schema.into(),
+                            comparator: binding.comparator.into(),
+                            initial_context: binding.initial_context,
+                        })
+                    })
+                    .collect::<Result<_>>()?,
+            },
+            lanes: self
+                .lanes
+                .into_iter()
+                .map(|lane| {
+                    Ok(LaneState {
+                        status: parse_status(&lane.status)?,
+                        summary: lane.summary.decode()?,
+                    })
+                })
+                .collect::<Result<_>>()?,
+            root_pending: self.root_pending,
+            frames: self
+                .frames
+                .into_iter()
+                .map(|frame| {
+                    Ok(GroupFrame {
+                        sequence: frame.sequence,
+                        relative: frame.relative.into_os()?.into(),
+                        lanes: frame
+                            .lanes
+                            .into_iter()
+                            .map(|lane| LaneFrame {
+                                target: lane.target,
+                                context: lane.context,
+                                direct_changed: lane.direct_changed,
+                                direct_ancestor: lane.direct_ancestor,
+                                subtree_changed: lane.subtree_changed,
+                            })
+                            .collect(),
+                        remaining: frame
+                            .remaining
+                            .into_iter()
+                            .map(|edge| {
+                                Ok(ChildEdge {
+                                    name: edge.name.into_os()?,
+                                    members: edge
+                                        .members
+                                        .into_iter()
+                                        .map(|member| ChildMember {
+                                            target: member.target,
+                                            context: member.context,
+                                        })
+                                        .collect(),
+                                })
+                            })
+                            .collect::<Result<VecDeque<_>>>()?,
+                    })
+                })
+                .collect::<Result<_>>()?,
+            window: self.window.map(|window| ControlWindow {
+                sequence: window.sequence,
+                successful: window.successful,
+                pruned: window.pruned,
+            }),
+            next_sequence: self.next_sequence,
+        };
+        parts.validate()?;
+        Ok(parts)
+    }
+}
+
+impl<C: Clone + Eq> Snapshot<C> {
+    pub fn new(parts: &SyncParts<C>, policies: Vec<PolicyConfig>) -> Result<Self> {
         validate_config(parts, &policies)?;
         let p = &parts.comparison;
         Ok(Self {
@@ -584,70 +739,11 @@ impl Snapshot {
                         })
                         .collect(),
                 }),
-                comparison: Comparison {
-                    version: p.version,
-                    source: native_path(&p.bindings.source),
-                    targets: p
-                        .bindings
-                        .targets
-                        .iter()
-                        .map(|b| Binding {
-                            id: b.id.0.clone(),
-                            root: native_path(&b.root),
-                            policy: b.policy.clone(),
-                            policy_id: (&b.policy_id).into(),
-                            context_schema: (&b.context_schema).into(),
-                            comparator: (&b.comparator).into(),
-                            initial_context: (),
-                        })
-                        .collect(),
-                    lanes: p
-                        .lanes
-                        .iter()
-                        .map(|l| ObservedLane {
-                            status: status(l.status),
-                            summary: (&l.summary).into(),
-                        })
-                        .collect(),
-                    root_pending: p.root_pending,
-                    frames: p
-                        .frames
-                        .iter()
-                        .map(|f| Frame {
-                            sequence: f.sequence,
-                            relative: native_path(&f.relative),
-                            lanes: f
-                                .lanes
-                                .iter()
-                                .map(|l| FrameLane {
-                                    target: l.target,
-                                    context: (),
-                                    direct_changed: l.direct_changed,
-                                    direct_ancestor: l.direct_ancestor,
-                                    subtree_changed: l.subtree_changed,
-                                })
-                                .collect(),
-                            remaining: f
-                                .remaining
-                                .iter()
-                                .map(|e| Edge {
-                                    name: NativeString::new(&e.name),
-                                    members: e.members.iter().map(|m| Member { target: m.target, context: () }).collect(),
-                                })
-                                .collect(),
-                        })
-                        .collect(),
-                    window: p.window.as_ref().map(|w| Window {
-                        sequence: w.sequence,
-                        successful: w.successful.clone(),
-                        pruned: w.pruned.clone(),
-                    }),
-                    next_sequence: p.next_sequence,
-                },
+                comparison: Comparison::new(p)?,
             },
         })
     }
-    pub fn decode(self) -> Result<(SyncParts, Vec<PolicyConfig>)> {
+    pub fn decode(self) -> Result<(SyncParts<C>, Vec<PolicyConfig>)> {
         if self.schema != "diff-dirs.reconcile-example" || self.version != 2 {
             return Err("unsupported reconcile transport schema/version".into());
         }
@@ -690,75 +786,7 @@ impl Snapshot {
                     })
                 })
                 .transpose()?,
-            comparison: Parts {
-                version: p.version,
-                bindings: Bindings {
-                    source: p.source.into_os()?.into(),
-                    targets: p
-                        .targets
-                        .into_iter()
-                        .map(|b| {
-                            Ok(TargetBinding {
-                                id: b.id.as_str().into(),
-                                root: b.root.into_os()?.into(),
-                                policy: b.policy,
-                                policy_id: b.policy_id.into(),
-                                context_schema: b.context_schema.into(),
-                                comparator: b.comparator.into(),
-                                initial_context: (),
-                            })
-                        })
-                        .collect::<Result<_>>()?,
-                },
-                lanes: p
-                    .lanes
-                    .into_iter()
-                    .map(|l| {
-                        Ok(LaneState {
-                            status: parse_status(&l.status)?,
-                            summary: l.summary.decode()?,
-                        })
-                    })
-                    .collect::<Result<_>>()?,
-                root_pending: p.root_pending,
-                frames: p
-                    .frames
-                    .into_iter()
-                    .map(|f| {
-                        Ok(GroupFrame {
-                            sequence: f.sequence,
-                            relative: f.relative.into_os()?.into(),
-                            lanes: f
-                                .lanes
-                                .into_iter()
-                                .map(|l| LaneFrame {
-                                    target: l.target,
-                                    context: (),
-                                    direct_changed: l.direct_changed,
-                                    direct_ancestor: l.direct_ancestor,
-                                    subtree_changed: l.subtree_changed,
-                                })
-                                .collect(),
-                            remaining: f
-                                .remaining
-                                .into_iter()
-                                .map(|e| {
-                                    Ok(ChildEdge {
-                                        name: e.name.into_os()?,
-                                        members: e.members.into_iter().map(|m| ChildMember { target: m.target, context: () }).collect(),
-                                    })
-                                })
-                                .collect::<Result<VecDeque<_>>>()?,
-                        })
-                    })
-                    .collect::<Result<_>>()?,
-                window: p.window.map(|w| ControlWindow {
-                    sequence: w.sequence,
-                    successful: w.successful,
-                    pruned: w.pruned,
-                }),
-                next_sequence: p.next_sequence,
-            },
+            comparison: p.decode()?,
         };
         validate_config(&parts, &self.policies)?;
         Ok((parts, self.policies))
@@ -766,17 +794,21 @@ impl Snapshot {
 }
 
 pub fn read(path: &Path) -> Result<(SyncParts, Vec<PolicyConfig>)> {
+    read_context(path)
+}
+
+pub fn read_context<C: Clone + Eq + serde::de::DeserializeOwned>(path: &Path) -> Result<(SyncParts<C>, Vec<PolicyConfig>)> {
     let mut bytes = Vec::new();
     File::open(path)?.take(MAX_BYTES + 1).read_to_end(&mut bytes)?;
     if bytes.len() as u64 > MAX_BYTES {
         return Err("cursor exceeds 32 MiB transport limit".into());
     }
-    serde_json::from_slice::<Snapshot>(&bytes)?.decode()
+    serde_json::from_slice::<Snapshot<C>>(&bytes)?.decode()
 }
 
 /// Resolves only the cursor parent, not tree roots. Also usable after terminal
 /// trees have been removed. Must run before effects, not merely before publishing.
-pub fn publication_path(path: &Path, parts: &SyncParts) -> Result<PathBuf> {
+pub fn publication_path<C>(path: &Path, parts: &SyncParts<C>) -> Result<PathBuf> {
     let absolute = std::path::absolute(path)?;
     let parent = absolute.parent().ok_or("cursor needs a parent")?;
     let name = absolute.file_name().ok_or("cursor needs a basename")?;
@@ -794,7 +826,7 @@ pub fn publication_path(path: &Path, parts: &SyncParts) -> Result<PathBuf> {
 
 /// Separate complete-file publication. A failure here cannot roll back prior
 /// tree effects. No directory-fsync, crash recovery or exactly-once claim.
-pub fn write(path: &Path, parts: &SyncParts, policies: Vec<PolicyConfig>) -> Result<()> {
+pub fn write<C: Clone + Eq + Serialize>(path: &Path, parts: &SyncParts<C>, policies: Vec<PolicyConfig>) -> Result<()> {
     let path = publication_path(path, parts)?;
     let snapshot = Snapshot::new(parts, policies)?;
     let mut bytes = serde_json::to_vec(&snapshot)?;

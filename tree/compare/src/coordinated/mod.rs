@@ -133,7 +133,7 @@ impl PartialEq for GroupToken {
 impl Eq for GroupToken {}
 
 /// One successful immediate assessment plus optional caller-owned lowering.
-/// Keeping a DirectoryPlan in value deliberately retains facts outside Parts.
+/// Keeping a PreparedDirectory in value deliberately retains facts outside Parts.
 #[derive(Debug)]
 pub struct Compared<T = ()> {
     pub diff: DirDiff,
@@ -364,7 +364,7 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> Coordinated<C> {
         self.next_group_with(policies, |_, _| ())
     }
 
-    /// Same traversal/acceptance, with access to each complete validated plan.
+    /// Same traversal/acceptance, with access to each validated live preparation.
     /// Lowering is a pure projection, never effect acceptance. It may retain an
     /// ephemeral plan in T for a sync composition; Parts never retain T/facts.
     /// The callback order is unspecified and may precede a later lane error.
@@ -376,6 +376,10 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> Coordinated<C> {
         self.next_group_prepared(policies, &NoExecutionDemand, lower)
     }
 
+    /// Finalize and acquire selected execution inputs before initial publication.
+    /// No later executor may substitute fallback observations for this boundary.
+    /// Lowering remains a pure projection; a preparation is not an external
+    /// effect binding or permission to choose arbitrary physical output routes.
     pub fn next_group_prepared<P: Policy<Context = C>, M: Comparator, E: ExecutionDemand, T>(
         &mut self,
         policies: &[TargetPolicy<'_, P, M>],
@@ -395,11 +399,10 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> Coordinated<C> {
                     .lanes
                     .iter()
                     .enumerate()
-                    .filter_map(|(i, l)| {
-                        (l.status == LaneStatus::Active).then(|| ChildMember {
-                            target: i,
-                            context: self.parts.bindings.targets[i].initial_context.clone(),
-                        })
+                    .filter(|(_, l)| l.status == LaneStatus::Active)
+                    .map(|(i, _)| ChildMember {
+                        target: i,
+                        context: self.parts.bindings.targets[i].initial_context.clone(),
                     })
                     .collect::<Vec<_>>(),
             )

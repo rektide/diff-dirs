@@ -5,13 +5,12 @@
 //! unlock, then spawn; no worker receives from a channel or waits for a permit.
 
 use std::collections::VecDeque;
-use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use crate::pair::ComparedPair;
+use crate::pair::{Child, ComparedPair};
 use crate::parallel::ParallelLimits;
-use crate::{ApplicationNeed, DirDiff, DirectoryCoverage, DirectoryPlan, Error, ScanState, SemanticId, Summary};
+use crate::{ApplicationNeed, DirDiff, DirectoryCoverage, Error, PreparedDirectory, ScanState, SemanticId, Summary};
 
 #[cfg(any(test, feature = "parallel-diagnostics"))]
 #[derive(Clone, Debug, Default)]
@@ -42,20 +41,30 @@ struct Id {
 }
 
 #[derive(Debug)]
-struct Slot {
+struct Slot<C> {
     generation: u64,
-    node: Option<Node>,
+    node: Option<Node<C>>,
 }
 
-#[derive(Debug, Default)]
-struct Arena {
-    slots: Vec<Slot>,
+#[derive(Debug)]
+struct Arena<C> {
+    slots: Vec<Slot<C>>,
     free: Vec<usize>,
     len: usize,
 }
 
-impl Arena {
-    fn insert(&mut self, node: Node) -> Id {
+impl<C> Default for Arena<C> {
+    fn default() -> Self {
+        Self {
+            slots: vec![],
+            free: vec![],
+            len: 0,
+        }
+    }
+}
+
+impl<C> Arena<C> {
+    fn insert(&mut self, node: Node<C>) -> Id {
         let slot = if let Some(slot) = self.free.pop() {
             self.slots[slot].generation = self.slots[slot].generation.checked_add(1).expect("arena generation overflow");
             self.slots[slot].node = Some(node);
@@ -74,19 +83,19 @@ impl Arena {
         }
     }
 
-    fn get(&self, id: Id) -> &Node {
+    fn get(&self, id: Id) -> &Node<C> {
         let slot = &self.slots[id.slot];
         assert_eq!(slot.generation, id.generation, "stale frontier handle");
         slot.node.as_ref().expect("live frontier handle")
     }
 
-    fn get_mut(&mut self, id: Id) -> &mut Node {
+    fn get_mut(&mut self, id: Id) -> &mut Node<C> {
         let slot = &mut self.slots[id.slot];
         assert_eq!(slot.generation, id.generation, "stale frontier handle");
         slot.node.as_mut().expect("live frontier handle")
     }
 
-    fn remove(&mut self, id: Id) -> Node {
+    fn remove(&mut self, id: Id) -> Node<C> {
         assert_eq!(self.slots[id.slot].generation, id.generation, "stale frontier handle");
         self.len -= 1;
         self.free.push(id.slot);
@@ -101,41 +110,50 @@ impl Arena {
 }
 
 #[derive(Debug)]
-struct Node {
+struct Node<C> {
     dir: PathBuf,
     speculative: bool,
-    state: NodeState,
+    state: NodeState<C>,
 }
 
 #[derive(Debug)]
 // Only K+1 reusable arena slots exist. Inline results avoid an allocation on
 // every directory completion; queued slots do not justify a per-result Box.
 #[allow(clippy::large_enum_variant)]
-enum NodeState {
+enum NodeState<C> {
     Queued,
     Running,
-    Ready(Result<ReadyPair, Error>),
+    Ready(Result<ReadyPair<C>, Error>),
 }
 
 #[derive(Debug)]
-struct ReadyPair {
+struct ReadyPair<C> {
     coverage: DirectoryCoverage,
     comparator: SemanticId,
     diff: DirDiff,
-    children: Children,
-    plan: Option<DirectoryPlan>,
+    children: Children<C>,
+    plan: Option<PreparedDirectory<C>>,
 }
 
 /// Admitted children are always a prefix of remaining sorted names. Because
 /// reserved jobs are drained (not canceled), there are no holes to index/map.
-#[derive(Debug, Default)]
-struct Children {
-    names: VecDeque<OsString>,
+#[derive(Debug)]
+struct Children<C> {
+    names: VecDeque<Child<C>>,
     admitted: VecDeque<Id>,
 }
 
-impl Children {
-    fn from_names(names: Vec<OsString>) -> Self {
+impl<C> Default for Children<C> {
+    fn default() -> Self {
+        Self {
+            names: VecDeque::new(),
+            admitted: VecDeque::new(),
+        }
+    }
+}
+
+impl<C> Children<C> {
+    fn from_names(names: Vec<Child<C>>) -> Self {
         Self {
             names: names.into(),
             admitted: VecDeque::new(),
@@ -147,9 +165,9 @@ impl Children {
 }
 
 #[derive(Debug)]
-struct Frame {
+struct Frame<C> {
     dir: PathBuf,
-    children: Children,
+    children: Children<C>,
     direct_ancestor: bool,
     subtree_changed: bool,
     open: bool,
@@ -176,23 +194,25 @@ enum Stop {
 }
 
 #[derive(Debug)]
-struct Job {
+struct Job<C> {
     id: Id,
     dir: PathBuf,
+    context: C,
 }
 
 #[derive(Debug)]
-pub(crate) struct Frontier {
+pub(crate) struct Frontier<C = ()> {
     limits: ParallelLimits,
-    nodes: Arena,
-    frames: Vec<Frame>,
+    nodes: Arena<C>,
+    frames: Vec<Frame<C>>,
+    initial_context: C,
     root_pending: bool,
     demand: Option<Id>,
     speculative: usize,
     outstanding: usize,
     active: usize,
     stop: Stop,
-    output: Option<Result<(DirDiff, Option<DirectoryPlan>), Error>>,
+    output: Option<Publication<C>>,
     prune_eligible: bool,
     summary: Summary,
     #[cfg(any(test, feature = "parallel-diagnostics"))]
@@ -203,12 +223,32 @@ pub(crate) struct Frontier {
     stop_at: Option<std::time::Instant>,
 }
 
-impl Frontier {
+type Publication<C> = Result<(DirDiff, Option<PreparedDirectory<C>>), Error>;
+
+impl Frontier<()> {
     pub(crate) fn new(limits: ParallelLimits) -> Self {
+        Self::with_context(limits, (), crate::Comparator::identity(&crate::StatKey).clone())
+    }
+    pub(crate) fn next_with<F>(&mut self, inspect: F) -> Option<Result<DirDiff, Error>>
+    where
+        F: Fn(&Path) -> Result<ComparedPair, Error> + Sync,
+    {
+        loop {
+            match self.next_finalized(|path, _| inspect(path))? {
+                Ok((diff, _)) if diff.is_empty() => continue,
+                result => return Some(result.map(|(diff, _)| diff)),
+            }
+        }
+    }
+}
+
+impl<C: Clone + Send + Sync> Frontier<C> {
+    pub(crate) fn with_context(limits: ParallelLimits, initial_context: C, comparator: SemanticId) -> Self {
         Self {
             limits,
             nodes: Arena::default(),
             frames: Vec::new(),
+            initial_context,
             root_pending: true,
             demand: None,
             speculative: 0,
@@ -218,7 +258,7 @@ impl Frontier {
             output: None,
             prune_eligible: false,
             summary: Summary {
-                comparator: Some(crate::Comparator::identity(&crate::StatKey).clone()),
+                comparator: Some(comparator),
                 ..Summary::default()
             },
             #[cfg(any(test, feature = "parallel-diagnostics"))]
@@ -230,29 +270,17 @@ impl Frontier {
         }
     }
 
-    pub(crate) fn next_with<F>(&mut self, inspect: F) -> Option<Result<DirDiff, Error>>
+    pub(crate) fn next_plan_with<F>(&mut self, inspect: F) -> Option<Result<PreparedDirectory<C>, Error>>
     where
-        F: Fn(&Path) -> Result<ComparedPair, Error> + Sync,
-    {
-        loop {
-            match self.next_finalized(&inspect)? {
-                Ok((diff, _)) if diff.is_empty() => continue,
-                result => return Some(result.map(|(diff, _)| diff)),
-            }
-        }
-    }
-
-    pub(crate) fn next_plan_with<F>(&mut self, inspect: F) -> Option<Result<DirectoryPlan, Error>>
-    where
-        F: Fn(&Path) -> Result<ComparedPair, Error> + Sync,
+        F: Fn(&Path, &C) -> Result<ComparedPair<C>, Error> + Sync,
     {
         self.next_finalized(inspect)
             .map(|result| result.map(|(_, plan)| plan.expect("visitor inspection carries a plan")))
     }
 
-    fn next_finalized<F>(&mut self, inspect: F) -> Option<Result<(DirDiff, Option<DirectoryPlan>), Error>>
+    fn next_finalized<F>(&mut self, inspect: F) -> Option<Publication<C>>
     where
-        F: Fn(&Path) -> Result<ComparedPair, Error> + Sync,
+        F: Fn(&Path, &C) -> Result<ComparedPair<C>, Error> + Sync,
     {
         if self.summary.state != ScanState::Incomplete {
             return None;
@@ -415,7 +443,7 @@ impl Frontier {
         }
     }
 
-    fn children(&self, owner: Owner) -> Option<&Children> {
+    fn children(&self, owner: Owner) -> Option<&Children<C>> {
         match owner {
             Owner::Frame(i) => self.frames[i].open.then_some(&self.frames[i].children),
             Owner::Node(id) => match &self.nodes.get(id).state {
@@ -425,7 +453,7 @@ impl Frontier {
         }
     }
 
-    fn children_mut(&mut self, owner: Owner) -> &mut Children {
+    fn children_mut(&mut self, owner: Owner) -> &mut Children<C> {
         match owner {
             Owner::Frame(i) => {
                 assert!(self.frames[i].open);
@@ -460,7 +488,7 @@ impl Frontier {
         None
     }
 
-    fn reserve(&mut self, dir: PathBuf, speculative: bool) -> Job {
+    fn reserve(&mut self, dir: PathBuf, context: C, speculative: bool) -> Job<C> {
         let id = self.nodes.insert(Node {
             dir: dir.clone(),
             speculative,
@@ -479,10 +507,10 @@ impl Frontier {
             self.stats.peak_speculative = self.stats.peak_speculative.max(self.speculative);
             self.stats.peak_uncommitted = self.stats.peak_uncommitted.max(self.nodes.len);
         }
-        Job { id, dir }
+        Job { id, dir, context }
     }
 
-    fn pump(&mut self) -> Vec<Job> {
+    fn pump(&mut self) -> Vec<Job<C>> {
         if self.stop != Stop::Running {
             #[cfg(any(test, feature = "parallel-diagnostics"))]
             self.sample_diagnostics();
@@ -492,19 +520,20 @@ impl Frontier {
         let mut jobs = Vec::new();
         while self.stop == Stop::Running && self.outstanding < self.limits.max_directory_jobs.get() {
             if self.demand.is_none() {
-                let dir = if self.root_pending {
+                let (dir, context) = if self.root_pending {
                     self.root_pending = false;
-                    PathBuf::new()
+                    (PathBuf::new(), self.initial_context.clone())
                 } else {
                     let frame = self.frames.last_mut().expect("unmet demand has parent");
                     assert!(frame.open && frame.children.admitted.is_empty());
-                    frame.dir.join(frame.children.names.pop_front().expect("unmet demand has child"))
+                    let child = frame.children.names.pop_front().expect("unmet demand has child");
+                    (frame.dir.join(child.name), child.context)
                 };
                 #[cfg(any(test, feature = "parallel-diagnostics"))]
                 if self.speculative == self.limits.max_speculative_directories && self.speculative > 0 {
                     self.stats.demand_reserve_uses += 1;
                 }
-                jobs.push(self.reserve(dir, false));
+                jobs.push(self.reserve(dir, context, false));
             } else if self.speculative < self.limits.max_speculative_directories {
                 let Some(owner) = self.candidate() else {
                     break;
@@ -514,8 +543,10 @@ impl Frontier {
                     Owner::Node(id) => &self.nodes.get(id).dir,
                 };
                 let children = self.children(owner).unwrap();
-                let dir = parent.join(&children.names[children.admitted.len()]);
-                let job = self.reserve(dir, true);
+                let child = &children.names[children.admitted.len()];
+                let dir = parent.join(&child.name);
+                let context = child.context.clone();
+                let job = self.reserve(dir, context, true);
                 self.children_mut(owner).admitted.push_back(job.id);
                 jobs.push(job);
             } else {
@@ -546,7 +577,7 @@ impl Frontier {
         }
     }
 
-    fn complete(&mut self, id: Id, result: Result<ComparedPair, Error>) -> Vec<Job> {
+    fn complete(&mut self, id: Id, result: Result<ComparedPair<C>, Error>) -> Vec<Job<C>> {
         assert!(matches!(self.nodes.get(id).state, NodeState::Running));
         #[cfg(any(test, feature = "parallel-diagnostics"))]
         {
@@ -585,13 +616,13 @@ impl Frontier {
         let mut bytes = self
             .frames
             .iter()
-            .map(|frame| frame.dir.as_os_str().as_encoded_bytes().len() + frame.children.names.iter().map(|n| n.as_encoded_bytes().len()).sum::<usize>())
+            .map(|frame| frame.dir.as_os_str().as_encoded_bytes().len() + frame.children.names.iter().map(|n| n.name.as_encoded_bytes().len()).sum::<usize>())
             .sum::<usize>();
         for slot in &self.nodes.slots {
             if let Some(node) = &slot.node {
                 bytes += node.dir.as_os_str().as_encoded_bytes().len();
                 if let NodeState::Ready(Ok(pair)) = &node.state {
-                    bytes += pair.children.names.iter().map(|n| n.as_encoded_bytes().len()).sum::<usize>();
+                    bytes += pair.children.names.iter().map(|n| n.name.as_encoded_bytes().len()).sum::<usize>();
                 }
             }
         }
@@ -599,16 +630,16 @@ impl Frontier {
     }
 }
 
-fn dispatch<'scope, F>(scope: &rayon::Scope<'scope>, shared: &'scope Mutex<&mut Frontier>, inspect: &'scope F, jobs: Vec<Job>)
+fn dispatch<'scope, C: Clone + Send + Sync, F>(scope: &rayon::Scope<'scope>, shared: &'scope Mutex<&mut Frontier<C>>, inspect: &'scope F, jobs: Vec<Job<C>>)
 where
-    F: Fn(&Path) -> Result<ComparedPair, Error> + Sync,
+    F: Fn(&Path, &C) -> Result<ComparedPair<C>, Error> + Sync,
 {
     // Rayon pushes locally LIFO; reserve demand first, submit it last so the
     // completing worker prefers the ordered cursor while thieves take siblings.
     for job in jobs.into_iter().rev() {
         scope.spawn(move |scope| {
             shared.lock().unwrap().start(job.id);
-            let result = inspect(&job.dir);
+            let result = inspect(&job.dir, &job.context);
             let successors = shared.lock().unwrap().complete(job.id, result);
             dispatch(scope, shared, inspect, successors);
         });

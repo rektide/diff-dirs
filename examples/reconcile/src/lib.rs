@@ -90,7 +90,7 @@ pub type Runtime = SyncRuntime<NoCheck, NoScope, diff_dirs_transfer_sync::Remove
 
 /// Validate every frozen rule descriptor before constructing any filesystem-bound
 /// Applier, including inactive lane descriptors. Executable policies are rebuilt.
-pub fn validate_config(parts: &SyncParts, config: &[PolicyConfig]) -> Result<()> {
+pub fn validate_config<C: Clone + Eq>(parts: &SyncParts<C>, config: &[PolicyConfig]) -> Result<()> {
     parts.validate()?;
     if config.len() != parts.lanes.len() {
         return Err("policy config count mismatch".into());

@@ -27,7 +27,13 @@ fn pair(dir: &Path, children: &[&str], changed: bool) -> ComparedPair {
         },
         comparator: crate::Comparator::identity(&crate::StatKey).clone(),
         diff,
-        children: children.iter().map(OsString::from).collect(),
+        children: children
+            .iter()
+            .map(|name| Child {
+                name: (*name).into(),
+                context: (),
+            })
+            .collect(),
     }
 }
 

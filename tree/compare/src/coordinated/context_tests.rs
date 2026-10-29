@@ -14,6 +14,7 @@ struct ContextPolicy {
     schema: SemanticId,
     residual: u32,
     renew: bool,
+    omit: bool,
     calls: Mutex<Vec<(PathBuf, Context, bool)>>,
 }
 impl ContextPolicy {
@@ -23,6 +24,7 @@ impl ContextPolicy {
             schema: SemanticId::new("test.context-schema", 1, vec![]),
             residual,
             renew: false,
+            omit: false,
             calls: Mutex::new(vec![]),
         }
     }
@@ -52,6 +54,16 @@ impl crate::Policy for ContextPolicy {
         };
         if context.residual != self.residual || context.depth != depth {
             return Err("unknown residual or wrong contextual depth".into());
+        }
+        Ok(())
+    }
+    fn shape(&self, _: &Context, choices: &mut crate::ShapeChoices<'_, Context>) -> Result<(), crate::CheckError> {
+        if self.omit {
+            for mut entry in choices.entries_mut() {
+                if entry.shape().source == SourceObservation::Present(Kind::File) {
+                    entry.omit_comparison();
+                }
+            }
         }
         Ok(())
     }
@@ -245,4 +257,129 @@ fn real_comparators_and_equal_renewal_keep_comparison_coverage_separate() {
         assert_eq!(summary.planned, 1);
         assert_eq!(summary.comparator.as_ref(), Some(rule.identity()));
     }
+}
+
+#[derive(Clone, Copy)]
+struct InstallInputs;
+impl ExecutionDemand for InstallInputs {
+    fn for_entry<C>(&self, entry: crate::EntrySelectionRef<'_, C>) -> crate::SideDemands {
+        crate::SideDemands {
+            source: crate::Demand {
+                attributes: entry.action == Action::InstallLeaf,
+                literal_link: false,
+            },
+            target: crate::Demand::NONE,
+        }
+    }
+}
+
+#[test]
+fn initial_sparse_publication_completes_execution_demand_without_comparator_facts() {
+    let fixture = Fixture::new();
+    fixture.both_file("work", b"data");
+    let mut policy = ContextPolicy::new(3);
+    policy.renew = true;
+    policy.omit = true;
+    let bindings = Bindings {
+        source: fixture.original.clone(),
+        targets: vec![TargetBinding::new(
+            "lane".into(),
+            fixture.target.clone(),
+            "omitted-renew/v1".into(),
+            &policy,
+            &SizeAndLink,
+        )],
+    };
+    let loans = [TargetPolicy {
+        target: &bindings.targets[0].id,
+        descriptor: &bindings.targets[0].policy,
+        policy: &policy,
+        comparator: SizeAndLink,
+    }];
+    for requested in [false, true] {
+        let mut run = Coordinated::new(bindings.clone(), Execution::Sequential).unwrap();
+        run.bind(&loans).unwrap();
+        let group = if requested {
+            run.next_group_prepared(&loans, &InstallInputs, |_, p| p)
+        } else {
+            run.next_group_with(&loans, |_, p| p)
+        }
+        .unwrap()
+        .unwrap();
+        let prepared = &group.outcomes[0].outcome.as_ref().unwrap().value;
+        let facts = prepared.facts(crate::SlotId(0));
+        assert_eq!(matches!(facts.source.unwrap().attributes, crate::Available::Known(_)), requested);
+        assert!(matches!(facts.target.unwrap().attributes, crate::Available::NotRequested));
+        assert_eq!(prepared.selection().coverage().not_assessed, 1);
+        assert!(prepared.selection().diff().is_empty());
+        assert_eq!(prepared.selection().coverage().application_need, crate::ApplicationNeed::LocalOrOpaque);
+    }
+}
+
+#[test]
+fn typed_plan_walk_publishes_clean_work_with_inputs_and_exact_child_context() {
+    let fixture = Fixture::new();
+    fixture.both_dir("a/deep");
+    fixture.both_file("work", b"data");
+    fixture.both_file("a/deep/work", b"data");
+    let mut policy = ContextPolicy::new(5);
+    policy.renew = true;
+    let source = Arc::new(SourceSession::new(&fixture.original));
+    let mut walk = crate::walk_with_source(
+        source.clone(),
+        &fixture.target,
+        crate::WalkOptions::default(),
+        &policy,
+        SizeAndLink,
+        InstallInputs,
+    )
+    .unwrap();
+    assert!(Arc::ptr_eq(walk.source_session(), &source));
+    let plan = walk.next().unwrap().unwrap();
+    assert!(plan.selection().diff().is_empty());
+    assert_eq!(plan.selection().input_context().depth, 1);
+    assert_eq!(plan.source_generation(), source.generation());
+    let source_facts = plan.facts(crate::SlotId(1)).source.unwrap();
+    assert!(matches!(source_facts.attributes, crate::Available::Known(_)));
+    assert!(policy.calls.lock().unwrap().iter().all(|(path, _, _)| path.as_os_str().is_empty()));
+    let deep = walk.next().unwrap().unwrap();
+    assert_eq!(deep.selection().relative(), Path::new("a/deep"));
+    assert_eq!(deep.selection().input_context().depth, 3);
+    assert_eq!(deep.source_generation(), source.generation());
+    assert!(walk.next().is_none());
+    let summary = walk.into_summary();
+    assert!(summary.is_clean());
+    assert_eq!(summary.planned, 2);
+    assert_eq!(summary.deviated, 2);
+}
+
+#[cfg(feature = "parallel")]
+#[test]
+fn clean_work_seals_parallel_children_until_the_next_joined_call() {
+    let fixture = Fixture::new();
+    fixture.both_dir("a/deep");
+    fixture.both_file("work", b"data");
+    fixture.both_file("a/deep/work", b"data");
+    let mut policy = ContextPolicy::new(5);
+    policy.renew = true;
+    let pool = rayon::ThreadPoolBuilder::new().num_threads(3).build().unwrap();
+    let mut walk = crate::walk_in_pool_policy(
+        &fixture.original,
+        &fixture.target,
+        &pool,
+        crate::ParallelLimits::for_pool(&pool),
+        &policy,
+        SizeAndLink,
+        InstallInputs,
+    )
+    .unwrap();
+    let root = walk.next().unwrap().unwrap();
+    assert!(root.selection().diff().is_empty());
+    assert!(
+        policy.calls.lock().unwrap().iter().all(|(path, _, _)| path.as_os_str().is_empty()),
+        "clean selected work must seal descendants before speculation"
+    );
+    assert!(walk.prune_here());
+    assert!(walk.next().is_none());
+    assert!(!walk.into_summary().is_complete());
 }

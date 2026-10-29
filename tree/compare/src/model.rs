@@ -74,7 +74,8 @@ impl Summary {
     pub fn is_exhausted(&self) -> bool {
         self.state == ScanState::Complete
     }
-    /// True only after normal exhaustion without any pruning.
+    /// Complete assessment coverage under the bound comparator. Selected work
+    /// may deviate from baseline (for example equal renewal) without a gap.
     pub fn is_complete(&self) -> bool {
         self.is_exhausted()
             && self.pruned.is_empty()
@@ -86,9 +87,8 @@ impl Summary {
             && self.unresolved == 0
     }
 
-    /// Known supported comparison differences. Late-preserved special kinds
-    /// have no normal delta; they contribute retained coverage instead, so false
-    /// here alone must not be treated as a clean-root certificate.
+    /// Known assessed differences. Missing/unsupported/unresolved assessment has
+    /// no normal delta, so false alone is not a clean-root certificate.
     pub fn has_differences(&self) -> bool {
         self.different != 0 || self.counts != EntryCounts::default()
     }
