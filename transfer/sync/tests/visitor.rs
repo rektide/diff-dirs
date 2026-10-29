@@ -343,7 +343,7 @@ fn late_special_preservation_leaves_socket_pairs_and_peers_untouched() {
         assert_eq!(report.policy.retained, 5);
         let observed = report.observed.unwrap();
         assert_eq!(observed.counts, diff_dirs::EntryCounts::default());
-        assert_eq!(observed.retained, 5);
+        assert_eq!(observed.deviated, 5);
         assert_eq!(observed.planned, 0);
         assert!(!observed.is_clean());
         assert!(!observed.is_complete());
@@ -368,7 +368,7 @@ fn late_special_preservation_leaves_socket_pairs_and_peers_untouched() {
         assert_eq!(mixed.completed.files_copied, 1);
         assert_eq!(mixed.planned, 1);
         assert_eq!(mixed.policy.retained, 5);
-        assert_eq!(mixed.observed.unwrap().retained, 5);
+        assert_eq!(mixed.observed.unwrap().deviated, 5);
         assert!(fs::symlink_metadata(f.target.join("b-target")).unwrap().file_type().is_socket());
     }
 }

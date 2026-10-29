@@ -12,6 +12,9 @@ pub struct SemanticId {
     pub parameters: Vec<u8>,
 }
 impl SemanticId {
+    pub fn valid(&self) -> bool {
+        !self.family.is_empty() && self.version != 0
+    }
     pub fn new(family: impl Into<String>, version: u32, parameters: Vec<u8>) -> Self {
         Self {
             family: family.into(),
@@ -52,6 +55,18 @@ pub trait Comparator: Sync {
     fn identity(&self) -> &SemanticId;
     fn demand(&self, shape: Shape) -> SideDemands;
     fn compare(&self, input: ComparisonInput<'_>) -> Result<Comparison, CheckError>;
+}
+
+impl<M: Comparator + ?Sized> Comparator for &M {
+    fn identity(&self) -> &SemanticId {
+        (**self).identity()
+    }
+    fn demand(&self, shape: Shape) -> SideDemands {
+        (**self).demand(shape)
+    }
+    fn compare(&self, input: ComparisonInput<'_>) -> Result<Comparison, CheckError> {
+        (**self).compare(input)
+    }
 }
 #[derive(Clone, Copy, Debug, Default)]
 pub struct StatKey;

@@ -9,7 +9,9 @@ use std::sync::Arc;
 
 use diff_dirs_transfer_sync::CopyPolicy;
 use diff_dirs_transfer_sync::coordinated::{Application, ApplicationState, Barrier, DirectoryDecision, End, Kind, LaneTotals, SyncParts, WorkTotals};
-use diff_dirs_tree_compare::coordinated::{Bindings, ChildEdge, ControlWindow, GroupFrame, LaneFrame, LaneState, LaneStatus, Parts, TargetBinding};
+use diff_dirs_tree_compare::coordinated::{
+    Bindings, ChildEdge, ChildMember, ControlWindow, GroupFrame, LaneFrame, LaneState, LaneStatus, Parts, TargetBinding,
+};
 use diff_dirs_tree_compare::{
     Action, Container, DestinationGrant, DirectorySelection, EntryCounts, EntryParts, EntrySelection, InstallAuthority, InstallIntent, Interior, InteriorInput,
     InteriorRole, Purpose, ScanState, SelectionDomain, SelectionParts, SemanticId, SourceObservation, Summary,
@@ -56,6 +58,10 @@ pub struct Binding {
     pub id: String,
     pub root: NativeString,
     pub policy: String,
+    pub policy_id: Meaning,
+    pub context_schema: Meaning,
+    pub comparator: Meaning,
+    pub initial_context: (),
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -69,7 +75,14 @@ pub struct Observation {
     pub scoped: bool,
     pub excluded: u64,
     pub planned: u64,
-    pub retained: u64,
+    pub deviated: u64,
+    pub comparator: Option<Meaning>,
+    pub equal: u64,
+    pub different: u64,
+    pub not_assessed: u64,
+    pub unsupported: u64,
+    pub unresolved: u64,
+    pub stopped_paired: u64,
     pub files_changed: u64,
     pub files_added: u64,
     pub files_removed: u64,
@@ -93,6 +106,7 @@ pub struct Frame {
 #[serde(deny_unknown_fields)]
 pub struct FrameLane {
     pub target: usize,
+    pub context: (),
     pub direct_changed: bool,
     pub direct_ancestor: bool,
     pub subtree_changed: bool,
@@ -101,7 +115,13 @@ pub struct FrameLane {
 #[serde(deny_unknown_fields)]
 pub struct Edge {
     pub name: NativeString,
-    pub members: Vec<usize>,
+    pub members: Vec<Member>,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Member {
+    pub target: usize,
+    pub context: (),
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -346,7 +366,14 @@ impl From<&Summary> for Observation {
             scoped: v.scoped,
             excluded: v.excluded,
             planned: v.planned,
-            retained: v.retained,
+            deviated: v.deviated,
+            comparator: v.comparator.as_ref().map(Meaning::from),
+            equal: v.equal,
+            different: v.different,
+            not_assessed: v.not_assessed,
+            unsupported: v.unsupported,
+            unresolved: v.unresolved,
+            stopped_paired: v.stopped_paired,
             files_changed: v.counts.files.changed,
             files_added: v.counts.files.added,
             files_removed: v.counts.files.removed,
@@ -366,7 +393,14 @@ impl Observation {
             scoped: self.scoped,
             excluded: self.excluded,
             planned: self.planned,
-            retained: self.retained,
+            deviated: self.deviated,
+            comparator: self.comparator.map(SemanticId::from),
+            equal: self.equal,
+            different: self.different,
+            not_assessed: self.not_assessed,
+            unsupported: self.unsupported,
+            unresolved: self.unresolved,
+            stopped_paired: self.stopped_paired,
             counts: EntryCounts {
                 files: diff_dirs_tree_compare::ChangedAddedRemoved {
                     changed: self.files_changed,
@@ -561,6 +595,10 @@ impl Snapshot {
                             id: b.id.0.clone(),
                             root: native_path(&b.root),
                             policy: b.policy.clone(),
+                            policy_id: (&b.policy_id).into(),
+                            context_schema: (&b.context_schema).into(),
+                            comparator: (&b.comparator).into(),
+                            initial_context: (),
                         })
                         .collect(),
                     lanes: p
@@ -583,6 +621,7 @@ impl Snapshot {
                                 .iter()
                                 .map(|l| FrameLane {
                                     target: l.target,
+                                    context: (),
                                     direct_changed: l.direct_changed,
                                     direct_ancestor: l.direct_ancestor,
                                     subtree_changed: l.subtree_changed,
@@ -593,7 +632,7 @@ impl Snapshot {
                                 .iter()
                                 .map(|e| Edge {
                                     name: NativeString::new(&e.name),
-                                    members: e.members.clone(),
+                                    members: e.members.iter().map(|m| Member { target: m.target, context: () }).collect(),
                                 })
                                 .collect(),
                         })
@@ -663,6 +702,10 @@ impl Snapshot {
                                 id: b.id.as_str().into(),
                                 root: b.root.into_os()?.into(),
                                 policy: b.policy,
+                                policy_id: b.policy_id.into(),
+                                context_schema: b.context_schema.into(),
+                                comparator: b.comparator.into(),
+                                initial_context: (),
                             })
                         })
                         .collect::<Result<_>>()?,
@@ -690,6 +733,7 @@ impl Snapshot {
                                 .into_iter()
                                 .map(|l| LaneFrame {
                                     target: l.target,
+                                    context: (),
                                     direct_changed: l.direct_changed,
                                     direct_ancestor: l.direct_ancestor,
                                     subtree_changed: l.subtree_changed,
@@ -701,7 +745,7 @@ impl Snapshot {
                                 .map(|e| {
                                     Ok(ChildEdge {
                                         name: e.name.into_os()?,
-                                        members: e.members,
+                                        members: e.members.into_iter().map(|m| ChildMember { target: m.target, context: () }).collect(),
                                     })
                                 })
                                 .collect::<Result<VecDeque<_>>>()?,

@@ -63,7 +63,12 @@ impl<C: Check, S: Scope> Walk<C, S> {
 impl<C: Check, S: Scope> Iterator for Walk<C, S> {
     type Item = Result<DirDiff, Error>;
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|result| result.map(|plan| plan.diff().clone()))
+        loop {
+            match self.inner.next()? {
+                Ok(plan) if plan.diff().is_empty() => continue,
+                result => return Some(result.map(|plan| plan.diff().clone())),
+            }
+        }
     }
 }
 impl<C: Check, S: Scope> FusedIterator for Walk<C, S> {}
@@ -128,7 +133,10 @@ impl<V: Visitor> PlanWalk<V> {
             frames: Vec::new(),
             start: true,
             prune_eligible: false,
-            summary: Summary::default(),
+            summary: Summary {
+                comparator: Some(crate::Comparator::identity(&crate::StatKey).clone()),
+                ..Summary::default()
+            },
             options,
             #[cfg(feature = "parallel")]
             frontier: None,
@@ -191,11 +199,8 @@ impl<V: Visitor> PlanWalk<V> {
             let pair = self.roots.inspect_visitor(dir, self.options.execution, &self.visitor)?;
             let changed = !pair.diff.is_empty();
             self.summary.examined_directories += 1;
-            self.summary.scoped |= pair.scoped;
-            self.summary.excluded += pair.excluded;
+            self.summary.add_coverage(pair.coverage, &pair.comparator);
             self.summary.counts.add(&pair.diff);
-            self.summary.planned += pair.planned;
-            self.summary.retained += pair.retained;
             if changed && !direct_ancestor {
                 self.summary.topmost_divergent.push(pair.diff.dir.clone());
             }
@@ -205,8 +210,8 @@ impl<V: Visitor> PlanWalk<V> {
                 direct_ancestor: direct_ancestor || changed,
                 subtree_changed: changed,
             });
-            if changed {
-                return Ok(Some(pair.plan.expect("divergent visitor plan")));
+            if let Some(plan) = pair.plan {
+                return Ok(Some(plan));
             }
         }
     }

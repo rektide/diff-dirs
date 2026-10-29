@@ -502,7 +502,7 @@ fn rejects_overlap_forged_barrier_and_incompatible_runtime_before_effects() {
         bad.current.as_mut().unwrap().applications[0].decision = Arc::new(diff_dirs_tree_inspect::DirectorySelection::from_parts(changed).unwrap());
         assert!(matches!(
             SyncCursor::from_parts(bad, Execution::Sequential),
-            Err(Error::InvalidState("legacy runtime cannot bind a different policy/comparator interpretation"))
+            Err(Error::InvalidState("decision interpretation disagrees with binding"))
         ));
     }
     let mut runtime = runtime;

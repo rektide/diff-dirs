@@ -7,12 +7,12 @@
 //! use diff_dirs_tree_compare::{Execution, NoVisitor};
 //! use diff_dirs_tree_compare::coordinated::{Bindings, Coordinated, TargetBinding, TargetPolicy};
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let bindings = Bindings { source: "/source".into(), targets: vec![TargetBinding {
-//!     id: "a".into(), root: "/target".into(), policy: "mirror/v1".into(),
-//! }] };
+//! let bindings = Bindings { source: "/source".into(), targets: vec![TargetBinding::full(
+//!     "a".into(), "/target".into(), "mirror/v1".into(),
+//! )] };
 //! let visitor = NoVisitor;
-//! let policies = [TargetPolicy { target: &bindings.targets[0].id,
-//!     descriptor: &bindings.targets[0].policy, visitor: &visitor }];
+//! let policies = [TargetPolicy::full(&bindings.targets[0].id,
+//!     &bindings.targets[0].policy, &visitor)];
 //! let mut run = Coordinated::new(bindings.clone(), Execution::Sequential)?;
 //! run.bind(&policies)?;
 //! let group = run.next_group(&policies)?;
@@ -30,9 +30,13 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::{DirDiff, DirectoryCoverage, DirectoryPlan, Execution, ScanState, SharedBindError, SharedRoots, Summary, TargetVisitor, Visitor};
+use crate::{
+    Comparator, ContextSite, DirDiff, DirectoryAdmission, DirectoryCoverage, DirectoryRequest, Execution, ExecutionDemand, FullVisitor, InspectionEpoch,
+    InteriorRole, NoExecutionDemand, Policy, PreparedDirectory, Purpose, ScanState, SemanticId, SourceSession, StatKey, Summary, TargetInspection, Visitor,
+    inspect_group,
+};
 use state::add;
-pub use state::{Bindings, ChildEdge, ControlWindow, GroupFrame, LaneFrame, LaneState, LaneStatus, Parts, TargetBinding};
+pub use state::{Bindings, ChildEdge, ChildMember, ControlWindow, GroupFrame, LaneFrame, LaneState, LaneStatus, Parts, TargetBinding};
 
 /// Stable caller identity. Binding order, not the lexical ID, orders publication.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -47,21 +51,41 @@ impl From<&str> for TargetId {
 /// Supplied executable policy and its frozen interpretation. The caller promises
 /// the descriptor names all behavior-affecting inputs. Visitors remain pure and
 /// may be repeated during inspection; descriptors cannot verify arbitrary code.
-pub struct TargetPolicy<'a, V> {
+pub struct TargetPolicy<'a, P, M = StatKey> {
     pub target: &'a TargetId,
     pub descriptor: &'a str,
-    pub visitor: &'a V,
+    pub policy: P,
+    pub comparator: M,
+}
+
+impl<'a, V: Visitor> TargetPolicy<'a, FullVisitor<crate::VisitorRef<'a, V>>> {
+    pub fn full(target: &'a TargetId, descriptor: &'a str, visitor: &'a V) -> Self {
+        Self {
+            target,
+            descriptor,
+            policy: FullVisitor(visitor.borrowed()),
+            comparator: StatKey,
+        }
+    }
 }
 
 #[derive(Debug)]
 pub enum Error {
     InvalidState(&'static str),
     PolicyMismatch(TargetId),
+    Context {
+        target: TargetId,
+        relative: PathBuf,
+        cause: crate::CheckError,
+    },
     InvalidControl(&'static str),
     NotBound,
     CounterOverflow,
     Source(Arc<crate::Error>),
-    Target { target: TargetId, error: Arc<crate::Error> },
+    Target {
+        target: TargetId,
+        error: Arc<crate::Error>,
+    },
     Inspection(crate::SharedInputError),
 }
 
@@ -70,6 +94,7 @@ impl fmt::Display for Error {
         match self {
             Self::InvalidState(reason) => write!(f, "invalid coordinated state: {reason}"),
             Self::PolicyMismatch(target) => write!(f, "missing, duplicate or incompatible policy for {:?}", target.0),
+            Self::Context { target, relative, cause } => write!(f, "invalid context for {:?} at {relative:?}: {cause}", target.0),
             Self::InvalidControl(reason) => write!(f, "invalid coordinated control: {reason}"),
             Self::NotBound => f.write_str("bind coordinated runtime before inspection"),
             Self::CounterOverflow => f.write_str("coordinated comparison counter overflow"),
@@ -85,6 +110,7 @@ impl std::error::Error for Error {
         match self {
             Self::Source(error) | Self::Target { error, .. } => Some(error.as_ref()),
             Self::Inspection(error) => Some(error),
+            Self::Context { cause, .. } => Some(cause.as_ref()),
             _ => None,
         }
     }
@@ -141,17 +167,15 @@ pub enum Head {
 }
 
 struct Runtime {
-    roots: SharedRoots,
-    /// Compact inspector index -> original binding index. Never saved/reordered.
-    original: Vec<usize>,
+    source: Arc<SourceSession>,
 }
 
 /// Data and runtime have separate lifetimes. Construction/restoration validate
 /// data only; bind() checks lent policy descriptors before tree access.
 /// Inter-group traversal is sequential. Execution controls metadata work inside
 /// each joined group, with no interpretation as J/K or a width/byte bound.
-pub struct Coordinated {
-    parts: Parts,
+pub struct Coordinated<C = ()> {
+    parts: Parts<C>,
     execution: Execution,
     runtime: Option<Runtime>,
     bound: bool,
@@ -159,14 +183,14 @@ pub struct Coordinated {
     route_metadata_checks: u64,
 }
 
-impl Coordinated {
-    pub fn new(bindings: Bindings, execution: Execution) -> Result<Self, Error> {
+impl<C: Clone + Eq + fmt::Debug + Send + Sync> Coordinated<C> {
+    pub fn new(bindings: Bindings<C>, execution: Execution) -> Result<Self, Error> {
         Self::from_parts(Parts::fresh(bindings)?, execution)
     }
 
     /// Data-only. Only live lanes require executable policies, in any supplied
     /// order; terminated lanes retain their original identities and indices.
-    pub fn from_parts(parts: Parts, execution: Execution) -> Result<Self, Error> {
+    pub fn from_parts(parts: Parts<C>, execution: Execution) -> Result<Self, Error> {
         parts.validate()?;
         Ok(Self {
             parts,
@@ -178,11 +202,19 @@ impl Coordinated {
         })
     }
 
-    fn validate_policies<V: Visitor>(&self, policies: &[TargetPolicy<'_, V>]) -> Result<(), Error> {
+    pub fn validate_policies<P: Policy<Context = C>, M: Comparator>(&self, policies: &[TargetPolicy<'_, P, M>]) -> Result<(), Error> {
         let mut seen = HashSet::new();
         for policy in policies {
             let target = self.parts.bindings.targets.iter().position(|t| t.id == *policy.target);
-            if target.is_none_or(|i| self.parts.bindings.targets[i].policy != policy.descriptor) || !seen.insert(policy.target) {
+            if target.is_none_or(|i| {
+                let bound = &self.parts.bindings.targets[i];
+                bound.policy != policy.descriptor
+                    || bound.policy_id != *policy.policy.identity()
+                    || bound.context_schema != *policy.policy.context_schema()
+                    || bound.comparator != *policy.comparator.identity()
+                    || bound.initial_context != policy.policy.initial_context()
+            }) || !seen.insert(policy.target)
+            {
                 return Err(Error::PolicyMismatch(policy.target.clone()));
             }
         }
@@ -191,10 +223,49 @@ impl Coordinated {
                 return Err(Error::PolicyMismatch(target.id.clone()));
             }
         }
+        // Pure interpretation checks precede root/route access. No admission or
+        // accepted ancestor callbacks are replayed here.
+        for policy in policies {
+            let target = self
+                .parts
+                .bindings
+                .targets
+                .iter()
+                .position(|t| t.id == *policy.target)
+                .expect("validated target");
+            let validate = |relative: &Path, structural_root, role, context: &C| {
+                policy
+                    .policy
+                    .validate_context(
+                        ContextSite {
+                            relative,
+                            structural_root,
+                            role,
+                        },
+                        context,
+                    )
+                    .map_err(|cause| Error::Context {
+                        target: policy.target.clone(),
+                        relative: relative.to_owned(),
+                        cause,
+                    })
+            };
+            validate(Path::new(""), true, None, &self.parts.bindings.targets[target].initial_context)?;
+            for frame in &self.parts.frames {
+                if let Some(lane) = frame.lanes.iter().find(|l| l.target == target) {
+                    validate(&frame.relative, false, None, &lane.context)?;
+                }
+                for edge in &frame.remaining {
+                    if let Some(member) = edge.members.iter().find(|m| m.target == target) {
+                        validate(&frame.relative.join(&edge.name), false, Some(InteriorRole::Paired), &member.context)?;
+                    }
+                }
+            }
+        }
         Ok(())
     }
 
-    pub fn parts(&self) -> &Parts {
+    pub fn parts(&self) -> &Parts<C> {
         &self.parts
     }
 
@@ -207,15 +278,28 @@ impl Coordinated {
 
     /// Preserve every partial ancestor, suffix, membership and open window.
     /// Never projects/finalizes active ancestor reductions or performs I/O.
-    pub fn into_parts(self) -> Parts {
+    pub fn into_parts(self) -> Parts<C> {
         self.parts
     }
 
     /// Structural validation only, with no visitor callbacks or interior listing.
     /// Failed/stopped/completed roots are not rebound. Terminal runs do no I/O.
-    pub fn bind<V: Visitor>(&mut self, policies: &[TargetPolicy<'_, V>]) -> Result<(), Error> {
+    pub fn bind<P: Policy<Context = C>, M: Comparator>(&mut self, policies: &[TargetPolicy<'_, P, M>]) -> Result<(), Error> {
+        self.bind_with_source(policies, Arc::new(SourceSession::new(&self.parts.bindings.source)))
+    }
+
+    /// Use the same runtime source/resources owner as recursive execution. This
+    /// handle is not a route certificate or a persisted source generation.
+    pub fn bind_with_source<P: Policy<Context = C>, M: Comparator>(
+        &mut self,
+        policies: &[TargetPolicy<'_, P, M>],
+        source: Arc<SourceSession>,
+    ) -> Result<(), Error> {
         self.parts.validate()?;
         self.validate_policies(policies)?;
+        if source.root() != self.parts.bindings.source {
+            return Err(Error::InvalidState("source session root mismatch"));
+        }
         self.runtime = None;
         self.bound = false;
         let original: Vec<_> = self
@@ -230,21 +314,13 @@ impl Coordinated {
             self.bound = true;
             return Ok(());
         }
-        let targets = original.iter().map(|&i| &self.parts.bindings.targets[i].root);
-        let roots = SharedRoots::new(&self.parts.bindings.source, targets).map_err(|error| match error {
-            SharedBindError::NoTargets => Error::InvalidState("no live target bindings"),
-            SharedBindError::Source(error) => Error::Source(Arc::new(error)),
-            SharedBindError::Target { target, error } => Error::Target {
-                target: self.parts.bindings.targets[original[target]].id.clone(),
-                error: Arc::new(error),
-            },
-        })?;
         let mut checked = Routes::default();
-        checked.results.insert(self.parts.bindings.source.clone(), Ok(()));
-        for &target in &original {
-            checked.results.insert(self.parts.bindings.targets[target].root.clone(), Ok(()));
-        }
         let result = (|| {
+            for &target in &original {
+                self.validate_route(Path::new(""), target, &mut checked)?;
+            }
+            // Mandatory binding observations are not extra route checks.
+            checked.checks = 0;
             for frame in &self.parts.frames {
                 for lane in &frame.lanes {
                     self.validate_route(&frame.relative, lane.target, &mut checked)?;
@@ -254,9 +330,13 @@ impl Coordinated {
         })();
         self.route_metadata_checks = add(self.route_metadata_checks, checked.checks)?;
         result?;
-        self.runtime = Some(Runtime { roots, original });
+        self.runtime = Some(Runtime { source });
         self.bound = true;
         Ok(())
+    }
+
+    pub fn source_session(&self) -> Option<&Arc<SourceSession>> {
+        self.runtime.as_ref().map(|r| &r.source)
     }
 
     /// The restored open window receives a new runtime-local token. No previously
@@ -280,7 +360,7 @@ impl Coordinated {
 
     /// Observe exactly one next directory group, including a clean/empty group.
     /// None drains only remaining pure returns and marks eligible lanes complete.
-    pub fn next_group<V: Visitor>(&mut self, policies: &[TargetPolicy<'_, V>]) -> Result<Option<ComparedGroup>, Error> {
+    pub fn next_group<P: Policy<Context = C>, M: Comparator>(&mut self, policies: &[TargetPolicy<'_, P, M>]) -> Result<Option<ComparedGroup>, Error> {
         self.next_group_with(policies, |_, _| ())
     }
 
@@ -288,10 +368,19 @@ impl Coordinated {
     /// Lowering is a pure projection, never effect acceptance. It may retain an
     /// ephemeral plan in T for a sync composition; Parts never retain T/facts.
     /// The callback order is unspecified and may precede a later lane error.
-    pub fn next_group_with<V: Visitor, T>(
+    pub fn next_group_with<P: Policy<Context = C>, M: Comparator, T>(
         &mut self,
-        policies: &[TargetPolicy<'_, V>],
-        mut lower: impl FnMut(&TargetId, DirectoryPlan) -> T,
+        policies: &[TargetPolicy<'_, P, M>],
+        lower: impl FnMut(&TargetId, PreparedDirectory<C>) -> T,
+    ) -> Result<Option<ComparedGroup<T>>, Error> {
+        self.next_group_prepared(policies, &NoExecutionDemand, lower)
+    }
+
+    pub fn next_group_prepared<P: Policy<Context = C>, M: Comparator, E: ExecutionDemand, T>(
+        &mut self,
+        policies: &[TargetPolicy<'_, P, M>],
+        demand: &E,
+        mut lower: impl FnMut(&TargetId, PreparedDirectory<C>) -> T,
     ) -> Result<Option<ComparedGroup<T>>, Error> {
         self.validate_policies(policies)?;
         if self.parts.lanes.iter().any(|l| l.status == LaneStatus::Active) && !self.bound {
@@ -306,7 +395,12 @@ impl Coordinated {
                     .lanes
                     .iter()
                     .enumerate()
-                    .filter_map(|(i, l)| (l.status == LaneStatus::Active).then_some(i))
+                    .filter_map(|(i, l)| {
+                        (l.status == LaneStatus::Active).then(|| ChildMember {
+                            target: i,
+                            context: self.parts.bindings.targets[i].initial_context.clone(),
+                        })
+                    })
                     .collect::<Vec<_>>(),
             )
         } else if let Some(frame) = self.parts.frames.last() {
@@ -324,8 +418,8 @@ impl Coordinated {
         // replaced target ancestor must not redirect inspection through a link.
         let mut route_errors = Vec::new();
         let mut checked = Routes::default();
-        for &target in &members {
-            let error = match self.validate_route(&relative, target, &mut checked) {
+        for member in &members {
+            let error = match self.validate_route(&relative, member.target, &mut checked) {
                 Ok(()) => None,
                 Err(Error::Source(error) | Error::Target { error, .. }) => Some(error),
                 Err(error) => return Err(error),
@@ -338,37 +432,76 @@ impl Coordinated {
             .iter()
             .zip(&route_errors)
             .filter(|(_, error)| error.is_none())
-            .map(|(target, _)| {
-                let index = runtime.original.binary_search(target).expect("live lane was bound");
-                let id = &self.parts.bindings.targets[*target].id;
+            .map(|(member, _)| {
+                let id = &self.parts.bindings.targets[member.target].id;
                 let policy = policies.iter().find(|p| p.target == id).expect("live policy was validated");
-                TargetVisitor {
-                    target: index,
-                    visitor: policy.visitor,
+                TargetInspection {
+                    target: member.target,
+                    logical_root: &self.parts.bindings.targets[member.target].root,
+                    physical_directory: None,
+                    context: &member.context,
+                    policy: &policy.policy,
+                    comparator: &policy.comparator,
                 }
             })
             .collect();
-        let outcomes = runtime
-            .roots
-            .inspect_with(&relative, &requests, self.execution, |index, plan| {
-                let target = runtime.original[index];
-                let local = Local {
-                    diff: plan.diff().clone(),
-                    coverage: plan.selection().coverage(),
-                    children: plan.paired_children().map(std::ffi::OsStr::to_os_string).collect(),
-                    root: plan.operations().is_root(),
-                };
-                (local, lower(&self.parts.bindings.targets[target].id, plan))
+        let directories: Vec<_> = requests.iter().map(|r| r.logical_root.join(&relative)).collect();
+        let requests: Vec<_> = requests
+            .into_iter()
+            .zip(&directories)
+            .map(|(mut r, path)| {
+                r.physical_directory = Some(path);
+                r
             })
-            .map_err(Error::Inspection)?;
+            .collect();
+        let source_directory = self.parts.bindings.source.join(&relative);
+        let outcomes = inspect_group(
+            &runtime.source,
+            DirectoryRequest {
+                relative: &relative,
+                source_directory: Some(&source_directory),
+                purpose: Purpose::Compare,
+                admission: if self.parts.root_pending {
+                    DirectoryAdmission::RootGated
+                } else {
+                    DirectoryAdmission::AlreadyAdmitted
+                },
+            },
+            &requests,
+            demand,
+            &mut InspectionEpoch::new(),
+            self.execution,
+        )
+        .map_err(Error::Inspection)?;
+        let outcomes: Vec<_> = outcomes
+            .into_iter()
+            .map(|outcome| crate::TargetComparison {
+                target: outcome.target,
+                outcome: outcome.outcome.map(|plan| {
+                    let selected = plan.selection();
+                    let local = Local {
+                        diff: selected.diff().clone(),
+                        coverage: selected.coverage(),
+                        comparator: selected.comparator().clone(),
+                        context: selected.input_context().clone(),
+                        children: selected
+                            .paired_children()
+                            .map(|entry| (entry.name().to_owned(), entry.interior.as_ref().expect("paired").context.clone()))
+                            .collect(),
+                        root: selected.is_root(),
+                    };
+                    (local, lower(&self.parts.bindings.targets[outcome.target].id, plan))
+                }),
+            })
+            .collect();
         let mut inspected = outcomes.into_iter();
         let outcomes: Vec<_> = members
             .iter()
             .zip(route_errors)
-            .map(|(&target, error)| {
+            .map(|(member, error)| {
                 if let Some(error) = error {
                     crate::TargetComparison {
-                        target: runtime.original.binary_search(&target).expect("bound lane"),
+                        target: member.target,
                         outcome: Err(error),
                     }
                 } else {
@@ -379,16 +512,16 @@ impl Coordinated {
         // All fallible arithmetic precedes accepting any lane's group outcome.
         for outcome in &outcomes {
             if let Ok((local, _)) = &outcome.outcome {
-                preflight(&self.parts.lanes[runtime.original[outcome.target]].summary, local)?;
+                preflight(&self.parts.lanes[outcome.target].summary, local)?;
             }
         }
         let sequence = self.parts.next_sequence;
         let mut lanes = Vec::new();
-        let mut children = BTreeMap::<std::ffi::OsString, Vec<usize>>::new();
+        let mut children = BTreeMap::<std::ffi::OsString, Vec<ChildMember<C>>>::new();
         let mut published = Vec::with_capacity(outcomes.len());
         let mut failed = Vec::new();
         for outcome in outcomes {
-            let target = runtime.original[outcome.target];
+            let target = outcome.target;
             let id = self.parts.bindings.targets[target].id.clone();
             let outcome = match outcome.outcome {
                 Err(error) => {
@@ -406,21 +539,19 @@ impl Coordinated {
                     let summary = &mut self.parts.lanes[target].summary;
                     summary.examined_directories += 1;
                     summary.counts.add(&local.diff);
-                    summary.excluded += local.coverage.excluded;
-                    summary.scoped |= local.coverage.scoped;
-                    summary.planned += local.coverage.planned;
-                    summary.retained += local.coverage.deviated;
+                    summary.add_coverage(local.coverage, &local.comparator);
                     if changed && !ancestor {
                         summary.topmost_divergent.push(relative.clone());
                     }
                     lanes.push(LaneFrame {
                         target,
+                        context: local.context,
                         direct_changed: changed,
                         direct_ancestor: ancestor || changed,
                         subtree_changed: changed,
                     });
-                    for name in local.children {
-                        children.entry(name).or_default().push(target);
+                    for (name, context) in local.children {
+                        children.entry(name).or_default().push(ChildMember { target, context });
                     }
                     Ok(Compared {
                         diff: local.diff,
@@ -478,7 +609,7 @@ impl Coordinated {
         let frame = self.parts.frames.last_mut().expect("open window frame");
         for &target in &indices {
             for edge in &mut frame.remaining {
-                edge.members.retain(|&i| i != target);
+                edge.members.retain(|m| m.target != target);
             }
             self.parts.lanes[target].summary.pruned.push(frame.relative.clone());
         }
@@ -549,7 +680,7 @@ impl Coordinated {
                         Head::Control {
                             relative: frame.relative.clone(),
                         }
-                    } else if let Some(edge) = frame.remaining.iter().find(|e| e.members.contains(&target)) {
+                    } else if let Some(edge) = frame.remaining.iter().find(|e| e.members.iter().any(|m| m.target == target)) {
                         Head::Child {
                             relative: frame.relative.join(&edge.name),
                         }
@@ -590,7 +721,7 @@ impl Coordinated {
             let ready: Vec<_> = frame
                 .lanes
                 .iter()
-                .filter(|l| frame.remaining.iter().all(|e| !e.members.contains(&l.target)))
+                .filter(|l| frame.remaining.iter().all(|e| e.members.iter().all(|m| m.target != l.target)))
                 .map(|l| l.target)
                 .collect();
             for target in ready {
@@ -625,7 +756,7 @@ impl Coordinated {
             if lane.subtree_changed {
                 parent.lanes.iter_mut().find(|l| l.target == target).expect("parent lane").subtree_changed = true;
             }
-            parent.remaining.front_mut().expect("active return edge").members.retain(|&i| i != target);
+            parent.remaining.front_mut().expect("active return edge").members.retain(|m| m.target != target);
         }
     }
 
@@ -641,7 +772,7 @@ impl Coordinated {
                 }
             }
             for edge in &mut frame.remaining {
-                edge.members.retain(|&i| i != target);
+                edge.members.retain(|m| m.target != target);
             }
             let mut position = 0;
             frame.remaining.retain(|e| {
@@ -719,18 +850,26 @@ impl Routes {
     }
 }
 
-struct Local {
+struct Local<C> {
     diff: DirDiff,
     coverage: DirectoryCoverage,
-    children: Vec<std::ffi::OsString>,
+    comparator: SemanticId,
+    context: C,
+    children: Vec<(std::ffi::OsString, C)>,
     root: bool,
 }
 
-fn preflight(summary: &Summary, local: &Local) -> Result<(), Error> {
+fn preflight<C>(summary: &Summary, local: &Local<C>) -> Result<(), Error> {
     add(summary.examined_directories, 1)?;
     add(summary.excluded, local.coverage.excluded)?;
     add(summary.planned, local.coverage.planned)?;
-    add(summary.retained, local.coverage.deviated)?;
+    add(summary.deviated, local.coverage.deviated)?;
+    add(summary.equal, local.coverage.equal)?;
+    add(summary.different, local.coverage.different)?;
+    add(summary.not_assessed, local.coverage.not_assessed)?;
+    add(summary.unsupported, local.coverage.unsupported)?;
+    add(summary.unresolved, local.coverage.unresolved)?;
+    add(summary.stopped_paired, local.coverage.stopped_paired)?;
     let mut total = 0;
     for (before, names) in [
         (summary.counts.files.changed, &local.diff.files.changed),
@@ -744,5 +883,7 @@ fn preflight(summary: &Summary, local: &Local) -> Result<(), Error> {
     Ok(())
 }
 
+#[cfg(test)]
+mod context_tests;
 #[cfg(test)]
 mod tests;

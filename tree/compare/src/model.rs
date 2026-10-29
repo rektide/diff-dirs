@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::{EntryCounts, Execution};
+use crate::{DirectoryCoverage, EntryCounts, Execution, SemanticId};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct WalkOptions {
@@ -32,7 +32,15 @@ pub struct Summary {
     /// not recursive application work or completed filesystem operations.
     pub planned: u64,
     /// Committed slots whose finalized action differs from normal mirror work.
-    pub retained: u64,
+    pub deviated: u64,
+    /// Bound predicate; None only before an unbound/default summary is assessed.
+    pub comparator: Option<SemanticId>,
+    pub equal: u64,
+    pub different: u64,
+    pub not_assessed: u64,
+    pub unsupported: u64,
+    pub unresolved: u64,
+    pub stopped_paired: u64,
     pub counts: EntryCounts,
     /// Directly divergent directories with no directly divergent ancestor,
     /// in depth-first pre-order. Empty path denotes the root.
@@ -47,16 +55,42 @@ pub struct Summary {
 }
 
 impl Summary {
+    pub(crate) fn add_coverage(&mut self, coverage: DirectoryCoverage, comparator: &SemanticId) {
+        debug_assert!(self.comparator.as_ref().is_none_or(|bound| bound == comparator));
+        self.comparator = Some(comparator.clone());
+        self.scoped |= coverage.scoped;
+        self.excluded += coverage.excluded;
+        self.planned += coverage.planned;
+        self.deviated += coverage.deviated;
+        self.equal += coverage.equal;
+        self.different += coverage.different;
+        self.not_assessed += coverage.not_assessed;
+        self.unsupported += coverage.unsupported;
+        self.unresolved += coverage.unresolved;
+        self.stopped_paired += coverage.stopped_paired;
+    }
+
+    /// Traversal exhaustion, independent of comparison coverage or work choice.
+    pub fn is_exhausted(&self) -> bool {
+        self.state == ScanState::Complete
+    }
     /// True only after normal exhaustion without any pruning.
     pub fn is_complete(&self) -> bool {
-        self.state == ScanState::Complete && self.pruned.is_empty() && !self.scoped && self.excluded == 0 && self.retained == 0
+        self.is_exhausted()
+            && self.pruned.is_empty()
+            && !self.scoped
+            && self.excluded == 0
+            && self.stopped_paired == 0
+            && self.not_assessed == 0
+            && self.unsupported == 0
+            && self.unresolved == 0
     }
 
     /// Known supported comparison differences. Late-preserved special kinds
     /// have no normal delta; they contribute retained coverage instead, so false
     /// here alone must not be treated as a clean-root certificate.
     pub fn has_differences(&self) -> bool {
-        self.counts != EntryCounts::default()
+        self.different != 0 || self.counts != EntryCounts::default()
     }
 
     /// A partial, failed, or pruned scan is never certified clean.

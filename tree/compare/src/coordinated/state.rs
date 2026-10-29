@@ -5,27 +5,53 @@ use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
 
 use super::{Error, TargetId};
-use crate::{ScanState, Summary};
+use crate::{Comparator, FullVisitor, NoVisitor, Policy, ScanState, SemanticId, StatKey, Summary};
 
 /// One stable destination identity, coordinate and frozen policy interpretation.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TargetBinding {
+pub struct TargetBinding<C = ()> {
     pub id: TargetId,
     pub root: PathBuf,
     /// Caller-defined, nonempty identity/version/parameters of the pure visitor.
     /// Equality is a caller contract, not inspection of executable code.
     pub policy: String,
+    pub policy_id: SemanticId,
+    pub context_schema: SemanticId,
+    pub comparator: SemanticId,
+    pub initial_context: C,
+}
+
+impl<C> TargetBinding<C> {
+    /// Freeze interpretation and initial policy input without filesystem access.
+    pub fn new<P: Policy<Context = C>, M: Comparator>(id: TargetId, root: PathBuf, descriptor: String, policy: &P, comparator: &M) -> Self {
+        Self {
+            id,
+            root,
+            policy: descriptor,
+            policy_id: policy.identity().clone(),
+            context_schema: policy.context_schema().clone(),
+            comparator: comparator.identity().clone(),
+            initial_context: policy.initial_context(),
+        }
+    }
+}
+impl TargetBinding<()> {
+    /// Full-visitor/StatKey compatibility interpretation. The descriptor still
+    /// names the caller's actual visitor and behavior-affecting inputs.
+    pub fn full(id: TargetId, root: PathBuf, descriptor: String) -> Self {
+        Self::new(id, root, descriptor, &FullVisitor(NoVisitor), &StatKey)
+    }
 }
 
 /// Absolute, lexically normalized native coordinates. No filesystem access.
 /// Read-only aliases and nested roots are permitted and remain distinct lanes.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Bindings {
+pub struct Bindings<C = ()> {
     pub source: PathBuf,
-    pub targets: Vec<TargetBinding>,
+    pub targets: Vec<TargetBinding<C>>,
 }
 
-impl Bindings {
+impl<C> Bindings<C> {
     pub fn validate(&self) -> Result<(), Error> {
         require(normal_path(&self.source, true), "invalid absolute source root")?;
         require(!self.targets.is_empty(), "no target bindings")?;
@@ -33,6 +59,10 @@ impl Bindings {
         for target in &self.targets {
             require(!target.id.0.is_empty() && ids.insert(&target.id), "empty or duplicate target identity")?;
             require(!target.policy.is_empty(), "empty policy descriptor")?;
+            require(
+                target.policy_id.valid() && target.context_schema.valid() && target.comparator.valid(),
+                "invalid semantic identity",
+            )?;
             require(normal_path(&target.root, true), "invalid absolute target root")?;
         }
         Ok(())
@@ -59,8 +89,10 @@ pub struct LaneState {
 
 /// Accepted local assessment and not-yet-folded subtree evidence for one lane.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LaneFrame {
+pub struct LaneFrame<C = ()> {
     pub target: usize,
+    /// Exact input for this directory's listing, including a derived root input.
+    pub context: C,
     pub direct_changed: bool,
     /// Includes this directory's own direct divergence, like the pair walker.
     pub direct_ancestor: bool,
@@ -69,19 +101,25 @@ pub struct LaneFrame {
 
 /// One immediate paired child, in native-name order, with independent membership.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ChildEdge {
+pub struct ChildMember<C = ()> {
+    pub target: usize,
+    pub context: C,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ChildEdge<C = ()> {
     pub name: OsString,
-    pub members: Vec<usize>,
+    pub members: Vec<ChildMember<C>>,
 }
 
 /// A partial ancestor. The active child's edge stays at the front until return.
 /// A lane can wait here while another lane is deeper on the global DFS stack.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct GroupFrame {
+pub struct GroupFrame<C = ()> {
     pub sequence: u64,
     pub relative: PathBuf,
-    pub lanes: Vec<LaneFrame>,
-    pub remaining: VecDeque<ChildEdge>,
+    pub lanes: Vec<LaneFrame<C>>,
+    pub remaining: VecDeque<ChildEdge<C>>,
 }
 
 /// Saved control position, not a reusable runtime token. Restoration issues a
@@ -97,25 +135,28 @@ pub struct ControlWindow {
 /// Metadata, errors with executable causes, pools, handles or speculative jobs.
 /// Call from_parts() after decoding; byte validity does not prove past decisions.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Parts {
+pub struct Parts<C = ()> {
     pub version: u32,
-    pub bindings: Bindings,
+    pub bindings: Bindings<C>,
     pub lanes: Vec<LaneState>,
     pub root_pending: bool,
-    pub frames: Vec<GroupFrame>,
+    pub frames: Vec<GroupFrame<C>>,
     pub window: Option<ControlWindow>,
     pub next_sequence: u64,
 }
 
-impl Parts {
-    pub fn fresh(bindings: Bindings) -> Result<Self, Error> {
+impl<C: Clone + Eq> Parts<C> {
+    pub fn fresh(bindings: Bindings<C>) -> Result<Self, Error> {
         bindings.validate()?;
         let lanes = bindings
             .targets
             .iter()
-            .map(|_| LaneState {
+            .map(|binding| LaneState {
                 status: LaneStatus::Active,
-                summary: Summary::default(),
+                summary: Summary {
+                    comparator: Some(binding.comparator.clone()),
+                    ..Summary::default()
+                },
             })
             .collect();
         Ok(Self {
@@ -143,6 +184,10 @@ impl Parts {
         }
         for (target, lane) in self.lanes.iter().enumerate() {
             let s = &lane.summary;
+            require(
+                s.comparator.as_ref() == Some(&self.bindings.targets[target].comparator),
+                "summary comparator mismatch",
+            )?;
             let expected = match lane.status {
                 LaneStatus::Active | LaneStatus::Stopped => ScanState::Incomplete,
                 LaneStatus::Complete => ScanState::Complete,
@@ -168,7 +213,17 @@ impl Parts {
             counts.into_iter().try_fold(0u64, add)?;
             if s.examined_directories == 0 {
                 require(
-                    counts == [0; 5] && !s.scoped && s.excluded == 0 && s.planned == 0 && s.retained == 0,
+                    counts == [0; 5]
+                        && !s.scoped
+                        && s.excluded == 0
+                        && s.planned == 0
+                        && s.deviated == 0
+                        && s.equal == 0
+                        && s.different == 0
+                        && s.not_assessed == 0
+                        && s.unsupported == 0
+                        && s.unresolved == 0
+                        && s.stopped_paired == 0,
                     "unexamined lane has contributions",
                 )?;
             }
@@ -187,7 +242,13 @@ impl Parts {
                 )?;
             }
             if self.root_pending {
-                require(*s == Summary::default(), "unstarted lane has observations")?;
+                require(
+                    *s == Summary {
+                        comparator: Some(self.bindings.targets[target].comparator.clone()),
+                        ..Summary::default()
+                    },
+                    "unstarted lane has observations",
+                )?;
                 require(
                     matches!(lane.status, LaneStatus::Active | LaneStatus::Stopped),
                     "unstarted lane has terminal scan",
@@ -213,7 +274,10 @@ impl Parts {
                 let edge = parent.remaining.front().ok_or(Error::InvalidState("active child has no parent edge"))?;
                 require(parent.relative.join(&edge.name) == frame.relative, "active child coordinate mismatch")?;
                 require(
-                    edge.members.iter().copied().eq(frame.lanes.iter().map(|l| l.target)),
+                    edge.members
+                        .iter()
+                        .map(|m| (m.target, &m.context))
+                        .eq(frame.lanes.iter().map(|l| (l.target, &l.context))),
                     "active child membership mismatch",
                 )?;
                 for lane in &frame.lanes {
@@ -239,7 +303,7 @@ impl Parts {
                 )?;
                 if self.lanes[lane.target].summary.pruned.contains(&frame.relative) {
                     require(
-                        frame.remaining.iter().all(|e| !e.members.contains(&lane.target)),
+                        frame.remaining.iter().all(|e| e.members.iter().all(|m| m.target != lane.target)),
                         "pruned ancestor retains child membership",
                     )?;
                 }
@@ -254,11 +318,11 @@ impl Parts {
                     require(previous.as_encoded_bytes() < edge.name.as_encoded_bytes(), "unordered or duplicate child names")?;
                 }
                 previous = Some(&edge.name);
-                ordered(&edge.members)?;
+                ordered(&edge.members.iter().map(|m| m.target).collect::<Vec<_>>())?;
                 let empty_active = position == 0 && depth + 1 < self.frames.len();
                 require(!edge.members.is_empty() || empty_active, "empty queued membership")?;
                 require(
-                    edge.members.iter().all(|i| lane_indices.binary_search(i).is_ok()),
+                    edge.members.iter().all(|m| lane_indices.binary_search(&m.target).is_ok()),
                     "child membership outside parent lanes",
                 )?;
             }
@@ -293,7 +357,7 @@ impl Parts {
             }
             for &target in &window.pruned {
                 require(
-                    frame.remaining.iter().all(|e| !e.members.contains(&target)),
+                    frame.remaining.iter().all(|e| e.members.iter().all(|m| m.target != target)),
                     "pruned lane retains child membership",
                 )?;
                 require(self.lanes[target].summary.pruned.contains(&frame.relative), "prune coverage missing")?;
@@ -320,7 +384,7 @@ impl Parts {
                         .binary_search_by(|edge| edge.name.as_encoded_bytes().cmp(child.as_encoded_bytes()))
                     {
                         require(
-                            frame.remaining[index].members.binary_search(&lane.target).is_err(),
+                            frame.remaining[index].members.binary_search_by_key(&lane.target, |m| m.target).is_err(),
                             "closed reduction overlaps unstarted child",
                         )?;
                     }

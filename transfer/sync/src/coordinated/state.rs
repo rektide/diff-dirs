@@ -24,17 +24,17 @@ pub enum ApplicationState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Application {
+pub struct Application<C = ()> {
     /// Original saved binding index, never a compact runtime index.
     pub target: usize,
-    pub decision: DirectoryDecision,
+    pub decision: DirectoryDecision<C>,
     pub state: ApplicationState,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Barrier {
+pub struct Barrier<C = ()> {
     pub sequence: u64,
-    pub applications: Vec<Application>,
+    pub applications: Vec<Application<C>>,
 }
 
 macro_rules! work_totals {
@@ -82,15 +82,15 @@ pub struct LaneTotals {
 /// resources are deliberately absent. Old/forked parts can repeat effects; this
 /// is neither a journal nor an exactly-once publication mechanism.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SyncParts {
+pub struct SyncParts<C = ()> {
     pub version: u32,
-    pub comparison: ComparisonParts,
+    pub comparison: ComparisonParts<C>,
     pub copy_policies: Vec<CopyPolicy>,
     pub lanes: Vec<LaneTotals>,
-    pub current: Option<Barrier>,
+    pub current: Option<Barrier<C>>,
 }
 
-impl SyncParts {
+impl<C: Clone + Eq> SyncParts<C> {
     pub fn validate(&self) -> Result<(), Error> {
         require(self.version == 2, "unsupported sync parts version")?;
         self.comparison.validate().map_err(Error::Comparison)?;
@@ -129,6 +129,13 @@ impl SyncParts {
                 for app in &barrier.applications {
                     require(app.target < n, "unknown barrier target")?;
                     super::decision::validate_decision(&app.decision)?;
+                    let binding = &self.comparison.bindings.targets[app.target];
+                    require(
+                        app.decision.policy() == &binding.policy_id
+                            && app.decision.context_schema() == &binding.context_schema
+                            && app.decision.comparator() == &binding.comparator,
+                        "decision interpretation disagrees with binding",
+                    )?;
                     require(app.decision.relative() == frame.relative, "barrier coordinate mismatch")?;
                     let lane = &self.lanes[app.target];
                     match app.state {
@@ -168,12 +175,29 @@ impl SyncParts {
                         )?;
                     }
                     if self.comparison.lanes[app.target].status == LaneStatus::Active {
-                        let children: Vec<_> = app.decision.paired_children().map(|e| e.name()).collect();
+                        require(
+                            frame
+                                .lanes
+                                .iter()
+                                .find(|l| l.target == app.target)
+                                .is_some_and(|l| &l.context == app.decision.input_context()),
+                            "decision/frame input context mismatch",
+                        )?;
+                        let children: Vec<_> = app
+                            .decision
+                            .paired_children()
+                            .map(|e| (e.name(), e.interior.as_ref().expect("paired").context.clone()))
+                            .collect();
                         let actual: Vec<_> = frame
                             .remaining
                             .iter()
-                            .filter(|e| e.members.contains(&app.target))
-                            .map(|e| e.name.as_os_str())
+                            .filter(|e| e.members.iter().any(|m| m.target == app.target))
+                            .map(|e| {
+                                (
+                                    e.name.as_os_str(),
+                                    e.members.iter().find(|m| m.target == app.target).expect("member").context.clone(),
+                                )
+                            })
                             .collect();
                         require(
                             if window.pruned.contains(&app.target) {

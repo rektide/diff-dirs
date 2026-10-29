@@ -11,7 +11,7 @@ use std::sync::Mutex;
 
 use crate::pair::ComparedPair;
 use crate::parallel::ParallelLimits;
-use crate::{DirDiff, DirectoryPlan, Error, ScanState, Summary};
+use crate::{ApplicationNeed, DirDiff, DirectoryCoverage, DirectoryPlan, Error, ScanState, SemanticId, Summary};
 
 #[cfg(any(test, feature = "parallel-diagnostics"))]
 #[derive(Clone, Debug, Default)]
@@ -119,10 +119,8 @@ enum NodeState {
 
 #[derive(Debug)]
 struct ReadyPair {
-    excluded: u64,
-    scoped: bool,
-    planned: u64,
-    retained: u64,
+    coverage: DirectoryCoverage,
+    comparator: SemanticId,
     diff: DirDiff,
     children: Children,
     plan: Option<DirectoryPlan>,
@@ -219,7 +217,10 @@ impl Frontier {
             stop: Stop::Running,
             output: None,
             prune_eligible: false,
-            summary: Summary::default(),
+            summary: Summary {
+                comparator: Some(crate::Comparator::identity(&crate::StatKey).clone()),
+                ..Summary::default()
+            },
             #[cfg(any(test, feature = "parallel-diagnostics"))]
             stats: ParallelDiagnostics::default(),
             #[cfg(any(test, feature = "parallel-diagnostics"))]
@@ -233,7 +234,12 @@ impl Frontier {
     where
         F: Fn(&Path) -> Result<ComparedPair, Error> + Sync,
     {
-        self.next_finalized(inspect).map(|result| result.map(|(diff, _)| diff))
+        loop {
+            match self.next_finalized(&inspect)? {
+                Ok((diff, _)) if diff.is_empty() => continue,
+                result => return Some(result.map(|(diff, _)| diff)),
+            }
+        }
     }
 
     pub(crate) fn next_plan_with<F>(&mut self, inspect: F) -> Option<Result<DirectoryPlan, Error>>
@@ -347,13 +353,11 @@ impl Frontier {
                     }
                     Ok(pair) => {
                         let changed = !pair.diff.is_empty();
+                        let publish = changed || pair.coverage.application_need != ApplicationNeed::None;
                         let direct_ancestor = self.frames.last().is_some_and(|frame| frame.direct_ancestor);
                         self.summary.examined_directories += 1;
-                        self.summary.excluded += pair.excluded;
-                        self.summary.scoped |= pair.scoped;
+                        self.summary.add_coverage(pair.coverage, &pair.comparator);
                         self.summary.counts.add(&pair.diff);
-                        self.summary.planned += pair.planned;
-                        self.summary.retained += pair.retained;
                         if changed && !direct_ancestor {
                             self.summary.topmost_divergent.push(node.dir.clone());
                         }
@@ -361,7 +365,7 @@ impl Frontier {
                         {
                             self.stats.committed += 1;
                         }
-                        if changed {
+                        if publish {
                             assert!(pair.children.admitted.is_empty(), "sealed result has child jobs");
                         }
                         self.frames.push(Frame {
@@ -369,9 +373,9 @@ impl Frontier {
                             children: pair.children,
                             direct_ancestor: direct_ancestor || changed,
                             subtree_changed: changed,
-                            open: !changed,
+                            open: !publish,
                         });
-                        if changed {
+                        if publish {
                             self.prune_eligible = true;
                             self.output = Some(Ok((pair.diff, pair.plan)));
                             self.set_stop(Stop::Yield);
@@ -415,7 +419,7 @@ impl Frontier {
         match owner {
             Owner::Frame(i) => self.frames[i].open.then_some(&self.frames[i].children),
             Owner::Node(id) => match &self.nodes.get(id).state {
-                NodeState::Ready(Ok(pair)) if pair.diff.is_empty() => Some(&pair.children),
+                NodeState::Ready(Ok(pair)) if pair.diff.is_empty() && pair.coverage.application_need == ApplicationNeed::None => Some(&pair.children),
                 _ => None,
             },
         }
@@ -428,7 +432,7 @@ impl Frontier {
                 &mut self.frames[i].children
             }
             Owner::Node(id) => match &mut self.nodes.get_mut(id).state {
-                NodeState::Ready(Ok(pair)) if pair.diff.is_empty() => &mut pair.children,
+                NodeState::Ready(Ok(pair)) if pair.diff.is_empty() && pair.coverage.application_need == ApplicationNeed::None => &mut pair.children,
                 _ => panic!("children requested below unresolved node"),
             },
         }
@@ -552,10 +556,8 @@ impl Frontier {
         self.active -= 1;
         self.outstanding -= 1;
         self.nodes.get_mut(id).state = NodeState::Ready(result.map(|pair| ReadyPair {
-            excluded: pair.excluded,
-            scoped: pair.scoped,
-            planned: pair.planned,
-            retained: pair.retained,
+            coverage: pair.coverage,
+            comparator: pair.comparator,
             diff: pair.diff,
             children: Children::from_names(pair.children),
             plan: pair.plan,

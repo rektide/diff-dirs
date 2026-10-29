@@ -81,7 +81,7 @@ fn early_union_presence_is_immutable_and_clean_late_decisions_gate_descent() {
     let summary = walk.into_summary();
     assert_eq!(summary.examined_directories, 1);
     assert_eq!(summary.planned, 2);
-    assert_eq!(summary.retained, 1);
+    assert_eq!(summary.deviated, 1);
     assert!(!summary.is_complete());
     assert!(!summary.is_clean());
     assert!(seen.lock().unwrap().iter().any(|p| p == "same"));
@@ -258,7 +258,7 @@ fn late_special_preservation_is_uncompared_not_a_normal_leaf_delta() {
     let summary = walk.into_summary();
     assert_eq!(summary.counts, diff_dirs::EntryCounts::default());
     assert_eq!(summary.planned, 0);
-    assert_eq!(summary.retained, 4);
+    assert_eq!(summary.deviated, 4);
     assert!(!summary.is_complete());
     assert!(!summary.is_clean());
     let audited = diff_dirs::audit_with_visitor(&f.original, diff_dirs::Side::Original, &visitor).unwrap();

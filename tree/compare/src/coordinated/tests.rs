@@ -76,11 +76,7 @@ impl Setup {
         for i in 0..n {
             let root = fixture.root.join(format!("target-{i}"));
             fs::create_dir(&root).unwrap();
-            targets.push(TargetBinding {
-                id: TargetId(format!("lane-{i}")),
-                root,
-                policy: format!("fixture-{i}/v1"),
-            });
+            targets.push(TargetBinding::full(TargetId(format!("lane-{i}")), root, format!("fixture-{i}/v1")));
         }
         let bindings = Bindings {
             source: fixture.original.clone(),
@@ -92,16 +88,12 @@ impl Setup {
             policies: (0..n).map(|_| Policy::default()).collect(),
         }
     }
-    fn loans(&self) -> Vec<TargetPolicy<'_, Policy>> {
+    fn loans(&self) -> Vec<TargetPolicy<'_, FullVisitor<crate::VisitorRef<'_, Policy>>>> {
         self.bindings
             .targets
             .iter()
             .zip(&self.policies)
-            .map(|(t, visitor)| TargetPolicy {
-                target: &t.id,
-                descriptor: &t.policy,
-                visitor,
-            })
+            .map(|(t, visitor)| TargetPolicy::full(&t.id, &t.policy, visitor))
             .collect()
     }
     fn run(&self) -> Coordinated {
@@ -335,7 +327,7 @@ fn all_stopped_at_deep_frontier_has_valid_parts_and_terminal_resume_needs_no_roo
         fs::remove_dir_all(&t.root).unwrap();
     }
     run = Coordinated::from_parts(parts, Execution::Sequential).unwrap();
-    let none: &[TargetPolicy<'_, Policy>] = &[];
+    let none: &[TargetPolicy<'_, FullVisitor<crate::VisitorRef<'_, Policy>>>] = &[];
     run.bind(none).unwrap();
     assert!(run.next_group(none).unwrap().is_none());
     run.into_parts().validate().unwrap();
@@ -365,8 +357,8 @@ fn lowering_can_retain_validated_plans_without_putting_them_in_parts() {
     for lane in group.outcomes {
         let compared = lane.outcome.unwrap();
         assert_eq!(compared.value.0, lane.target);
-        assert_eq!(compared.value.1.diff(), &compared.diff);
-        assert_eq!(compared.value.1.operations().dir(), group.relative);
+        assert_eq!(compared.value.1.selection().diff(), &compared.diff);
+        assert_eq!(compared.value.1.selection().relative(), group.relative);
     }
     run.into_parts().validate().unwrap();
 }
@@ -383,7 +375,7 @@ fn malformed_parts_and_policy_descriptors_refuse_before_binding_io() {
     p.version = 1;
     bad.push(p);
     let mut p = parts.clone();
-    p.frames[0].remaining[0].members.push(100);
+    p.frames[0].remaining[0].members.push(ChildMember { target: 100, context: () });
     bad.push(p);
     let mut p = parts.clone();
     p.frames[0].remaining[0].name = "../escape".into();
@@ -454,7 +446,7 @@ fn stopped_before_root_and_normal_terminal_restore_are_filesystem_free() {
         fs::remove_dir_all(&s.bindings.source).unwrap();
         fs::remove_dir_all(&s.bindings.targets[0].root).unwrap();
         let mut run = Coordinated::from_parts(parts, Execution::Sequential).unwrap();
-        let none: &[TargetPolicy<'_, Policy>] = &[];
+        let none: &[TargetPolicy<'_, FullVisitor<crate::VisitorRef<'_, Policy>>>] = &[];
         run.bind(none).unwrap();
         assert!(run.next_group(none).unwrap().is_none());
     }
@@ -642,7 +634,7 @@ fn a_lane_returns_before_its_peers_nested_work_and_its_ancestor_is_folded_once()
     }
     assert_eq!(run.parts().lanes[0].summary.changed_dirs, [PathBuf::from("a")]);
     assert_eq!(run.parts().frames[1].lanes.len(), 1);
-    assert_eq!(run.parts().frames[0].remaining[0].members, [1]);
+    assert_eq!(run.parts().frames[0].remaining[0].members, [ChildMember { target: 1, context: () }]);
     assert_eq!(run.heads()[0].1, Head::Child { relative: "b".into() });
     let mut run = Coordinated::from_parts(run.into_parts(), Execution::Sequential).unwrap();
     run.bind(&s.loans()).unwrap();
@@ -727,7 +719,7 @@ fn partial_active_child_exempts_only_lanes_that_still_owe_its_return() {
         assert!(!parts.frames[0].lanes[1].subtree_changed, "a has not returned for lane 1");
         assert!(parts.frames[1].lanes.iter().find(|l| l.target == 1).unwrap().subtree_changed);
         if early_return {
-            assert_eq!(parts.frames[0].remaining[0].members, [1]);
+            assert_eq!(parts.frames[0].remaining[0].members, [ChildMember { target: 1, context: () }]);
             assert_eq!(parts.lanes[0].summary.changed_dirs, [PathBuf::from("a/x"), "a".into()]);
             assert!(parts.frames[0].lanes[0].subtree_changed, "a already returned for lane 0");
             let mut corrupted = parts.clone();

@@ -334,7 +334,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                     failure.completed += completed;
                     *failure.policy += policy;
                     let observed = walk.into_summary();
-                    failure.policy.retained += observed.retained.saturating_sub(applied_retained);
+                    failure.policy.retained += observed.deviated.saturating_sub(applied_retained);
                     failure.observed = Some(Box::new(observed));
                     return Err(failure);
                 }
@@ -343,7 +343,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
         let observed = walk.into_summary();
         // Late preservation can leave no normal DirDiff to yield/application to
         // count. Include those committed slots without counting yielded ones twice.
-        policy.retained += observed.retained.saturating_sub(applied_retained);
+        policy.retained += observed.deviated.saturating_sub(applied_retained);
         Ok(Report {
             planned,
             policy: Policy { satisfied: true, ..policy },
@@ -387,14 +387,14 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> Applier<C, S, A, V> {
                     failure.completed += completed;
                     *failure.policy += policy;
                     let observed = walk.into_summary();
-                    failure.policy.retained += observed.retained.saturating_sub(applied_retained);
+                    failure.policy.retained += observed.deviated.saturating_sub(applied_retained);
                     failure.observed = Some(Box::new(observed));
                     return Err(failure);
                 }
             }
         }
         let observed = walk.into_summary();
-        policy.retained += observed.retained.saturating_sub(applied_retained);
+        policy.retained += observed.deviated.saturating_sub(applied_retained);
         Ok(Report {
             planned,
             policy: Policy { satisfied: true, ..policy },

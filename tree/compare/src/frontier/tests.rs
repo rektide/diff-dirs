@@ -21,10 +21,11 @@ fn pair(dir: &Path, children: &[&str], changed: bool) -> ComparedPair {
     }
     ComparedPair {
         plan: None,
-        planned: 0,
-        retained: 0,
-        excluded: 0,
-        scoped: false,
+        coverage: DirectoryCoverage {
+            different: u64::from(changed),
+            ..DirectoryCoverage::default()
+        },
+        comparator: crate::Comparator::identity(&crate::StatKey).clone(),
         diff,
         children: children.iter().map(OsString::from).collect(),
     }

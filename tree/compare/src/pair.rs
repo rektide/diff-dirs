@@ -3,7 +3,7 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-use crate::{Check, CheckedScope, DirDiff, DirectoryPlan, Error, Execution, PairedRoots, Scope, Visitor};
+use crate::{ApplicationNeed, Check, CheckedScope, DirDiff, DirectoryCoverage, DirectoryPlan, Error, Execution, PairedRoots, Scope, SemanticId, Visitor};
 
 #[derive(Debug)]
 pub(crate) struct Roots(PairedRoots);
@@ -31,16 +31,15 @@ impl Roots {
         let plan = self.0.inspect_visitor(dir, execution, visitor)?;
         let diff = plan.diff().clone();
         let changed = !diff.is_empty();
+        let publish = changed || plan.selection().coverage().application_need != ApplicationNeed::None;
         Ok(ComparedPair {
             diff,
             children: plan.paired_children().map(|name| name.to_os_string()).collect(),
-            excluded: plan.excluded(),
-            scoped: plan.steered(),
-            planned: plan.work(),
-            retained: plan.retained(),
+            coverage: plan.selection().coverage(),
+            comparator: plan.selection().comparator().clone(),
             // Clean metadata is no longer needed after late and child lowering.
             // Release it in the worker, not while holding the frontier mutex.
-            plan: changed.then_some(plan),
+            plan: publish.then_some(plan),
         })
     }
 }
@@ -49,9 +48,7 @@ impl Roots {
 pub(crate) struct ComparedPair {
     pub diff: DirDiff,
     pub children: Vec<OsString>,
-    pub excluded: u64,
-    pub scoped: bool,
-    pub planned: u64,
-    pub retained: u64,
+    pub coverage: DirectoryCoverage,
+    pub comparator: SemanticId,
     pub plan: Option<DirectoryPlan>,
 }

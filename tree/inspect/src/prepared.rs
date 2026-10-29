@@ -40,6 +40,25 @@ impl<C> PreparedDirectory<C> {
     }
 }
 
+impl PreparedDirectory<()> {
+    /// Compatibility projection only. Sparse/custom selections cannot manufacture
+    /// full metadata. No observation or policy finalization is performed here.
+    pub fn into_full_plan(self) -> Result<DirectoryPlan, crate::SelectionError> {
+        use crate::{Comparator, FullVisitor, NoVisitor, Policy, StatKey};
+        if self.selected.policy() != FullVisitor(NoVisitor).identity()
+            || self.selected.context_schema() != FullVisitor(NoVisitor).context_schema()
+            || self.selected.comparator() != StatKey.identity()
+            || self
+                .facts
+                .iter()
+                .any(|f| f.source.as_ref().is_some_and(|s| s.legacy.is_none()) || f.target.as_ref().is_some_and(|s| s.legacy.is_none()))
+        {
+            return Err(crate::SelectionError("not a prepared full-visitor batch"));
+        }
+        Ok(DirectoryPlan { prepared: self })
+    }
+}
+
 /// Narrow full-visitor adapter used by existing traversal/effect APIs. It shares
 /// the selected body, rather than preserving a second action/validation model.
 #[derive(Debug)]

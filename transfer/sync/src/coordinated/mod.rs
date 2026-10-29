@@ -89,7 +89,7 @@ pub(super) fn require(ok: bool, reason: &'static str) -> Result<(), Error> {
     if ok { Ok(()) } else { Err(Error::InvalidState(reason)) }
 }
 
-pub(super) fn disjoint(bindings: &Bindings) -> Result<(), Error> {
+pub(super) fn disjoint<C>(bindings: &Bindings<C>) -> Result<(), Error> {
     let roots: Vec<_> = std::iter::once(&bindings.source).chain(bindings.targets.iter().map(|t| &t.root)).collect();
     for (i, root) in roots.iter().enumerate() {
         for other in &roots[..i] {
@@ -136,11 +136,7 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> SyncRuntime<C, S, A, V> {
             targets: self
                 .targets
                 .iter()
-                .map(|t| TargetBinding {
-                    id: t.id.clone(),
-                    root: t.applier.target().to_owned(),
-                    policy: t.descriptor.clone(),
-                })
+                .map(|t| TargetBinding::full(t.id.clone(), t.applier.target().to_owned(), t.descriptor.clone()))
                 .collect(),
         };
         bindings.validate().map_err(Error::Comparison)?;
@@ -148,17 +144,18 @@ impl<C: Check, S: Scope, A: Absence, V: Visitor> SyncRuntime<C, S, A, V> {
         Ok(bindings)
     }
 
-    fn with_policies<T>(&self, call: impl FnOnce(&[TargetPolicy<'_, crate::visitor::Steering<'_, C, S, A, V>>]) -> T) -> T {
+    fn with_policies<T>(
+        &self,
+        call: impl FnOnce(
+            &[TargetPolicy<'_, diff_dirs_tree_inspect::FullVisitor<diff_dirs_tree_inspect::VisitorRef<'_, crate::visitor::Steering<'_, C, S, A, V>>>>],
+        ) -> T,
+    ) -> T {
         let steering: Vec<_> = self.targets.iter().map(|t| t.applier.steering()).collect();
         let policies: Vec<_> = self
             .targets
             .iter()
             .zip(&steering)
-            .map(|(t, visitor)| TargetPolicy {
-                target: &t.id,
-                descriptor: &t.descriptor,
-                visitor,
-            })
+            .map(|(t, visitor)| TargetPolicy::full(&t.id, &t.descriptor, visitor))
             .collect();
         call(&policies)
     }
@@ -308,7 +305,7 @@ impl SyncCursor {
                 return Err(Error::RuntimeMismatch(bindings.targets[i].id.clone()));
             }
         }
-        Ok(())
+        runtime.with_policies(|p| self.comparison.validate_policies(p)).map_err(Error::Comparison)
     }
 
     /// Reconstruct execution separately. Descriptor checks precede tree access;
@@ -355,7 +352,7 @@ impl SyncCursor {
             .enumerate()
             .map(|(i, (target, observed))| LaneReport {
                 target,
-                retained: self.lanes[i].recursive_retained + u128::from(observed.retained),
+                retained: self.lanes[i].recursive_retained + u128::from(observed.deviated),
                 satisfied: self.comparison.parts().lanes[i].status == LaneStatus::Complete && self.lanes[i].end.is_none() && !self.lanes[i].pruned,
                 totals: self.lanes[i].clone(),
                 observed,
@@ -386,7 +383,10 @@ impl SyncCursor {
         self.current = None;
         self.plans.iter_mut().for_each(|p| *p = None);
         let Some(group) = runtime
-            .with_policies(|p| self.comparison.next_group_with(p, |_, plan| plan))
+            .with_policies(|p| {
+                self.comparison
+                    .next_group_with(p, |_, plan| plan.into_full_plan().expect("full-visitor runtime"))
+            })
             .map_err(Error::Comparison)?
         else {
             return Ok(None);
