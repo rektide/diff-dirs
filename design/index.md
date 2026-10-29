@@ -7,6 +7,8 @@ status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
+  - resource: opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4
+    title: Records the execution commission and connects the active cross-project delivery account
   - resource: opencode://ses_e7a559acfffeNLFScKfuc7htqW
     title: Connects the new architectural integration assessment to the build reading path, inherited-region research and current consumer work
   - resource: opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY
@@ -62,12 +64,15 @@ capabilities and the remaining measurement follow-up. The current account below
 records commits and verification rather than treating old research closure as
 implementation completion.
 
+- [Active delivery](architecture/delivery0.gpt6ax.md): October 29 execution
+  commission, with Astra-high designs and Sol-xhigh builds. Tracks joined
+  architectural review and implementation across the library and JW command.
 - [Annealing architecture into the next delivery](architecture/annealing0.gpt6ax.md):
-  current proposed integration of JW's trajectory1 and subsequent human steering.
+  selected integration of JW's trajectory1 and subsequent human steering.
   Recommends real inherited region context and explicit comparison composition in
   the next build, alongside shared inputs and lighter decision ownership. Traces
   present code constraints, saved-state implications and a coherent N1/N2 delivery
-  sequence; implementation scope remains proposed.
+  sequence; the active delivery account records the subsequent broader commission.
 - [Current rebuild and checkpoints](architecture/rebuild0.gpt6a.md): the October 28
   commission, independently assessed scope, partial multi-destination heads and
   traversal/decision checkpoints. Shared immediate inspection and the coordinated

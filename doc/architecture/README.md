@@ -7,6 +7,10 @@ status: maintained
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-20 }
 updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
+  - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
+    title: Records the human execution commission and points to the active joined library and command delivery
+  - resource: /design/architecture/delivery0.gpt6ax.md
+    title: Active execution account and architectural review boundaries
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
     title: Connects the human-directed architectural integration assessment and its proposed next-build ownership changes to the maintained architecture
   - resource: /design/architecture/annealing0.gpt6ax.md
@@ -161,7 +165,10 @@ It proposes carrying accepted region judgments through both paired traversal and
 opaque sync, and aligning comparison meaning, selected-state ownership and restore
 validation before the next cohort integration hardens their interfaces. Its
 [delivery sequence](/design/architecture/annealing0.gpt6ax.md#annealing-delivery)
-joins those changes to JW's whole-command trajectory; it is proposed scope.
+joins those changes to JW's whole-command trajectory. The human has since
+[commissioned execution](/design/architecture/delivery0.gpt6ax.md), with broader
+upfront integration where that prevents substantial near-term rebuilding. The
+delivery account distinguishes the active work from the implemented contracts below.
 
 | Component | Contract and owner |
 | --- | --- |
