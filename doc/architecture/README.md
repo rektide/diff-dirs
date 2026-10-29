@@ -19,6 +19,8 @@ sources:
     title: Delivered contextual production effects, shared physical kernel, route epochs and fresh-process application continuation
   - resource: /design/architecture/execution3.sol61x.md
     title: Delivered grouped opaque source sharing, bounded retained observations and truthful schema3 accounting
+  - resource: /design/architecture/execution4.sol61x.md
+    title: Delivered inspect-owned declared acquisition and exact manifest-bound production renewal
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
     title: Connects the human-directed architectural integration assessment and its proposed next-build ownership changes to the maintained architecture
   - resource: /design/architecture/annealing0.gpt6ax.md
@@ -138,6 +140,7 @@ contextual/grouped implementation, native adoption and remaining manifest/cutove
 | Ordinary production filesystem effects | Delivered in [sync](/transfer/sync/README.md): staging, replacement, copy policy, timestamps, recursive policy and joined failures. |
 | Coordinated production sync and process transport | Delivered: [sync cursor/runtime](/transfer/sync/README.md#coordinated-reconciliation-and-continuation) and [fresh-process consumer](/examples/reconcile/README.md). |
 | Grouped opaque execution and bounded source reuse | Delivered at 0.6, with independent lane effects and truthful schema3 deviation/retention. [Receipt](/design/architecture/execution3.sol61x.md). |
+| Complete desired/owned manifest execution | Delivered at 0.7: Exact/TargetCensus inspection, independent EffectBinding, coupled native-owned renewal and explicit complete coverage. [Receipt](/design/architecture/execution4.sol61x.md). |
 | Generated inputs and native workspace adapters | Wider research and bounded specimens, linked below; their standing is separate from the delivered comparison APIs. |
 
 The [root specification](/README.md) and [sync specification](/transfer/sync/README.md)
@@ -195,12 +198,15 @@ contextual opaque effects and actual resumed application, using direct prepared
 batches, shared policy-free primitives, call-local route epochs and one source
 owner. The [0.6 checkpoint](/design/architecture/execution3.sol61x.md) adds actual
 grouped opaque execution, bounded successful source retention and distinct
-retention/deviation accounting with schema3 continuation. Declared manifest renewal
-is the active subsequent library boundary; JW has adopted the contextual ordinary
-cohort and retains ordered fail-fast application.
+retention/deviation accounting with schema3 continuation. The
+[0.7 declared checkpoint](/design/architecture/execution4.sol61x.md) completes
+manifest renewal through inspect-owned actual lookup, exact sync-owned manifest
+binding and the shared physical kernel. JW has adopted the contextual ordinary
+cohort and retains ordered fail-fast application; both native routes and public
+cutover are the active integration boundary.
 The [inspection guide](/tree/inspect/README.md#contextual-inspection-and-shared-selections)
 owns the delivered API; the wider design also selects grouped opaque execution and
-complete desired/owned manifest renewal for subsequent integration.
+complete desired/owned manifest renewal, now available for native integration.
 
 | Component | Contract and owner |
 | --- | --- |

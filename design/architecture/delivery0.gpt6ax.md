@@ -46,6 +46,12 @@ sources:
     title: Final grouped/cache/reporting checkpoint, exact source work and stable0.6/schema3 verification
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/context-validation1.sol61x.md"
     title: Verified pure restored-reference correction and receiving checks, with later manifest-build boundary explicit
+  - resource: /design/architecture/execution4.sol61x.md
+    title: Complete provider0.7 declared execution and native integration API with verified manifest coverage
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/public-contract0.gpt6a.md"
+    title: Accepted application-owned schema1, CLI cutover/retirement and explicitly live-asserted performance profile
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution2.sol61x.md"
+    title: Verified production native routes, full manifest gates, available phase outcomes and actual optional ordinary pool
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -126,7 +132,11 @@ specific unresolved concern.
 | Grouped opaque execution and source retention | Sol xhigh, `opencode://ses_e795502d3ffeuJ2kcDootC5FFb` | Returned through `1f1385de`; actual grouping/cache and separate reporting/V3 correction verified. |
 | Effect-report accounting correction design | Explicit Astra high, `opencode://ses_e7951c1b6ffeyQeGeqQnqwkKil` | Returned at `3664ad18`; correction accepted and assigned around the active grouped build. |
 | JW restored-context reference correction | Sol xhigh, `opencode://ses_e7930131cffemJnROGPjnIatHG` | Returned through `a11befca`; code `3860eccc` and resealed-cursor refusal tests reviewed. |
-| Complete declared/manifest execution | Sol xhigh, `opencode://ses_e792612b5ffeyFb3DWg7x3JxVt` | Active: inspect-owned declared preparation, bound S/O authority, grouped listed kernel and complete coverage. |
+| Complete declared/manifest execution | Sol xhigh, `opencode://ses_e792612b5ffeyFb3DWg7x3JxVt` | Returned through `23c18da7`; complete provider0.7 API and coverage reviewed. |
+| Both production native renewal routes | Sol xhigh, `opencode://ses_e78f3a386ffeEoMW921VWMAzPe` | Returned through `31d2e5ff`; working two-route boundary accepted for public cutover. |
+| Public command/wire design | Explicit Astra high, `opencode://ses_e78f2e0eaffejn7gBDnYKJ2RhA` | Returned at `044b6471`; schema1/cutover/measurement-profile contract accepted. |
+| Public reseed/prepare cutover | Sol xhigh, `opencode://ses_e779f1a9affejTLMoRyE5Nv4xW` | Active: actual dispatch, source/selection outcome data, schema1, old-driver retirement and operative docs. |
+| Bounded selected-state ownership evidence | Sol xhigh, `opencode://ses_e779e67c4ffep3LwYT7qpuVLbK` | Active independent small predecessor/current allocation and retention comparison. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -474,6 +484,81 @@ passed. A later extra rebuild encountered the active manifest owner's temporary
 undefined helper; that run did not execute tests and was not substituted with old
 binaries. The correction's verified native0.9/provider0.6 boundary remains distinct
 from the forthcoming manifest adoption and final native command gate.
+
+### Complete provider manifest checkpoint accepted
+
+Provider `e4d20e36`, `ebe407a8`, `f5b2a72e`, `622cbf5c` and `86c6bdb8`, with
+[receipt](execution4.sol61x.md) `23c18da7`, implement the full declared-input seam
+at 0.7. Parent inspected public listed/binding APIs, pure authority selection,
+private actual-manifest binding and grouped runner/coverage ownership. The
+borrowed-name allocation correction landed separately. Created container scopes
+were also corrected and tested under restrictive umask before final verification.
+
+Reported gates: 298 workspace, 201 feature-disabled and 20 fresh-process cases,
+all 15 listed cases with required real reflinks, strict lint/Rustdoc, 16 doctests,
+formatting and document checks passed. With cache disabled, absent/retained/staged
+receivers shared 81 declared metadata acquisitions and zero source listings for
+40 leaves per lane. Complete coverage remains independent of actual effect counts
+and native truth. **Successful lane outcome plus complete coverage** is the native
+adoption gate; an outer Ok alone is insufficient.
+
+The native Sol owner is adopting these APIs in the existing shared command for
+ClearThenPopulate and ReplaceAuthorized, with real source/target guards, complete
+coverage, per-phase availability and command-scoped source diagnostics. It will
+return the working two-route boundary before public dispatch changes.
+
+### Public contract accepted before cutover
+
+Accepted [public-contract0](file:///home/rektide/src/jj-waltz/design/coordinated-refill/public-contract0.gpt6a.md)
+(`044b6471`): application-owned schema1, explicit source/desired/receiver states,
+canonical decimal-string counts/timings, null unavailable results and lossless Unix
+path objects. Parsed JSON commands emit one complete returned-outcome document;
+diagnostics and original errors stay on stderr. Source actual S remains distinct
+from recorded input, assertion and upstream goal. No mixed counter aliases survive.
+
+The cutover moves route selection into the request, removes source-only prepare's
+unused copy-ignored flags, retires the old orchestration while retaining actual
+creation-owned callers, and bypasses generic post-error context rediscovery for
+handled refill outcomes. The native worker received the concrete required data
+fields; the following CLI owner will project its committed result.
+
+The retained-fixture comparison is explicitly **live-asserted-source**: its existing
+`--source-at` contributes named source proof/native work. Both route measurements
+include it; they must not be represented as plain prepared-source latency or have
+that work subtracted. Plain public reseed still introduces no implicit donor snapshot.
+
+Parent also checked the existing `payload-parallel` behavior: the old public path
+uses a command-owned pool, while the first contextual cohort hardcodes sequential
+execution. Cutover must preserve the optional feature's actual execution semantics:
+serial by default, one borrowed command-owned pool when enabled, serial native
+transitions and ordered fail-fast lane application. Empty ordinary selection creates
+no pool/runtime. This requirement was sent to the native owner for its adapter work
+or an explicit handoff to the CLI owner; it is not a new default or another walker.
+
+### Production native routes accepted for cutover
+
+JW `20cb1cee`, `2333a13e`, `b17d3e17`, `aa741267` and `e4da4ee3`, with
+[handoff](file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution2.sol61x.md)
+`31d2e5ff`, implement both routes at native0.10/provider0.7. Parent reviewed the
+actual protocol, preserved-coordinate barriers, separately new C identity,
+success-plus-complete adoption gate, source-phase release and available outcomes.
+Replacement reparents only C after checking that no outside descendants appeared;
+clear-first remains the default and neither route falls back to the other.
+
+Reported verification includes 86 default and 35 combined-feature cases, focused
+final guards/pool cases, strict checks and document validation. Both D=S/D≠S
+routes, clean repeats, matching-local/coupled refusals and native/ordinary/finish
+partial failures use actual production required clones. The optional payload pool
+requirement is implemented: one admitted command-owned pool, borrowed by the whole
+ordinary cohort, with actual worker witnesses and preserved fail-fast peer order.
+
+The public Sol owner now has the reviewed native mapping and exact schema contract.
+It will complete remaining source/selection metadata and typed failures, move route
+selection into the request, cut over both public commands, retire superseded code
+on actual caller evidence and update operative docs. Native child facts on a failed
+command are last observed facts, not a new post-failure census. Existing actual
+manifest-preparation capture counts may be included in the first wire schema with
+their declared scope. Performance binding follows review of that actual public path.
 
 ## Work ownership and navigation
 

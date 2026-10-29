@@ -13,6 +13,8 @@ sources:
     title: Verified 0.5 P/M runtime, recursive context, sparse execution inputs and call-local route ownership
   - resource: /design/architecture/execution3.sol61x.md
     title: Verified grouped source work, bounded retention and separately corrected execution accounting
+  - resource: /design/architecture/execution4.sol61x.md
+    title: Verified complete desired-owned execution, exact live binding, grouped coverage and changed seed batch boundary
   - resource: "opencode://ses_e7be6b24fffeDISpWdV1xNbqhD"
     title: Implements conditional source-only routing containers with runtime pending ancestry, postorder modes, preview and saved-decision integration; verifies focused production cases
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
@@ -341,8 +343,9 @@ including a second comparator and residual-context rejection before filesystem I
 
 The [runtime checkpoint](/design/architecture/execution2.sol61x.md) records checks
 and exact interfaces. The [0.6 checkpoint](/design/architecture/execution3.sol61x.md)
-adds grouped opaque execution and bounded cross-call source retention. Desired/owned
-manifest renewal remains the next library slice.
+adds grouped opaque execution and bounded cross-call source retention. The
+[0.7 declared executor](/design/architecture/execution4.sol61x.md) now supplies
+complete desired/owned manifest renewal over the same physical primitives.
 
 ### Grouped opaque applications and reporting
 
@@ -596,39 +599,58 @@ let cleared = clear("target", preserve, NoCheck)?;
 # Ok(()) }
 ```
 
-`seed_leaves(source, target, leaves, copy_policy, check)` requires existing real
-directory roots and nonempty normal relative leaf paths. It creates only missing
-real target parents, refuses any existing target leaf (including dangling links),
-and uses the same staged file/link/permissions/exact-mtime kernel as sync. It
-inspects current source metadata rather than accepting cached metadata as proof.
-Missing source, existing destination, and directory-as-leaf errors have specific
-`seed source missing`, `seed destination exists`, and `seed source type`
-operations; ancestor errors retain their native path/cause. Existing source and
-target ancestors pass Check; new output parents follow recursive copy semantics.
-The known list is collected and sorted by parent native component order, then
-basename encoded bytes, not input order or flat full-path byte order. Normal
-components normalize redundant separators/interior dots; duplicate aliases and
-invalid paths fail before writes with zero progress (`seed duplicate path` or
-`seed relative path`). Runtime failures preserve the actual sorted installation
-prefix, including created parents; parent preparation may precede the first leaf
-failure. Same-parent leaves share one lazy staging arena and permission lease,
-reserving every batch basename against arena collisions. A depth-bounded active
-ancestor stack reuses verified real source/target directories across nested
-groups. Roots/ancestors are not re-observed per listed leaf, nor is a parent
-restatted just to open its write lease. Source leaf metadata/link text and absent
-destinations are still checked individually at installation time. This removes
-repeated filesystem work structurally; no new performance measurement is claimed.
+`seed_leaves(source, target, leaves, copy_policy, check)` now wraps a prepared
+CreateAbsent manifest over the shared executor. It retains existing real-root
+checks, including an empty list, and accepts nonempty normal relative leaf paths.
+It creates needed real parents and refuses occupied leaves, including dangling
+links. Check receives actual full source facts/literal links and existing routing
+directories once per coarse call. Invalid paths, duplicate aliases and leaf/ancestor
+conflicts refuse before effects. Failures preserve actual source/target coordinates
+and original causes; predecessor seed-loop operation labels are not preserved.
 
-Only O(listed names) and the active routing stack are retained, not a discovered
-payload/metadata/operation catalog. This first installer is sequential, including inside a caller pool;
-no new worker scheduler or parallel admission layer is introduced.
+**The 0.7 failure boundary is the immediate declared batch.** A later sibling's
+source/guard/input failure causes no effects from that batch. Earlier completed
+batches and actually created parents remain reported. It no longer promises a
+per-leaf committed prefix within the failed batch. Parent-local staging, one write
+lease through cleanup, postorder modes and exact mtime use the shared kernel.
 
-This explicit known-path interface retains its existing Check-only contract and
-parent-batched installer; it does not expose early/late steering or silently list
-the whole payload to manufacture it. General recursive tree seed is the `Seed`
-visitor above. A caller-listed operation's absence refusal/sorted-prefix failure
-semantics remain distinct from general mirror and from a whole-directory late
-batch. Both still share the actual staged leaf/clone/metadata kernel.
+### Complete desired and owned manifests
+
+`PreparedLeafList::from_specs` freezes desired coordinates with supported or exact
+kind/executable expectations. `OwnedLeafSet` independently freezes previously owned
+leaf paths. Prepare each distinct input once and reuse its Arc-backed component
+index. Their platform-tagged ManifestIds identify declarations, not source contents
+or native ownership. `EffectBinding` owns validated physical roots and CopyPolicy
+without an ordinary policy/comparator.
+
+`reconcile_listed(source_session, desired, targets)` runs one coarse, serial grouped
+call. `ListedIntent::CreateAbsent` ignores supplied O authority and never replaces
+or removes; `RenewOwned` permits occupied supported leaves only at exact O paths.
+A pure `ListedGuard` can demand/check actual route and entry facts, but cannot drop
+obligations or widen authority. Inspect performs exact lookups and complete target
+census; sync binds actual manifest references, coordinates, expectations, scopes
+and complete immediate declarations before effects.
+
+Every desired leaf is an obligation even when both physical trees lack it. Missing
+or wrong-kind/mode source fails. Collapse preflights every actual target directory
+and vetoes unowned leaves or empty directories intact before dismantling. Expansion
+stages only declared S children. Obsolete exact O leaves retire by removal or proved
+absence; O-only structural directories remain. There is no automatic empty-directory
+prune or source-absence inference from an unrequested source.
+
+`ListedReport` contains ordered independent lane outcomes and `ManifestCoverage`:
+desired, installed, owned_obsolete, owned_retired and complete. Coverage is separate
+from actual filesystem effects. Private installations become installed coverage
+only on publication; visible removals and confirmed absence survive later failure.
+Cleanup/permission failure leaves complete false. **Require both a successful lane
+outcome and complete coverage** before a native caller considers its separate
+state-adoption protocol; outer Ok alone is insufficient.
+
+The [compiled API example](/transfer/sync/src/listed.rs) and
+[implementation receipt](/design/architecture/execution4.sol61x.md) show the native
+handoff. Source facts group before child inspection even with retention disabled.
+Listed work owns its runtime recursion and has no saved interior cursor; ordinary
+V3 paired continuation remains unchanged.
 
 `clear(target, scope, check)` binds an existing real directory and deletes its
 participating contents through the **same recursive remover** as sync. It never

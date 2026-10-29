@@ -84,6 +84,11 @@ implementation completion.
   [declared-input handoff](architecture/declared-handoff0.gpt6a.md) guides the active
   manifest executor; [reporting correction](architecture/reporting-handoff0.gpt6a.md)
   preserves the rationale for the explicit schema transition.
+- [Complete declared execution](architecture/execution4.sol61x.md): delivered 0.7
+  inspect-owned Exact/TargetCensus preparation, reusable S/O manifests, actual
+  manifest binding, shared physical effects and truthful complete coverage. Native
+  adoption must require successful lane outcome and complete coverage before its
+  separate state-adoption/conformance protocol.
 - [Annealing architecture into the next delivery](architecture/annealing0.gpt6ax.md):
   selected integration of JW's trajectory1 and subsequent human steering.
   Recommends real inherited region context and explicit comparison composition in

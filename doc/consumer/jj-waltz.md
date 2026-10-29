@@ -17,6 +17,9 @@ sources:
   - resource: /design/architecture/execution3.sol61x.md
     revision: 1f1385de
     title: Final committed provider0.6 source-sharing and schema3 reporting receipt
+  - resource: /design/architecture/execution4.sol61x.md
+    revision: 23c18da7
+    title: Complete provider0.7 manifest execution now available for both native renewal routes
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/context-validation1.sol61x.md"
     revision: a11befca
     title: Reviewed pure restored-reference correction, resealed corruption evidence and receiving verification boundary
@@ -41,9 +44,9 @@ sources:
   - resource: "file:///home/rektide/src/jj-waltz/transfer/workspace/src/streaming.rs"
     revision: 76fb0656
     title: Actual process-local sequential N1 consumer and pure source-qualified visitor
-  - resource: "file:///home/rektide/src/jj-waltz/refill/engine/src/engine/replacement.rs"
-    revision: 76fb0656
-    title: Native tracked materialization followed by ordinary transfer and links
+  - resource: "file:///home/rektide/src/jj-waltz"
+    revision: 76fb06564ef7a876de782e012ed2f775a54e85f1
+    title: Historical refill/engine/src/engine/replacement.rs at this revision; native tracked materialization followed by ordinary transfer and links, retired during public cutover
   - resource: /transfer/sync/src/coordinated/mod.rs
     revision: 10361cf0
     title: Plan reuse, eager decision projection, application barriers and route checks
@@ -93,8 +96,9 @@ code; its eventual receiving adoption needs fresh checks rather than stale binar
 
 Remaining native work is complete prepared S/O manifest renewal, ReplaceAuthorized,
 public reseed/prepare/JSON cutover and bounded route comparison. Library grouped
-opaque/cache work and distinct retention/deviation reporting are delivered;
-declared manifest execution is active. The following assessment sequence retains its original
+opaque/cache work, distinct retention/deviation reporting and declared manifest
+execution are delivered; native adoption of the manifest executor is active.
+The following assessment sequence retains its original
 revision-bound claims rather than describing those old costs as still universal.
 
 ## Assessment sequence and selected follow-through

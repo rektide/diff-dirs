@@ -17,6 +17,8 @@ sources:
     title: Verified 0.5 contextual production effects and actual resumed application
   - resource: /design/architecture/execution3.sol61x.md
     title: Verified grouped opaque execution, bounded source reuse and truthful schema3 reporting
+  - resource: /design/architecture/execution4.sol61x.md
+    title: Verified complete declared desired-owned executor and native coverage handoff
   - resource: opencode://ses_e7be6b24fffeDISpWdV1xNbqhD
     title: Adds explicit source-only conditional routing creation, effect/preview/continuation verification and the coordinated 0.2 public-interface marker
   - resource: opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY
@@ -291,7 +293,8 @@ Selected semantics and runtime facts now have separate owners; full visitors bel
 use that same engine. Typed paired traversal, work-only publication and contextual
 contextual data are delivered, with generic effects and fresh-process application
 continuation. Grouped opaque execution, bounded source reuse and schema3 reporting
-are delivered at 0.6; manifest renewal continues in the
+are delivered, with complete desired/owned manifest renewal at 0.7. Native adoption
+and public-command integration continue in the
 [active delivery](design/architecture/delivery0.gpt6ax.md). The following section
 describes the full-visitor compatibility contract.
 
@@ -911,7 +914,7 @@ are silent in the library (the CLI still prints its final summary).
 
 ## Development and evidence
 
-Grouped execution, bounded source reuse and corrected reporting are marked **0.6.0** across
+Complete declared desired/owned execution is marked **0.7.0** across
 the five library packages and CLI, with exact internal dependency pins. Comparison
 and sync parts and the reconciliation example now use schema3 and reject v2/v1;
 old mixed retention aggregates cannot recover the new distinct counters. The

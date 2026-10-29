@@ -17,6 +17,8 @@ sources:
     title: Foundation code checkpoints, compatibility and acquisition checks, and exact pending integration
   - resource: /design/architecture/execution3.sol61x.md
     title: Delivered successful source retention, demand masking, diagnostics and corrected selected counters
+  - resource: /design/architecture/execution4.sol61x.md
+    title: Delivered inspect-owned Exact and TargetCensus preparation with actual lookup provenance and complete execution inputs
   - resource: /tree/inspect/src/selection.rs
     title: Shared selected semantics, domain-specific authority and common validation
   - resource: /tree/inspect/src/policy.rs
@@ -87,7 +89,7 @@ coordinated groups and application barriers share its immutable body. Decoded
 `SelectionParts<C>` use the same validator as live finalization; decoding supplies
 no executable facts. PhysicalUnion and Listed domains distinguish actual absence
 from unrequested source observation. Listed references are represented and checked
-structurally here; their prepared-input binding and executor are subsequent work.
+structurally here; sync now owns their actual prepared-input binding and executor.
 
 Acquisition cells retain metadata obtained while resolving Unknown kind. Later
 attribute/execution demands reuse it. Policy and comparator views expose only their
@@ -115,6 +117,22 @@ a complete listing or absence of unqueried names. Original enumeration hints and
 lane-specific demand masks remain independent of cache history. `diagnostics()`
 attributes source listing/fact work to paired, opaque and declared paths, separately
 from route, target, permission and output work. Its cache charge is not process RSS.
+
+## Declared desired/owned preparation
+
+`inspect_declared_group` adds two closed input forms to the same acquisition and
+validation ownership: Exact declared names and complete actual TargetCensus.
+Desired names are direct lookup obligations even when absent on both sides;
+O-only/census names retain NotRequested source and never query it. Genuine missing
+target prefixes differ from symlinks, ENOTDIR and other failures.
+
+Pure `DeclaredSelection` route/entry hooks request masked facts and select work;
+inspection verifies real kind/executable expectations and completes execution
+inputs before constructing a live batch. Direct lookups reuse successful cells
+with acquired-metadata provenance, without claiming complete source enumeration.
+Sync's separate manifest bind proves actual IDs, coordinates, scopes and complete
+declarations before effects. The [0.7 receipt](/design/architecture/execution4.sol61x.md)
+records grouped, corruption, failure and real-reflink checks.
 
 ## Shared immediate inspection
 
