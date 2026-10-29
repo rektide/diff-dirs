@@ -273,6 +273,10 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             }
             result
         };
+        // Preserve the existing execution boundary: paired-frontier siblings and
+        // independent copy children may use the pool; recursive reconciliation
+        // (including both removal passes) and conditional chains stay serial.
+        let parallel = pending.is_none() && (owner == RecursionOwner::PairedFrontier || place.observed_target_directory.is_none());
         let staged = if let Some((parent, chain)) = pending.as_mut() {
             let mut staged = Vec::with_capacity(slots.len());
             for slot in slots {
@@ -289,7 +293,7 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             }
             staged
         } else {
-            self.map(call, &slots, true, prepare)
+            self.map(call, &slots, parallel, prepare)
         };
         let mut kept = batch.selection().coverage().excluded != 0;
         // No child/finish frame borrows the selected name table or fact slab.
@@ -316,7 +320,7 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             }
             results
         } else {
-            self.map(call, &children, true, |(_, child)| self.run_child(call, child, scope, None))
+            self.map(call, &children, parallel, |(_, child)| self.run_child(call, child, scope, None))
         };
         for ((index, _), result) in children.into_iter().zip(results) {
             match result {
