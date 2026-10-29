@@ -7,7 +7,7 @@ status: proposed-for-implementation
 generated: { by: "model:openai/gpt-6-astra#high", at: 2026-10-29 }
 sources:
   - resource: "opencode://ses_e7a2675f8ffe76VJT5Lt1Lwe5l"
-    title: Designs the provider-side selection, context, comparator, authority, acquisition, runtime and opaque-cohort contracts with an executable landing sequence
+    title: Designs and reviews the provider contracts and build sequence, including full-visitor error precedence, partial-frontier context, provisional effect accounting and bounded source reuse
   - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
     title: Parent commissions detailed Astra design and Sol implementation with broader future architecture included in this delivery
   - resource: /design/architecture/annealing0.gpt6ax.md
@@ -174,6 +174,38 @@ installation authority, and optional interior context. Exclusions retain names
 without invented kinds. One containing coordinate replaces per-entry `PathBuf`s.
 The batch retains its input context so refresh has the exact policy input.
 
+Use explicit entry points over the same engine, with no generic lowering payload
+mistaken for saved context:
+
+```rust,ignore
+pub struct TargetInspection<'a, P: Policy, M: Comparator> {
+    pub target: usize,
+    pub logical_root: &'a Path,
+    pub physical_directory: Option<&'a Path>,
+    pub context: &'a P::Context,
+    pub policy: &'a P,
+    pub comparator: &'a M,
+}
+
+pub fn inspect_group<P: Policy, M: Comparator, E: ExecutionDemand>(
+    source: &SourceSession,
+    at: DirectoryRequest<'_>,
+    lanes: &[TargetInspection<'_, P, M>],
+    execution_demand: &E,
+    epoch: &mut InspectionEpoch,
+    execution: Execution,
+) -> Result<Vec<TargetComparison<PreparedDirectory<P::Context>>>, SharedInputError>;
+```
+
+`DirectoryRequest` identifies the logical relative directory, actual present/absent
+source-directory route, purpose and `RootGated` versus `AlreadyAdmitted` entry.
+All lanes in one group share that source coordinate. Physical route omission is
+allowed only by the calling composition's genuine absence, explicit single-tree
+operation or private construction invariant. It is never a policy filter. Public
+external application goes through its checked binding; it cannot inject an
+arbitrary admitted request to execute a forged selection. Sync replacement
+preparation uses final logical roots plus its private output location separately.
+
 `PreparedDirectory`, the barrier and returned group share the **same**
 `Arc<DirectorySelection<C>>`. Sync's current `DirectoryDecision::of` projection
 and semantic validator disappear. A transitional decision-sharing commit is useful,
@@ -216,8 +248,12 @@ pub trait Policy: Sync {
 
     fn identity(&self) -> &SemanticId;
     fn initial_context(&self) -> Self::Context;
+    fn scoped(&self) -> bool { true } // conservative comparison-coverage promise
     fn validate_context(&self, at: ContextSite<'_>, value: &Self::Context)
         -> Result<(), CheckError>;
+    fn observation_profile(&self) -> ObservationProfile {
+        ObservationProfile::Staged
+    }
 
     fn names(&self, context: &Self::Context, names: &mut Names<'_>)
         -> Result<(), CheckError>;
@@ -261,6 +297,15 @@ enumerate → names admission → acquire kinds of surviving sides
 attributes. `names` can preserve without kind acquisition. Final policy cannot
 reopen either terminal preservation. Existing overrideable behavior uses the
 compatibility route below and does not acquire this terminal meaning accidentally.
+
+`ObservationProfile::LegacyFull` is used by the full adapter. Its exact legacy
+demands are known immediately after names admission, so it acquires that payload
+as a single full observation stage, before its no-op shape projection. This is
+essential for error precedence: a source readlink failure at an earlier name must
+not lose to a later name's kind/metadata failure merely because new sparse policies
+resolve kinds first. In a mixed group, acquired outcomes may be shared, but each
+lane evaluates only its own profile's ordered demands. This is one acquisition
+engine with two explicit schedules, not a second full-fact implementation.
 
 Comparison-only callers supply an empty execution-demand provider. Sync supplies
 its closed physical action demand table. This is a small inspection interface:
@@ -315,6 +360,11 @@ version. It must not rescan ancestors or repeat admission. Frozen shared indexes
 may be rebound from descriptors; a process-local pointer/address is not a saved
 context. Context bytes are data to validate, not proof that a historical caller
 obtained authority honestly.
+Live finalization calls the same policy check for its input and proposed interior
+contexts before publication. Structural selection validation remains generic over
+context values; policy interpretation validation remains with that policy. An
+unchanged child may inherit a cloned context by default, but role and coordinate
+validation still applies.
 
 ### Full visitors and API migration
 
@@ -387,11 +437,11 @@ returns its result. Future content/storage acquisition can extend the typed fact
 families deliberately without changing the distinction among these states.
 
 Baseline proposals are derived once. Assessed supported shape differences use the
-current mirror proposal. Paired equal leaves propose KeepLeaf. Paired leaf
+current mirror proposal. Paired equal leaves propose KeepLeaf.
 NotAssessed/Unsupported/Unresolved has **no baseline**; policy must explicitly
-retain/preserve or authorize proactive installation. Structural directory descent
-can still be selected without comparing leaf content. A skipped one-sided slot
-does not contribute an observed difference merely because its work is obvious.
+retain/preserve or authorize work. Structural directory descent can still be
+explicitly selected without comparing leaf content. A skipped one-sided slot does
+not contribute an observed difference merely because its work is obvious.
 
 Store policy ID, context-schema meaning and comparator ID separately in each
 `TargetBinding<C>`. Runtime binding compares all of them before filesystem access,
@@ -408,10 +458,20 @@ misleading action-deviation `retained` field to `deviated` on the new surface;
 renewal is a deviation but is not retention. Actual preservation/retention diagnostics
 may be counted separately by the effect/policy report.
 
+Record stopped **paired** descent explicitly instead of treating every action
+deviation as a coverage hole. The new `Policy::scoped() == false` promises unscoped
+comparison coverage, not that selected work equals baseline work. `Mirror` returns
+false; the full adapter forwards the legacy visitor's conservative declaration.
+Actual exclusion, stopped paired descent and explicit prune still limit coverage
+regardless of that declaration. Equal-leaf renewal alone does not.
+
 `Summary::is_clean()` requires complete relevant coverage, no comparison gaps and
 no differences under its **bound comparator**. Expose that comparator in the report.
 An empty legacy `DirDiff` alone says nothing about omitted or unresolved assessment.
 The old full visitor/StatKey projection keeps its established meaning.
+Distinguish traversal exhaustion from comparison completeness with explicit helpers;
+remove `deviated == 0` as a universal completeness requirement. Thus a fully assessed
+unscoped equal renewal can truthfully be comparison-clean and still require work.
 
 `LaneReport::satisfied` continues to mean that the **selected policy work** completed,
 not a post-effect rerun of the comparator. Preserve unresolved observed results in
@@ -434,6 +494,11 @@ pub struct InstallAuthority {
 }
 ```
 
+Grants are nested destination-shape permissions: AbsentOnly permits absence;
+ReplaceLeaf permits absence or a supported leaf; ReplaceTree additionally permits
+a supported directory, subject to coupled descendant constraints. None permits
+replacing unsupported special kinds.
+
 `ReconcileDifference` requires `Comparison::Different`. `Renew` permits Equal or
 NotAssessed as well as Different/Unresolved/unsupported predicate outcomes, provided
 the physical source kind is supported and the destination grant covers its actual
@@ -441,6 +506,14 @@ shape. `ReplaceTree` still requires coupled removability and inherited descendan
 policy; it is not rm-rf permission. `AbsentOnly` never changes into replacement on
 an unexpected collision. Regular renewal always prepares a new private inode and
 renames it into place; never write through the old inode or hardlink it to donor.
+
+An authority is required on InstallLeaf and coupled installing replacements,
+including source-directory preparation. Other actions carry no leaf-install grant;
+directory Create/CreateIfNeeded retain their inherent absent-container constraint.
+`Renew` on a type-changing source-directory preparation means proactive selected
+source installation, with the selected interior defining what contents are wanted.
+The validator rejects unused/inconsistent authority fields instead of allowing
+inert-looking grants to become latent permission.
 
 Ordinary mirror derives its existing difference-based placement grants. A policy
 selecting renewal must explicitly choose the grant. Source-only copy, target-only
@@ -562,7 +635,9 @@ name arenas, source fact cache and semantic state. Caller Rayon ownership stays.
 
 ### Route admission
 
-Introduce a private `RouteEpoch` used for one joined API call. It caches no-follow
+Introduce a private `RouteEpoch` inside inspection's public opaque
+`InspectionEpoch`, used for one joined API call. Compare and sync can borrow that
+epoch across crate boundaries without constructing route certificates. It caches no-follow
 route results and containing-directory metadata by physical root/path, including
 shared source prefixes. It is lent to inspection and effect preparation, rather
 than `refresh` and `apply` each performing the same full check within one call.
@@ -593,6 +668,10 @@ Cache key is `(runtime source-generation identity, relative directory)`. Never
 reuse merely because two source path strings match. Binding/restoring a new run
 creates a new generation and empty cache; an explicit source-phase transition also
 starts a new generation. This fits the caller's good-source/quiescence premise.
+Cached early views retain the original enumeration hints. A previous lane's acquired
+metadata must not silently strengthen a subsequent `names` callback's input; explicit
+kind resolution and declared fact stages are where cached stronger facts become
+available.
 
 Use explicit default cache limits of 32 batches and 8 MiB **charged owned capacity**,
 with zero disabling cross-call retention. Charge names, links and indexed fact
@@ -644,6 +723,12 @@ state, partial actual totals and local failure. At an immediate opaque level:
    restore their scopes and retain original causes/actual progress. A sibling lane
    does not inherit their stop flag or target failure.
 
+Private replacement preparation has provisional progress until installation into
+the final namespace. Preserve the current kernel's accounting: discarded staging
+does not count as completed target installation; a failed rename after visible
+target removal still reports that removal. Each lane owns its provisional totals
+and restoration/cleanup errors independently, even when source observations share.
+
 Extract primitive leaf preparation/install, directory setup/finish and permission
 leases from `apply.rs`; single-lane recursive execution and the cohort use those
 same primitives. `apply(target)` becomes a one-member call, preserving the ability
@@ -692,10 +777,17 @@ impl PreparedLeafList {
 }
 
 pub enum ListedIntent { CreateAbsent, RenewAuthorized }
-pub struct ListedTarget<'a, P: Policy> {
-    pub applier: &'a Applier<P>,
+pub struct ListedTarget<'a, P: Policy, M: Comparator = StatKey> {
+    pub id: &'a TargetId,
+    pub applier: &'a Applier<P, M>,
     pub intent: ListedIntent,
 }
+
+pub fn install_prepared<P: Policy, M: Comparator>(
+    source: &SourceSession,
+    leaves: &PreparedLeafList,
+    targets: &[ListedTarget<'_, P, M>],
+) -> Result<ListedReport, Error>;
 ```
 
 The constructor is filesystem-free. Normalize accepted normal-component spellings
@@ -719,6 +811,13 @@ target leaf blocking a required parent similarly needs explicit parent replaceme
 authority; otherwise refuse. The native adapter may perform its own authorized
 obstruction clearing before this seam instead.
 
+The listed intent is a binding constraint, not an overrideable mirror proposal:
+policy may narrow/refuse a grant but cannot widen CreateAbsent into replacement.
+Every listed leaf is a required desired installation. A policy withholding one is
+an unsatisfied/refused listed group, not successful full-list completion. To request
+a subset, prepare that subset explicitly. This lets the native adapter distinguish
+complete tracked population from an intentionally filtered ordinary policy run.
+
 Only desired listed leaves and their required containers enter this path. An
 unlisted target is outside the desired-input domain, not an observed source-absent
 slot. This is the concrete desired-input capability for the current build: named
@@ -730,6 +829,13 @@ small wrapper for `seed_leaves` that prepares a list and selects CreateAbsent.
 Document the new grouped pre-effect failure boundary explicitly; don't accidentally
 claim the old leaf-by-leaf prefix behavior for the new API. No prepared list or
 native membership cache is a certificate of current source attributes.
+
+`ListedReport` returns ordered per-target outcomes and actual work. Invalid list or
+binding input refuses before effects; a runtime failure closes that lane's scopes
+and retains actual progress. This is a coarse joined installation call, like the
+existing listed seed primitive. It does not introduce a second saved cursor or
+promise a checkpoint between its individual leaves. A native caller that saves
+between phases owns the prepared list's native descriptor and phase disposition.
 
 The two JW renewal routes can share this input and kernel. JW decides which
 native transitions establish absence or replacement authority, what obsolete names
@@ -782,7 +888,7 @@ fresh-process consumer. No representative timing claim precedes these gates.
 
 | Gate | Required discriminator |
 | --- | --- |
-| Shared selection ownership | A wide clean/work batch's plan, group and barrier point to one immutable body; dropping live preparation releases facts while the saved selection survives. Restored values compare semantically without Arc identity. |
+| Shared selection ownership | A wide clean/work batch's plan, group and barrier point to one immutable body; with source retention disabled, dropping live preparation releases facts while the saved selection survives. Restored values compare semantically without Arc identity. |
 | Common validation | Mutate decoded comparison/action/authority/context-role combinations; live finalization and restore reject the same invalid combinations. Sync still independently rejects barrier/binding mismatch. |
 | Context qualification | Source admits Q once. Nested selected leaves do not restart selector/ancestor-ignore queries. A target-only descendant is removed under inherited Q; a vanished unadmitted Q is retained. |
 | Residual exception | Remove a target-only region with preserved `cache/local/`; siblings remove, necessary ancestors survive. Directory→leaf replacement of that region refuses intact before staging/chmod/dismantling. |
@@ -791,9 +897,9 @@ fresh-process consumer. No representative timing claim precedes these gates.
 | Context/comparator binding | Change a context schema, residual input or comparator parameters while actions would remain identical. Bind refuses before filesystem access. Changing only resource limits succeeds. |
 | Predicate difference | Same-size differing-mtime regular pair: StatKey selects difference, SizeAndLink selects equal. Exercise paired, opaque context and restored unstarted application paths. |
 | Honest results | Exercise NotAssessed, Unsupported and Unresolved separately. None certifies clean or manufactures absence; default unresolved mirror refuses, explicit renewal can still select installation. |
-| Equal renewal publication | Equal regular leaf with Renew+ReplaceLeaf yields selected work in sequential and parallel PlanWalk and coordinated sync while baseline diff stays empty. Fresh private installation leaves source and old hardlinked sibling unmodified. |
+| Equal renewal publication | Equal regular leaf with Renew+ReplaceLeaf yields selected work in sequential and parallel PlanWalk and coordinated sync while baseline diff stays empty; an unscoped fully assessed renewal remains comparison-clean. Fresh private installation leaves source and old hardlinked sibling unmodified. |
 | Zero-planned opaque work | Target-only Keep-container+descend has zero immediate namespace count but removes an admitted child. No-effect optimization must execute it. Clean paired-only groups perform no staging/chmod/write calls. |
-| Full visitor contract | Late visitor sees all old metadata/link fields and can override earlier absence/Seed/Prune choices. Known/Unknown hints, explicit special preservation, root suppression and original ordered failure cases agree. |
+| Full visitor contract | Late visitor sees all old metadata/link fields and can override earlier absence/Seed/Prune choices. Known/Unknown hints, explicit special preservation, root suppression and original ordered failure cases agree, including earlier source-readlink versus later kind failure. |
 | Staged acquisition | Known directory pair needs no attributes under narrow policy; Unknown kind→attributes uses one acquisition; selected copy reuses it; type-mismatched target link avoids readlink. |
 | Lane-local stronger demand | A requests source link text and gets a fault, B needs kind only. B succeeds; A keeps original cause. Repeat attributes-versus-known-kind and sequential/parallel ordered faults. |
 | Whole-batch execution demand | Later sibling's required source attributes fail. Earlier sibling has zero effects in that immediate batch. Previously completed ancestor/other-lane effects remain truthful. |
@@ -803,7 +909,7 @@ fresh-process consumer. No representative timing claim precedes these gates.
 | Owned child names | Long/non-UTF8 names survive batch drop. Retaining one pending child retains only child storage, not the complete name/fact arena; all native ordering/exclusion identities match. |
 | Resource lifetimes | Buffer reuse at EOF and error, growth bound, concurrent borrow without waiting, reconfigure while leased, zero retention and unsupported backend controls. Save/rebind has no buffer/pool payload. |
 | Route boundaries | Within apply-many, shared source prefixes are checked once. Replace a route with a symlink between returned calls: next call refuses. Internal refresh+apply does not duplicate checks; standalone refresh does not create a lasting certificate. |
-| Prepared list | Prepare once, install into two targets without sorting/group-building twice or enumerating unlisted source. Duplicate and leaf/ancestor conflicts refuse before writes; occupied strict-create refuses; authorized equal renewal installs; unlisted local survives. |
+| Prepared list | Prepare once, install into two targets without sorting/group-building twice or enumerating unlisted source. Duplicate and leaf/ancestor conflicts refuse before writes; occupied strict-create refuses even if policy tries to widen it; withheld required leaf cannot report satisfied; authorized equal renewal installs; unlisted local survives. |
 | Restore corruption | Context member/frame mismatch, wrong role, missing opaque context, omitted paired child, altered grant and lost partial reduction reject. Existing barrier/window/terminal-lane/counter-limit cases remain. |
 
 Run existing conditional-container, replacement-intact-refusal, output-mtime,
@@ -811,6 +917,15 @@ required-reflink-no-fallback and explicit-subset-refresh regressions as relevant
 slices change. Feature-disabled/default/all-feature checks and fresh-process tests
 are integration gates; no need to rerun the entire matrix after every document or
 private helper edit. Update examples and public Rustdoc with the API changes.
+
+Place acquisition/selection discriminators beside `tree/inspect/src/shared_tests.rs`
+and the new inspection modules; frontier/corruption cases in
+`tree/compare/src/coordinated/tests.rs`; effect/barrier cases in
+`transfer/sync/src/coordinated/tests.rs` and `transfer/sync/tests/visitor.rs`;
+prepared-list cases beside its new module. Extend
+`examples/reconcile/tests/process.rs` for actual process reconstruction. Keep
+fault/counter hooks private to tests, as current acquisition substitution already
+does. Buffer/name tests belong to `tree/observe`, not sync's native-consumer tests.
 
 ## 12. Sol implementation sequence and parent checkpoints
 
