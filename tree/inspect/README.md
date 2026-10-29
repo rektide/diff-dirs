@@ -5,12 +5,20 @@ description: Ownership of immediate name unions, acquisition demands, visitor po
 resource: /tree/inspect/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
-updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
+updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 verification:
   scope: Immediate source-once acquisition and pair/sync regressions; not coordinated traversal, resumable execution or performance
   method: Counted and faulted real-filesystem acquisition tests, pure-default owner and Linux nightly workspace default/all-features nextest, strict clippy, formatting, doctests and Rustdoc
   result: Baseline 2c29671b passed 123 pure-default owner/consumer tests, 172 default and 175 all-feature workspace tests and 18 doctests; the lowering/admission successor passed 27 default and 30 all-feature inspection tests
 sources:
+  - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
+    title: Reviews and promotes the shared selection, contextual inspection and finite acquisition foundation while preserving traversal/executor handoff boundaries
+  - resource: /design/architecture/execution0.sol61x.md
+    title: Foundation code checkpoints, compatibility and acquisition checks, and exact pending integration
+  - resource: /tree/inspect/src/selection.rs
+    title: Shared selected semantics, domain-specific authority and common validation
+  - resource: /tree/inspect/src/policy.rs
+    title: Contextual policy stages and faithful full-visitor adapter
   - resource: "opencode://ses_e7eb22fb2ffeH5O20EZV5nW4B5"
     title: Implemented and verified source-once inspection, original shared error causes, consumer-selected full-plan lowering and already-admitted inspection without root-policy replay
   - resource: "opencode://ses_e9d314c29ffeboK450qrHM3qhF"
@@ -29,9 +37,11 @@ sources:
 
 # Immediate tree inspection
 
-`diff-dirs-tree-inspect` owns immediate native-name unions, early admission,
-full-fact late visitors, comparison predicates, action validation and immutable
-`DirectoryPlan`s. It performs no recursive traversal or filesystem mutation.
+`diff-dirs-tree-inspect` owns immediate native-name unions, staged acquisition,
+contextual policy and full-fact visitor adapters, comparison predicates and common
+selected-work validation. Immutable `DirectorySelection<C>` is separate from
+runtime `PreparedDirectory<C>` facts; `DirectoryPlan` is the full-visitor adapter.
+It performs no recursive traversal or filesystem mutation.
 `DirDiff`, immediate counts, checks, scopes and errors have this same owner.
 
 `PairedRoots` validates real directory roots source-first and reuses their mandatory
@@ -47,8 +57,50 @@ entries and link texts to acquire, orders failures and maps physical errors whil
 retaining the original I/O cause. Physical hint types are re-exported unchanged;
 backend handles never enter visitor payloads or finalized plans. `native-dirent`
 forwards to observation and remains opt-in (Linux needs nightly); `parallel`
-orchestrates admitted acquisition on the caller's Rayon pool. There is no new
-pooling, tuning or coordinated traversal implementation.
+orchestrates admitted acquisition on the caller's Rayon pool. Observation owns
+caller-supplied buffer resources; comparison owns coordinated traversal.
+
+## Contextual inspection and shared selections
+
+`inspect_group` takes one `SourceSession`, a `DirectoryRequest`, ordered
+`TargetInspection` lanes, a pure `ExecutionDemand` table and an `InspectionEpoch`.
+Each lane supplies its typed policy context and comparator. The engine runs:
+
+```text
+names admission → kind resolution → shape choices → requested facts
+→ comparison → final selection → semantic/context validation
+→ missing selected-execution facts → immutable prepared batch
+```
+
+`Policy` has independent policy and context-schema identities. `StatKey` preserves
+size/exact-mtime and literal-link equality; `SizeAndLink` deliberately ignores
+regular-file mtime. `Comparison` distinguishes Equal, Different, NotAssessed,
+Unsupported and Unresolved. Explicit Renew authority can select an equal leaf
+without changing its comparison. `DirectoryCoverage` derives comparison gaps,
+action deviation and `ApplicationNeed` separately; zero immediate planned work
+does not suppress an opaque recursive obligation.
+
+`DirectorySelection<C>` owns metadata-free semantics and compact names. Live plans,
+coordinated groups and application barriers share its immutable body. Decoded
+`SelectionParts<C>` use the same validator as live finalization; decoding supplies
+no executable facts. PhysicalUnion and Listed domains distinguish actual absence
+from unrequested source observation. Listed references are represented and checked
+structurally here; their prepared-input binding and executor are subsequent work.
+
+Acquisition cells retain metadata obtained while resolving Unknown kind. Later
+attribute/execution demands reuse it. Policy and comparator views expose only their
+declared facts, even when a peer requested more. A source link/attribute failure
+affects only lanes that require that fact. `FullVisitor` uses this engine with its
+legacy full-observation schedule and early/late precedence, including per-name
+source-before-target error ordering.
+
+Root gating may derive a context for the root's contents. AlreadyAdmitted calls
+reuse their exact supplied input without root-policy replay. The
+[foundation account](/design/architecture/execution0.sol61x.md) records tested
+immediate behavior. Generic contextual frontier/opaque execution and fresh-process
+context transport are the next integration boundary. Source cells currently share
+within one joined call; bounded cross-call retention and route-epoch reuse are
+pending. No cache or epoch placeholder supplies lasting route authority.
 
 ## Shared immediate inspection
 

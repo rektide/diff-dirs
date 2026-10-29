@@ -6,6 +6,10 @@ resource: /examples/reconcile/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 sources:
+  - resource: opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4
+    title: Documents the verified explicit v2 selection transport and its current unit-context boundary
+  - resource: /design/architecture/execution0.sol61x.md
+    title: Provider 0.3 adoption, common semantic validation and 15 passing process cases
   - resource: "opencode://ses_e7be6b24fffeDISpWdV1xNbqhD"
     title: Adopts exact 0.2 library pins and locks and extends the example's action vocabulary for source-only conditional routing
   - resource: "opencode://ses_e7e6c1941ffeFqyy1fEbFTKVmf"
@@ -110,11 +114,18 @@ can complete even when another lane failed, so `Done` alone does not mean succes
 ## Transport and effect boundaries
 
 [`transport.rs`](src/transport.rs) defines explicit application DTOs under
-`schema = "diff-dirs.reconcile-example", version = 1`. Field names and closed enum
+`schema = "diff-dirs.reconcile-example", version = 2`. Field names and closed enum
 spellings belong to this example, not to runtime Rust layout. Unknown fields,
 vocabulary, versions, incompatible policy descriptors and invalid saved state are
 refused before execution. Actual error causes are returned live; saved terminal
 markers are data, not executable error objects or an operation recovery log.
+
+The 0.3 adoption explicitly stores comparison outcomes, source observation,
+installation/removal authority, interior role/input and policy/context-schema/
+comparator descriptors. Reconstruction uses inspection's common selected-work
+validator. Version 1 refuses rather than receiving invented context or authority.
+This checkpoint still transports unit context; richer contextual frontier and
+process cases are part of the active provider integration.
 
 The 0.2 library adoption adds `directory/create-if-needed/descend` to this
 vocabulary. Older readers reject unknown spellings; it is not a serialization

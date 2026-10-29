@@ -8,9 +8,11 @@ generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-20 }
 updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
   - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
-    title: Records the human execution commission and points to the active joined library and command delivery
+    title: Commissions and reviews the joined delivery, promotes the verified selection and inspection foundation, and tracks pending contextual execution
   - resource: /design/architecture/delivery0.gpt6ax.md
     title: Active execution account and architectural review boundaries
+  - resource: /design/architecture/execution0.sol61x.md
+    title: Verified shared selections, common validation, staged facts, resource ownership and v2 unit-context migration
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
     title: Connects the human-directed architectural integration assessment and its proposed next-build ownership changes to the maintained architecture
   - resource: /design/architecture/annealing0.gpt6ax.md
@@ -122,6 +124,7 @@ remaining empirical performance study.
 | Capability | Owner and standing |
 | --- | --- |
 | Physical observation and full-fact visitors | Delivered in [observation](/tree/observe/README.md) and [inspection](/tree/inspect/README.md). |
+| Shared selected state and contextual immediate inspection | Delivered foundation at 0.3: common semantic validation, typed context, explicit comparators, staged facts, compact names and caller-owned enumeration resources. [Checkpoint](/design/architecture/execution0.sol61x.md). |
 | Shared-source immediate assessment | Delivered: source facts and physical errors are shared; unions, policy and error precedence remain per lane. |
 | Paired and coordinated traversal | Delivered in [comparison](/tree/compare/README.md): paired walks plus the coordinated membership frontier. |
 | Coordinated comparison continuation | Delivered: validated owned parts, partial heads, independent returns, control-token restoration and explicit runtime binding. |
@@ -169,6 +172,17 @@ joins those changes to JW's whole-command trajectory. The human has since
 [commissioned execution](/design/architecture/delivery0.gpt6ax.md), with broader
 upfront integration where that prevents substantial near-term rebuilding. The
 delivery account distinguishes the active work from the implemented contracts below.
+
+The first [provider implementation checkpoint](/design/architecture/execution0.sol61x.md)
+now separates `DirectorySelection<C>` from runtime `PreparedDirectory<C>` facts.
+Default full visitors run through the same finite acquisition engine as new
+contextual policies. Groups, live plans and barriers share one immutable selected
+body; inspection owns its semantic validator. Comparison/sync and the example have
+explicit v2 unit-context adapters. Generic context propagation through the frontier,
+opaque effects and restored process transport remains the next build boundary.
+The [inspection guide](/tree/inspect/README.md#contextual-inspection-and-shared-selections)
+owns the delivered API; the wider design also selects grouped opaque execution and
+complete desired/owned manifest renewal for subsequent integration.
 
 | Component | Contract and owner |
 | --- | --- |

@@ -5,8 +5,12 @@ description: Deterministic paired and coordinated directory comparison, resumabl
 resource: /README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
+updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
+  - resource: opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4
+    title: Integrates the verified contextual-inspection foundation and explicit 0.3/v2 transition, with whole-traversal adoption still active
+  - resource: /design/architecture/execution0.sol61x.md
+    title: Shared selected-state, staged inspection and resource implementation checkpoint
   - resource: opencode://ses_e7be6b24fffeDISpWdV1xNbqhD
     title: Adds explicit source-only conditional routing creation, effect/preview/continuation verification and the coordinated 0.2 public-interface marker
   - resource: opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY
@@ -273,6 +277,14 @@ Both consumption styles below run over this same walk — the library makes no
 distinction between them. See [Use cases](#use-cases).
 
 ## Visitor-steered planning
+
+The **0.3 inspection foundation** also exposes typed contextual `Policy`, explicit
+comparators and `PreparedDirectory<C>` through the
+[immediate inspection API](tree/inspect/README.md#contextual-inspection-and-shared-selections).
+Selected semantics and runtime facts now have separate owners; full visitors below
+use that same engine. Generic contextual traversal/effects are being integrated in
+the [active delivery](design/architecture/delivery0.gpt6ax.md). The following section
+describes the full-visitor compatibility contract.
 
 `Visitor: Sync` has **one early name batch and one late operation batch per
 directory**. It is statically dispatched Rust, not an interpreted rule list or a
@@ -889,8 +901,11 @@ are silent in the library (the CLI still prints its final summary).
 
 ## Development and evidence
 
-The `CreateIfNeeded` public enum/action addition is marked **0.2.0** across the
-five library packages and CLI, with exact internal dependency pins. This is an
+The shared-selection/contextual-inspection foundation is marked **0.3.0** across
+the five library packages and CLI, with exact internal dependency pins. Comparison
+and sync parts and the reconciliation example now use schema v2 and reject v1;
+the present transport is the unit-context adapter while generic context propagation
+is integrated. `CreateIfNeeded` was the earlier 0.2 interface addition. This is an
 explicit pre-alpha source-interface marker, not a compatibility promise for
 unchanged version numbers. Development-only perf tools retain their `0.0.0`
 versions; consuming examples pin the reviewed library version and refresh their

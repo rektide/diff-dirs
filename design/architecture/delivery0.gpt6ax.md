@@ -24,6 +24,8 @@ sources:
     title: Accepted contextual selection, acquisition, runtime resource, grouped opaque and complete desired-owned manifest contracts
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution0.sol61x.md"
     title: Shared native command implementation checkpoint, producer and preview evidence, pending final rebuild and integration interfaces
+  - resource: /design/architecture/execution0.sol61x.md
+    title: Verified shared-selection and contextual-inspection foundation, version migration and exact next execution slice
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -93,7 +95,8 @@ specific unresolved concern.
 | Native and command design | Astra high, `opencode://ses_e7a26147bffeOIk9jHWPYXJrHI` | Returned and reviewed; commit `2d2dfa2b`, six bounded native cases. |
 | Bounded verification preparation | Sol xhigh, `opencode://ses_e7a2227e7ffeTQH5TWAkgiaxOz` | Returned: native trace count command and concrete integration handoff. |
 | Shared native command implementation | Sol xhigh, `opencode://ses_e7a14b1afffe7eRp0y0L0JssYC` | Returned through `deb7fb75`; final native integration checks await the active provider rewrite. |
-| Provider selection/inspection foundation | Sol xhigh, `opencode://ses_e7a064cf8ffeJhoqfCnySR4Q6l` | Active: shared semantic contract, common validation, contextual policy/comparison and real inspection adoption. |
+| Provider selection/inspection foundation | Sol xhigh, `opencode://ses_e7a064cf8ffeJhoqfCnySR4Q6l` | Returned through `509e2704`; reviewed selection, policy, preparation and resource ownership. |
+| JW foundation adoption and remaining native checks | Sol xhigh, `opencode://ses_e79dd6eaeffeNFNkKJzrJKre9x` | Active against stable provider 0.3 checkpoint, including compact failure rendering correction. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -206,6 +209,29 @@ Integration must replace the temporary strict-seed coverage projection with actu
 cut over the CLI. Parent also identified a report presentation correction for that
 slice: `CommandFailure::fmt` currently debug-dumps all receiver reports; the public
 failure path must render compact phase/cause/effect summaries instead.
+
+### Provider foundation review
+
+Commits `fb4719cc` and `48d50af0` establish the shared semantic selection and real
+contextual immediate engine. `509e2704` records the
+[implementation handoff](execution0.sol61x.md). Parent reviewed the common legality
+table, physical/listed source distinction, explicit authority, derived coverage,
+policy/context-schema identities, prepared-fact separation and buffer ownership.
+The common model accommodates the later manifest executor without manufacturing
+source absence or letting desired obligations become retention.
+
+Sol reports 49 all-feature and 44 feature-disabled observation/inspection cases,
+121 sync/compare regressions and 15 reconcile process cases passed, plus strict
+Clippy, formatting, Rustdoc, example compilation and document checks. Packages and
+receiving example pins are 0.3.0. Shared plan/group/barrier Arc ownership is tested.
+These establish the foundation and legacy compatibility, not completed contextual
+recursion or manifest execution. Maintained observation/inspection guides now
+describe that verified subset.
+
+The immediate next provider slice is generic contextual bindings/frontier/partial
+frames, direct prepared-batch execution through all opaque paths, work-only
+publication, complete v2 context transport and fresh-process proof. JW's remaining
+native checks run against this stable foundation before that rewrite starts.
 
 ## Work ownership and navigation
 
