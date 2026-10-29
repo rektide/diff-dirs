@@ -369,6 +369,65 @@ mod tests {
     use crate::acquire::{Demand, Physical};
     use crate::test_support::{Fixture, file};
     #[test]
+    fn concurrent_consumers_coordinate_successful_listing_and_fact_cells() {
+        use std::sync::{Barrier, atomic::AtomicUsize};
+        struct Counted<'a> {
+            physical: Physical<'a>,
+            listings: AtomicUsize,
+            metadata: AtomicUsize,
+        }
+        impl Acquire for Counted<'_> {
+            fn list(&self, path: &Path) -> Result<Vec<diff_dirs_tree_observe::Entry>, Error> {
+                self.listings.fetch_add(1, Ordering::Relaxed);
+                self.physical.list(path)
+            }
+            fn metadata(&self, entry: diff_dirs_tree_observe::Entry) -> Result<std::fs::Metadata, Error> {
+                self.metadata.fetch_add(1, Ordering::Relaxed);
+                self.physical.metadata(entry)
+            }
+            fn path_metadata(&self, path: &Path) -> Result<std::fs::Metadata, Error> {
+                self.metadata.fetch_add(1, Ordering::Relaxed);
+                self.physical.path_metadata(path)
+            }
+            fn root_metadata(&self, path: &Path) -> Result<std::fs::Metadata, Error> {
+                self.physical.root_metadata(path)
+            }
+            fn link(&self, path: &Path) -> Result<PathBuf, Error> {
+                self.physical.link(path)
+            }
+        }
+        let f = Fixture::new();
+        file(&f.original.join("entry"), b"shared actual observation");
+        let source = SourceSession::new(&f.original);
+        let counted = Counted {
+            physical: Physical(source.resources()),
+            listings: AtomicUsize::new(0),
+            metadata: AtomicUsize::new(0),
+        };
+        let barrier = Barrier::new(2);
+        std::thread::scope(|scope| {
+            let handles: Vec<_> = (0..2)
+                .map(|_| {
+                    scope.spawn(|| {
+                        let lease = source.checkout(Path::new(""), SourceWork::Opaque);
+                        let entries = lease.listed(&f.original, &counted).unwrap();
+                        barrier.wait();
+                        entries[0].1.acquire(Demand::FULL, &counted).unwrap();
+                    })
+                })
+                .collect();
+            for handle in handles {
+                handle.join().unwrap();
+            }
+        });
+        assert_eq!(counted.listings.load(Ordering::Relaxed), 1);
+        assert_eq!(counted.metadata.load(Ordering::Relaxed), 1);
+        assert_eq!(source.diagnostics().opaque.metadata_acquisitions, 1);
+        assert_eq!(source.diagnostics().opaque.fact_hits, 1);
+        assert_eq!(source.diagnostics().active_batches, 0);
+        assert_eq!(source.diagnostics().retained_batches, 1);
+    }
+    #[test]
     fn sparse_positive_cells_never_claim_a_complete_listing_or_unqueried_absence() {
         let f = Fixture::new();
         file(&f.original.join("known"), b"known");

@@ -227,15 +227,28 @@ fn joint_both_missing_and_private_expansion_are_source_once_with_zero_retention(
                 ..Default::default()
             },
         ]);
+        #[cfg(feature = "parallel")]
+        let execution = if replacement { Execution::Parallel } else { Execution::Sequential };
+        #[cfg(not(feature = "parallel"))]
+        let execution = Execution::Sequential;
         let mut run = f.cursor(
             &runtime,
             SourceCacheLimits {
                 batches: 0,
                 charged_capacity: 0,
             },
-            Execution::Sequential,
+            execution,
         );
         let group = run.next_group(&runtime).unwrap().unwrap();
+        #[cfg(feature = "parallel")]
+        let report = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .thread_name(|i| format!("opaque-cohort-{i}"))
+            .build()
+            .unwrap()
+            .install(|| run.apply_many(&runtime, &group.token, &["lane-1".into(), "lane-0".into()]))
+            .unwrap();
+        #[cfg(not(feature = "parallel"))]
         let report = run.apply_many(&runtime, &group.token, &["lane-1".into(), "lane-0".into()]).unwrap();
         assert_eq!(report.outcomes.iter().map(|o| o.target.0.as_str()).collect::<Vec<_>>(), ["lane-0", "lane-1"]);
         assert!(report.outcomes.iter().all(|o| o.outcome.is_ok()), "{:?}", report.outcomes);
