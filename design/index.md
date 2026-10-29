@@ -67,6 +67,10 @@ implementation completion.
 - [Active delivery](architecture/delivery0.gpt6ax.md): October 29 execution
   commission, with Astra-high designs and Sol-xhigh builds. Tracks joined
   architectural review and implementation across the library and JW command.
+- [Accepted provider execution design](architecture/execution0.gpt6a.md): shared
+  semantic selections, contextual traversal, staged facts, explicit comparison and
+  authority, v2 restoration, runtime resources, grouped opaque execution and complete
+  desired/owned manifests. The delivery account records acceptance and build receipts.
 - [Annealing architecture into the next delivery](architecture/annealing0.gpt6ax.md):
   selected integration of JW's trajectory1 and subsequent human steering.
   Recommends real inherited region context and explicit comparison composition in

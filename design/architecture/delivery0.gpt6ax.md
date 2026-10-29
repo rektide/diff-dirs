@@ -20,6 +20,8 @@ sources:
     title: Independent Sol verification-tooling preparation, counted trace capability and remaining real-command fixture requirements
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution0.gpt6a.md"
     title: Native command design and bounded same-tree-child replacement proof accepted for implementation
+  - resource: /design/architecture/execution0.gpt6a.md
+    title: Accepted contextual selection, acquisition, runtime resource, grouped opaque and complete desired-owned manifest contracts
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -55,6 +57,10 @@ The selected outcome includes:
   control; relative performance will be measured after both routes work.
 - Source-only preparation handed into refill, nonmutating `PLANNED` preview,
   phase-aware partial reports, loaded finish and public command cutover.
+- Compact native names and owned child promotion; caller-owned observation buffers,
+  finite staged acquisition and within-call route reuse.
+- Joint opaque source execution and bounded mixed opaque/paired source reuse, with
+  complete desired/owned listed renewal sharing the production effect kernels.
 
 Native storage, membership and ordinary-selection authority retain their distinct
 owners. The outcome claims for D=S and D≠S must be stated independently. Broader
@@ -81,10 +87,11 @@ specific unresolved concern.
 
 | Work | Owner / session | Standing |
 | --- | --- | --- |
-| Provider contract design | Astra high, `opencode://ses_e7a2675f8ffe76VJT5Lt1Lwe5l` | In progress; inspect/compare/sync and observation ownership. |
+| Provider contract design | Astra high, `opencode://ses_e7a2675f8ffe76VJT5Lt1Lwe5l` | Returned and accepted through commit `1132c5c1`, including the native manifest handoff. |
 | Native and command design | Astra high, `opencode://ses_e7a26147bffeOIk9jHWPYXJrHI` | Returned and reviewed; commit `2d2dfa2b`, six bounded native cases. |
 | Bounded verification preparation | Sol xhigh, `opencode://ses_e7a2227e7ffeTQH5TWAkgiaxOz` | Returned: native trace count command and concrete integration handoff. |
 | Shared native command implementation | Sol xhigh, `opencode://ses_e7a14b1afffe7eRp0y0L0JssYC` | Active: shared bindings/native inputs, receiver operation, structured reports and coherent producer/preview extraction. |
+| Provider selection/inspection foundation | Sol xhigh, `opencode://ses_e7a064cf8ffeJhoqfCnySR4Q6l` | Active: shared semantic contract, common validation, contextual policy/comparison and real inspection adoption. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -104,7 +111,7 @@ Parent reviewed the tool diff and report; these checks were not repeated.
 The existing campaign creates donors per sample and fixes D=S. The integrated
 evidence slice must instead reuse one owned donor and at most two receivers,
 exercise mixed N2 and independent S/D, and run both routes through the actual
-public command. Native protocol and production results remain pending.
+public command. Production command results remain pending.
 
 ### Native design review
 
@@ -135,6 +142,40 @@ The parent also accepts final-only tracked preparation conformance, explicit
 The chosen CLI mechanism selector is `--renewal-route` with clear-first as default;
 `--replace-content` retains its separate authority. Deployment remains a deliberate
 later action.
+
+### Joined provider review and expanded build
+
+Accepted the [provider design](execution0.gpt6a.md), including its section 9
+desired/owned manifest contract. It meets the native handoff without a JW-local
+copier: physical union and declared desired work are explicit domains, unrequested
+source observation is not absence, and complete manifest coverage is separate from
+completed effects. Listed recursion remains sync-owned and does not enter the
+paired frontier.
+
+All five proposed architectural decisions are selected:
+
+1. **Schema v2 and deliberate API migration.** Reject old checkpoint schemas rather
+   than inventing missing context, predicate or authority. Keep faithful full-visitor
+   behavior through the same inspection engine.
+2. **Coarse `apply_many`.** It returns joined per-lane outcomes and permits healthy
+   peers to complete. `apply` remains available for A-accepted/B-unstarted pauses
+   and JW's selected fail-fast command behavior.
+3. **Shared opaque work and bounded source reuse.** Same-coordinate opaque cohorts
+   share active observations even with cache retention disabled. Mixed recursion
+   can reuse a 32-batch / 8 MiB charged-capacity cache; eviction changes cost, not
+   meaning. Restored source generations start fresh.
+4. **Complete prepared desired/owned execution.** Desired S expectations and exact O
+   authority are prepared once and reused; coupled transition ownership prevents a
+   global obsolete-leaf pass from damaging a blocked collapse.
+5. **Names and resources now.** Compact batch names, independent child promotion,
+   64 KiB native buffers with up to 16 idle buffers / 1 MiB capacity, and within-call
+   route epochs enter this ownership migration. Runtime budgets remain outside
+   saved semantics. No throughput improvement is assumed from selecting them.
+
+The provider foundation is the first Sol implementation checkpoint. Contextual
+frontier/opaque propagation and fresh-process transport follow from that actual
+code; grouped execution and listed renewal then share its kernel. These are staged
+build ownership boundaries within the selected larger scope.
 
 ## Work ownership and navigation
 
