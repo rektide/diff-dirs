@@ -10,7 +10,7 @@ sources:
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/discussion0.gpt6ax.md"
     title: Subsequent human constraints, concrete native-transition discussion, verified fact reuse and separately tracked requirements
   - resource: "opencode://ses_e7eb31c84ffev4GUeYjdmZO7mY"
-    title: Assesses both architectures and records subsequent staged requirements for persistence-preserving lightness, inherited decisions, modular comparison and retained fact reuse
+    title: Assesses both architectures, records staged requirements and connects native delivery and library efficiency tickets through the actionable work map
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/reseed-checkin0.gpt6ax.md"
     title: Integrated parent assessment, actual artifact identities and rechecked historical performance evidence
   - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/reseed-checkin0.gpt61sxh.md"
@@ -51,6 +51,13 @@ checkpoint semantics.** Lightness should right-size representations and work wit
 that design. The human wants inherited region judgments and modular comparison
 developed in separate turns. The discussion records the corresponding requirement
 tickets and verifies current backend-specific metadata reuse.
+
+The [actionable work map](file:///home/rektide/src/jj-waltz/design/coordinated-refill/work-map0.gpt6ax.md)
+is the operational entrance: native epic `jjwaltz-reseed-coordinated` owns command
+delivery; existing `diffdir-tree-coordinated` and `diffdir-tree-observe` retain their
+provider work. Decision sharing is the first bounded lightness change. JW's optional
+backend experiment is `jjwaltz-reseed-dirent`; broader inherited-policy/comparison
+and opaque-sharing work are later candidates rather than gates on all delivery.
 
 ## Current use versus intended use
 
