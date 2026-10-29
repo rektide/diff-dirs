@@ -40,6 +40,8 @@ sources:
     title: Verified contextual production runtime and concrete shared-kernel/epoch handoff for consumer adoption and grouped/listed execution
   - resource: /design/architecture/reporting-handoff0.gpt6a.md
     title: Confirmed deviation-retention conflation and duplicate kept-container counts, with accepted once-only accounting and explicit schema3 correction
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution1.sol61x.md"
+    title: Implemented inherited ordinary regions, real fail-fast native command cohort and receiving0.6/schema3 verification boundary
 extensions:
   ticket: diffdir-tree-coordinated
   related_work: [diffdir-tree-coordinated-light-state, diffdir-tree-coordinated-region-context, diffdir-tree-coordinated-comparison-policy, diffdir-tree-observe-fact-reuse, jjwaltz-reseed-coordinated]
@@ -116,9 +118,10 @@ specific unresolved concern.
 | Contextual effect runtime | Sol xhigh, `opencode://ses_e79941441ffeOpOYowx1qFCZXY` | Returned through `08f9df12`; complete physical-union runtime and actual contextual resumed effects verified. |
 | Declared-input preparation design | Explicit Astra high, `opencode://ses_e799075e5ffeLWmQqtFubr3wPE` | Returned at `5643527f`; accepted for the subsequent manifest implementation. Completed runtime report confirms `#high`. |
 | Reused two-route evidence adapter | Sol xhigh, `opencode://ses_e79d11c23ffeYmXANCjX2wAB34` | Returned through `06a2ffb9`; report binding and actual route runs await public CLI. |
-| JW contextual ordinary cohort | Sol xhigh, `opencode://ses_e79561af9ffecPXhjLCL1J5Mcl` | Active: provider adoption, inherited Search/SelectedMirror and one real N1/N2 ordinary runtime. |
+| JW contextual ordinary cohort | Sol xhigh, `opencode://ses_e79561af9ffecPXhjLCL1J5Mcl` | Returned through `8b9f152b`; real callable cohort verified, provider final receipt still pending. |
 | Grouped opaque execution and source retention | Sol xhigh, `opencode://ses_e795502d3ffeuJ2kcDootC5FFb` | Active: real grouped recursion and bounded generation-owned cache. |
 | Effect-report accounting correction design | Explicit Astra high, `opencode://ses_e7951c1b6ffeyQeGeqQnqwkKil` | Returned at `3664ad18`; correction accepted and assigned around the active grouped build. |
+| JW restored-context reference correction | Sol xhigh, `opencode://ses_e7930131cffemJnROGPjnIatHG` | Active focused correction for pure bounds/ignore-chain validation beyond recomputable seals. |
 | Architecture integration and work tracking | Parent, `opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4` | This account. |
 
 Starting source references: diff-dirs parent `6e01c7da`; jj-waltz parent
@@ -407,6 +410,29 @@ the accepted design and qualification, with a separate correction commit require
 if its context budget cannot absorb the correction, a fresh owner completes it
 before native report cutover. The JW consumer owner was notified of the upcoming
 distinct fields and schema meaning. No reporting code is claimed by this review.
+
+### JW contextual cohort reviewed
+
+JW `9c810953`, `d5432070` and `12b8335a`, with
+[handoff](file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution1.sol61x.md)
+`8b9f152b`, implement incremental Search/SelectedMirror authority and one real
+fail-fast ordinary cohort after serial native establishment. Parent reviewed the
+policy, narrowing indexes/ignore cursors, actual runtime loop and downward engine
+adapter. Every lane is inspected before a group's first effect; failures retain
+actual cursor reports, and loaded finish still controls receiver completion.
+
+JW is 0.9.0, with provider 0.6/schema3 receiving pins. Sol reports 44 final default
+and 21 native-dirent cases, strict owner lint/format/document checks passed. Its
+provider input included an in-progress reporting snapshot (`c4babe9d`), explicitly
+not a final provider completion claim. The provider's returned committed receipt
+will close that integration gate. The consumer account now records this adoption.
+
+Parent found that Search validation checks a recomputable checksum but does not
+independently validate all selector/trie/ignore-chain references. Malformed,
+correctly resealed data could reach unchecked indexing/ancestor assumptions. A
+focused Sol correction adds pure frozen-input reference validation and meaningful
+resealed-corruption tests, without filesystem I/O or replaying accepted admission.
+This is interpretation validation, not authentication of historical authority.
 
 ## Work ownership and navigation
 

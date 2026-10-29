@@ -7,6 +7,15 @@ status: maintained-assessment
 generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-28 }
 updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
 sources:
+  - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
+    title: Commissions the joined build and reviews actual contextual JW cohort adoption, retaining predecessor assessment and pending native cutover boundaries
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution1.sol61x.md"
+    revision: 8b9f152b
+    title: Implemented inherited ordinary policy, real clear-first N1/N2 callable cohort, source-sharing witnesses and receiving verification
+  - resource: /design/architecture/execution2.sol61x.md
+    title: Delivered contextual production runtime enabling consumer adoption
+  - resource: /design/architecture/delivery0.gpt6ax.md
+    title: Active joined delivery, review corrections and remaining manifest/public-command work
   - resource: "opencode://ses_e7a559acfffeNLFScKfuc7htqW"
     title: Integrates inherited judgments and modular comparison into the proposed next build and records the human's constructive renewal baseline, two renewal routes and later benchmark direction
   - resource: /design/architecture/annealing0.gpt6ax.md
@@ -44,10 +53,41 @@ identity and delivering the selected tracked and ordinary contents efficiently.
 JW owns native meaning and operator policy. diff-dirs supplies generic observation,
 decisions, traversal and production filesystem effects.
 
-This account records the October 28 assessment at JW **`76fb0656`** and diff-dirs
-**`10361cf0` / 0.2.0**. It is the library-side counterpart of the
+This account connects current adoption to the preserved October 28 assessment at
+JW **`76fb0656`** and diff-dirs **`10361cf0` / 0.2.0**. It is the library-side counterpart of the
 [consumer's integrated check-in](file:///home/rektide/src/jj-waltz/design/coordinated-refill/reseed-checkin0.gpt6ax.md).
-Improvement requests below are recommendations, not accepted implementation scope.
+The [active delivery](/design/architecture/delivery0.gpt6ax.md) now owns the
+commissioned broader scope and actual implementation receipts.
+
+## Current contextual adoption
+
+JW's [contextual cohort checkpoint](file:///home/rektide/src/jj-waltz/design/coordinated-refill/execution1.sol61x.md)
+(`9c810953`, `d5432070`, `12b8335a`) delivers immutable Search/SelectedMirror
+authority, one real fail-fast ordinary runtime for N1/N2 and actual partial cursor
+reports. Qualifying Q is admitted once; descendants inherit it through paired and
+opaque work. Frozen selector/ignore/index state advances incrementally. Residual
+administration, supported-kind and device guards remain active.
+
+The clear-first callable command now uses this cohort and loaded finish. Public
+CLI dispatch still awaits both-route integration. JW is 0.9.0 and its receiving
+pins are provider 0.6/schema3; the consumer's last checks used the provider's
+in-progress reporting snapshot, so the provider's final committed receipt remains
+an explicit integration gate. Reported receiving evidence: 44 default cases,
+21 native-dirent feature cases and strict lint/format/document checks passed.
+
+The tests demonstrate same-source metadata sharing, one Q qualification, mixed
+missing/paired targets, different lane link/exclude authority and truthful forward
+failure. Native-dirent is explicitly nondefault. These are semantic and acquisition
+witnesses, not a full-command speed result. Parent review also requests explicit
+restored search-reference validation beyond the existing recomputable checksum.
+
+Remaining native work is complete prepared S/O manifest renewal, ReplaceAuthorized,
+public reseed/prepare/JSON cutover and bounded route comparison. Library grouped
+opaque/cache work and the distinct retention/deviation correction have their own
+active provider owner. The following assessment sequence retains its original
+revision-bound claims rather than describing those old costs as still universal.
+
+## Assessment sequence and selected follow-through
 
 The [follow-on discussion](file:///home/rektide/src/jj-waltz/design/coordinated-refill/discussion0.gpt6ax.md)
 adds an explicit constraint: **keep one persisted execution design with its advanced
@@ -69,9 +109,10 @@ inherited-region propagation and the minimum comparison/selection contract into
 the next integrated build. That revises the map's proposed sequencing of those
 topics as later discussions. The [build proposal](/design/architecture/annealing0.gpt6ax.md#annealing-delivery)
 retains one persisted model, shared source/command ownership and the actual N1/N2
-command milestone; detailed implementation scope awaits selection.
+command milestone. The human subsequently commissioned that scope and broader
+ownership-changing capabilities; current receipts are above and in the delivery account.
 
-## Current use versus intended use
+## October 28 use versus intended use
 
 | Consumer path | Actual use |
 | --- | --- |
@@ -106,7 +147,7 @@ ordinary runtime altogether. Those are JW semantics, not generic library default
 See the [parent evidence ledger](file:///home/rektide/src/jj-waltz/design/coordinated-refill/reseed-checkin0.gpt6ax.md#performance-evidence)
 for attribution and the cancelled campaign's disproportionate fixture costs.
 
-## Where the fit is incomplete
+## October 28 fit gaps
 
 **The sharing domain is narrower than the whole refill.** Common paired directories
 share source observations. Source-only copy, conditional routing and replacement
