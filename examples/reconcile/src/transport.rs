@@ -1,4 +1,4 @@
-//! Explicit version-three application DTOs. These are not derives on runtime
+//! Explicit version-four application DTOs. These are not derives on runtime
 //! objects or an archive of private Rust layouts. Decode, then validate meaning.
 
 use std::collections::VecDeque;

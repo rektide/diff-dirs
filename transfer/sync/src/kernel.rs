@@ -28,6 +28,27 @@ pub(crate) fn discard_private(mut result: Result<Progress, Failure>) -> Result<P
     result
 }
 
+/// Only listed retained acceptance calls this, after binding actual prepared
+/// regular metadata and the manifest expectation. Caller owns stable trees.
+pub(crate) fn conform_retained_executable(path: &Path, metadata: &Metadata, executable: bool) -> Result<bool, Failure> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = metadata.permissions().mode();
+        if (mode & 0o111 != 0) != executable {
+            let mode = if executable { mode | 0o111 } else { mode & !0o111 };
+            fs::set_permissions(path, Permissions::from_mode(mode)).map_err(|e| Failure::io("conform retained executable", path, e))?;
+            return Ok(true);
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (path, metadata, executable);
+        return Err(Failure::invalid("conform retained executable", path, "Unix executable expectation required"));
+    }
+    Ok(false)
+}
+
 /// A private slot can only be allocated by its containing scope. Publication is
 /// bound back to that scope; an arbitrary public preparation cannot choose paths.
 pub(crate) struct StageSlot {

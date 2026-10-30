@@ -59,7 +59,8 @@ pub struct Report {
     /// that container; immediate observed plans still count its potential action.
     pub planned: u64,
     /// Visible completed operations, not hypothetical actions from a diff or
-    /// discarded private preparations. A clean/retained-only run is all zero.
+    /// discarded private preparations. Retained leaves have no installation
+    /// effects; explicit retained-attribute work is reported separately.
     pub completed: Progress,
     /// Policy completion is not a full-root equality certificate.
     pub policy: Policy,

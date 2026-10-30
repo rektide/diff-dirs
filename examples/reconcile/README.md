@@ -6,6 +6,8 @@ resource: /examples/reconcile/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 sources:
+  - resource: "opencode://ses_e74387c29ffep4tyaHAb72eQ86"
+    title: Migrates receiving pins to provider0.9; listed-only metadata effects leave ordinary version4 totals unchanged
   - resource: "opencode://ses_e744de129ffeJFNaoEhNajEXMV"
     title: Adopts provider0.8 and version4 postcheck-bound continuation with explicit codec vocabulary
   - resource: opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4
@@ -144,7 +146,9 @@ additions. All version2 documents refuse: their old mixed aggregates cannot reco
 the corrected meaning. No silent migration is provided.
 Version4 additionally stores one postcheck (`none` or `mtime`) per lane; runtime
 rebinding must match it. Version3 is refused rather than assigning an unstated
-installation-verification policy. Comparison-only parts retain their own version.
+installation-verification policy. Listed-only executable correction totals are
+not ordinary cursor work and do not alter this transport. Comparison-only parts
+retain their own version.
 
 The 0.2 library adoption adds `directory/create-if-needed/descend` to this
 vocabulary. Older readers reject unknown spellings; it is not a serialization

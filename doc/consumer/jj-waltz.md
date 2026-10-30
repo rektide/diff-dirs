@@ -7,6 +7,12 @@ status: maintained-assessment
 generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-28 }
 updated: { by: "model:openai/gpt-6.1-sol#high", at: 2026-10-30 }
 sources:
+  - resource: "opencode://ses_e74387c29ffep4tyaHAb72eQ86"
+    title: Completes provider0.9 retained executable effects and JW0.12 default seeded refresh with schema2 and focused native verification
+  - resource: "file:///home/rektide/src/jj-waltz/design/coordinated-refill/refresh0.sol61h.md"
+    title: Current default, native metadata effect, public options and receiving checks
+  - resource: /design/comparison/refresh-native0.sol61h.md
+    title: Narrow opt-in provider effect using prepared metadata without enlarging ordinary progress or cursor totals
   - resource: "opencode://ses_e744de129ffeJFNaoEhNajEXMV"
     title: Implements the separately commissioned seeded stat-refresh provider and raises the native executable handoff checkpoint
   - resource: /design/comparison/refresh0.sol61h.md
@@ -82,15 +88,18 @@ commissioned broader scope and actual implementation receipts.
 
 ## Current contextual adoption
 
-**New commission:** default seeded stat refresh, not the stricter storage-proof
-proposal below. Provider0.8 adds `RefreshOwned(StatChecks)` with separately reported
-retained desired coverage, and general optional installer postcheck (none by
-default). The user accepts size + exact mtime as a heuristic, optional full Unix
-mode comparison, literal-equal symlink retention and no private-inode gate for
-matches. [Implementation account](/design/comparison/refresh0.sol61h.md) records
-provider checks and the native executable-state normalization question before
-JW consumer integration. The JW0.11 statements below describe the predecessor,
-not a completed refresh/default cutover.
+**Current implementation: JW0.12 / provider0.9 default seeded refresh**, not the
+stricter storage-proof proposal below. `RefreshOwned(StatChecks)` reports retained
+desired coverage separately; optional general installer postcheck defaults to none.
+The user accepts size + exact mtime as a heuristic, optional full Unix mode and
+literal-equal symlink retention without a private-inode gate. Native tracked targets
+explicitly opt into in-place executable conformance using already prepared facts;
+ordinary retention does not. Actual successful metadata writes are listed-only
+effects, separate from installations and clone counts. The
+[consumer account](file:///home/rektide/src/jj-waltz/design/coordinated-refill/refresh0.sol61h.md)
+records public schema2/default adoption and focused verification. The prior
+[provider checkpoint](/design/comparison/refresh0.sol61h.md) remains evidence;
+JW0.11/provider0.7 paragraphs below describe that preserved predecessor.
 
 An optional [donor-sharing retention design](/design/comparison/reflink0.gpt6a.md)
 addresses the later request to avoid replacing already-private, already-shared
@@ -102,7 +111,7 @@ this is design-only and leaves current defaults intact. The consumer's
 explains why ordinary StatKey comparison already retains clean payload while both
 tracked routes still install every S leaf.
 
-**Public delivery is now JW 0.11 / provider 0.7.** Both native renewal routes use
+**Prior public delivery was JW 0.11 / provider 0.7.** Both native renewal routes use
 complete manifest coverage, the real contextual ordinary cohort and loaded finish.
 Reseed and source-only prepare expose application-owned schema1 and nonmutating
 PLANNED preview; the old driver is retired. Clear-first remains the default.

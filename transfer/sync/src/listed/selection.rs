@@ -4,7 +4,7 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-static ID: LazyLock<SemanticId> = LazyLock::new(|| SemanticId::new("diff-dirs.listed", 1, Vec::new()));
+static ID: LazyLock<SemanticId> = LazyLock::new(|| SemanticId::new("diff-dirs.listed", 2, Vec::new()));
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Mode {
     Declared,
@@ -14,6 +14,7 @@ pub(super) enum Mode {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Context {
     pub intent: ListedIntent,
+    pub retained_attributes: RetainedAttributes,
     pub desired_slice: NodeId,
     pub owned_node: Option<NodeId>,
     pub mode: Mode,
@@ -37,6 +38,7 @@ impl<'a, G: ListedGuard> Selector<'a, G> {
     pub fn root(&self) -> Context {
         Context {
             intent: self.target.intent,
+            retained_attributes: self.target.retained_attributes,
             desired_slice: NodeId(0),
             owned_node: (self.target.intent != ListedIntent::CreateAbsent).then_some(NodeId(0)),
             mode: Mode::Declared,
@@ -250,7 +252,7 @@ impl<G: ListedGuard> DeclaredSelection for Selector<'_, G> {
         self.comparator.as_ref().map(|c| c as &dyn Comparator)
     }
     fn validate_context(&self, at: ContextSite<'_>, context: &Context) -> Result<(), CheckError> {
-        if at.structural_root || context.intent != self.target.intent {
+        if at.structural_root || context.intent != self.target.intent || context.retained_attributes != self.target.retained_attributes {
             return Err("invalid listed context interpretation".into());
         }
         let slice = self
@@ -538,6 +540,7 @@ mod tests {
                 owned: &owned,
                 intent: if alter == 3 { ListedIntent::CreateAbsent } else { ListedIntent::RenewOwned },
                 guard: &NoListedGuard,
+                retained_attributes: Default::default(),
             };
             let selector = Selector::new(&desired, &target);
             let context = selector.root();
@@ -621,6 +624,7 @@ mod tests {
             owned: &owned,
             intent: ListedIntent::CreateAbsent,
             guard: &NoListedGuard,
+            retained_attributes: Default::default(),
         };
         let selector = Selector::new(&desired, &target);
         let context = selector.root();

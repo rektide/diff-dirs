@@ -51,6 +51,7 @@ struct Work {
     result: Result<Progress, Failure>,
     installed: u64,
     retained: u64,
+    retained_permissions_set: u64,
 }
 impl Default for Work {
     fn default() -> Self {
@@ -58,6 +59,7 @@ impl Default for Work {
             result: Ok(Progress::default()),
             installed: 0,
             retained: 0,
+            retained_permissions_set: 0,
         }
     }
 }
@@ -75,6 +77,7 @@ impl Work {
     fn join(&mut self, mut other: Work) {
         self.installed += other.installed;
         self.retained += other.retained;
+        self.retained_permissions_set += other.retained_permissions_set;
         self.add(other.take());
     }
 }
@@ -200,6 +203,7 @@ pub(super) fn run<G: ListedGuard>(
             ListedOutcome {
                 id: lane.selector.target.id.clone(),
                 coverage,
+                retained_permissions_set: work.retained_permissions_set,
                 outcome,
             }
         })
@@ -343,6 +347,30 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
                 };
                 match entry.action {
                     Action::KeepLeaf => {
+                        // Comparison/guard/manifest lowering already bound this
+                        // acceptance. Reuse its target metadata, not a second walk
+                        // or a mutating selection callback. Credit only after the
+                        // optional metadata obligation succeeds.
+                        if state.selector.target.retained_attributes == RetainedAttributes::ManifestExecutable
+                            && let Some(DesiredInput::Leaf {
+                                expected:
+                                    LeafExpectation::Exact {
+                                        executable: Some(executable), ..
+                                    },
+                                ..
+                            }) = entry.desired
+                        {
+                            frame.work.retained_permissions_set += u64::from(kernel::conform_retained_executable(
+                                &output,
+                                facts
+                                    .target
+                                    .unwrap()
+                                    .attributes
+                                    .known()
+                                    .expect("compatible regular comparison requires attributes"),
+                                executable,
+                            )?);
+                        }
                         frame.work.retained += 1;
                     }
                     Action::ConfirmAbsent | Action::PreserveTree => {}

@@ -22,6 +22,17 @@ pub enum ListedIntent {
     /// Retain compatible owned leaves under this explicit metadata heuristic.
     RefreshOwned(diff_dirs_tree_inspect::StatChecks),
 }
+/// Optional metadata work on successfully retained desired leaves. This does not
+/// strengthen the equality heuristic or grant occupied-name authority.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RetainedAttributes {
+    #[default]
+    Preserve,
+    /// Conform regular leaves with an exact executable expectation in place.
+    /// Unix executable means any 0o111 bit. A mismatch sets/clears 0o111 while
+    /// preserving all other permission bits; an already conforming mode is untouched.
+    ManifestExecutable,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ListedMode {
     Declared,
@@ -65,6 +76,7 @@ pub struct ListedTarget<'a, G: ListedGuard> {
     pub owned: &'a OwnedLeafSet,
     pub intent: ListedIntent,
     pub guard: &'a G,
+    pub retained_attributes: RetainedAttributes,
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ManifestCoverage {
@@ -80,6 +92,10 @@ pub struct ManifestCoverage {
 pub struct ListedOutcome {
     pub id: TargetId,
     pub coverage: ManifestCoverage,
+    /// Successful in-place executable corrections, including a failed lane's
+    /// actual prefix. Not installs or no-op chmods. Listed-only work does not
+    /// inflate ordinary Progress/Failure or serialized ordinary cursor totals.
+    pub retained_permissions_set: u64,
     pub outcome: Result<Report, Failure>,
 }
 #[derive(Debug)]
@@ -118,6 +134,7 @@ pub struct ListedReport {
 /// let report = reconcile_listed(&source, &desired, &[ListedTarget {
 ///     id: &id, binding: &binding, owned: &owned,
 ///     intent: ListedIntent::RenewOwned, guard: &NoListedGuard,
+///     retained_attributes: Default::default(),
 /// }])?;
 /// let lane = &report.outcomes[0];
 /// assert!(lane.outcome.is_ok() && lane.coverage.complete);

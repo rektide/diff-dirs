@@ -44,6 +44,7 @@ fn run(f: &Fixture, desired: &PreparedLeafList, owned: &OwnedLeafSet, intent: Li
             owned,
             intent,
             guard: &NoListedGuard,
+            retained_attributes: Default::default(),
         }],
     )
     .unwrap()
@@ -66,6 +67,129 @@ fn stamp(from: &Path, to: &Path) {
         .unwrap()
         .set_modified(fs::metadata(from).unwrap().modified().unwrap())
         .unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn retained_manifest_executable_is_opt_in_in_place_and_only_counts_actual_changes() {
+    use diff_dirs_tree_inspect::StatChecks;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    for (source_mode, target_mode, final_mode, changes) in [
+        (0o755, 0o2640, 0o2751, 1),
+        (0o644, 0o2751, 0o2640, 1),
+        (0o755, 0o2641, 0o2641, 0), // any execute bit suffices; do not rewrite it
+        (0o644, 0o2640, 0o2640, 0),
+    ] {
+        let f = Fixture::new(1);
+        file(f.source.join("file"), b"source");
+        file(f.targets[0].join("file"), b"source");
+        stamp(&f.source.join("file"), &f.targets[0].join("file"));
+        fs::set_permissions(f.source.join("file"), fs::Permissions::from_mode(source_mode)).unwrap();
+        fs::set_permissions(f.targets[0].join("file"), fs::Permissions::from_mode(target_mode)).unwrap();
+        let before = fs::metadata(f.targets[0].join("file")).unwrap();
+        let desired = PreparedLeafList::from_specs([DesiredLeaf {
+            relative: "file".into(),
+            expected: LeafExpectation::Exact {
+                kind: LeafKind::RegularFile,
+                executable: Some(source_mode & 0o111 != 0),
+            },
+        }])
+        .unwrap();
+        let owned = OwnedLeafSet::new(["file"]).unwrap();
+        let intent = ListedIntent::RefreshOwned(StatChecks::default());
+        let unchanged = run(&f, &desired, &owned, intent);
+        assert!(unchanged.coverage.complete);
+        assert_eq!(unchanged.outcome.unwrap().completed, Progress::default());
+        assert_eq!(fs::metadata(f.targets[0].join("file")).unwrap().mode() & 0o7777, target_mode);
+        let bindings = f.bindings(CopyPolicy::Copy);
+        let id = TargetId("target".into());
+        for expected_changes in [changes, 0] {
+            let result = reconcile_listed(
+                &SourceSession::new(&f.source),
+                &desired,
+                &[ListedTarget {
+                    id: &id,
+                    binding: &bindings[0],
+                    owned: &owned,
+                    intent,
+                    guard: &NoListedGuard,
+                    retained_attributes: RetainedAttributes::ManifestExecutable,
+                }],
+            )
+            .unwrap()
+            .outcomes
+            .remove(0);
+            assert!(result.coverage.complete);
+            assert_eq!((result.coverage.installed, result.coverage.retained), (0, 1));
+            assert_eq!(result.retained_permissions_set, expected_changes);
+            assert_eq!(result.outcome.unwrap().completed, Progress::default());
+            let after = fs::metadata(f.targets[0].join("file")).unwrap();
+            assert_eq!(after.ino(), before.ino());
+            assert_eq!(after.modified().unwrap(), before.modified().unwrap());
+            assert_eq!(after.mode() & 0o7777, final_mode);
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn retained_normalization_failure_keeps_successful_metadata_prefix_and_refuses_coverage() {
+    use std::os::unix::fs::PermissionsExt;
+    // Test-only destructive fault, like the cleanup fault below: after actual
+    // prepared attributes, remove the second leaf before its effect is attempted.
+    struct Disappear(PathBuf);
+    impl ListedGuard for Disappear {
+        fn check(&self, at: ListedCandidate<'_>, _: EntryFacts<'_>) -> Result<(), CheckError> {
+            if let DeclaredCandidate::Entry(e) = at.observed
+                && e.coordinate.to_path_buf() == Path::new("z/file")
+            {
+                fs::remove_file(self.0.join("z/file")).unwrap();
+            }
+            Ok(())
+        }
+    }
+    let f = Fixture::new(1);
+    for path in ["a", "z/file"] {
+        file(f.source.join(path), b"same");
+        file(f.targets[0].join(path), b"same");
+        stamp(&f.source.join(path), &f.targets[0].join(path));
+        fs::set_permissions(f.source.join(path), fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(f.targets[0].join(path), fs::Permissions::from_mode(0o640)).unwrap();
+    }
+    let desired = PreparedLeafList::from_specs(["a", "z/file"].map(|path| DesiredLeaf {
+        relative: path.into(),
+        expected: LeafExpectation::Exact {
+            kind: LeafKind::RegularFile,
+            executable: Some(true),
+        },
+    }))
+    .unwrap();
+    let owned = OwnedLeafSet::new(["a", "z/file"]).unwrap();
+    let bindings = f.bindings(CopyPolicy::Copy);
+    let guard = Disappear(f.targets[0].clone());
+    let id = TargetId("failure".into());
+    let lane = reconcile_listed(
+        &SourceSession::new(&f.source),
+        &desired,
+        &[ListedTarget {
+            id: &id,
+            binding: &bindings[0],
+            owned: &owned,
+            intent: ListedIntent::RefreshOwned(Default::default()),
+            guard: &guard,
+            retained_attributes: RetainedAttributes::ManifestExecutable,
+        }],
+    )
+    .unwrap()
+    .outcomes
+    .remove(0);
+    assert!(!lane.coverage.complete);
+    assert_eq!((lane.coverage.installed, lane.coverage.retained), (0, 1));
+    assert_eq!(lane.retained_permissions_set, 1);
+    let failure = lane.outcome.unwrap_err();
+    assert_eq!(failure.primary.operation, "conform retained executable");
+    assert_eq!(failure.completed.files_copied, 0);
+    assert!(!failure.policy.satisfied);
 }
 
 #[cfg(unix)]
@@ -234,6 +358,7 @@ fn postcheck_installer_probe(postcheck: Postcheck) {
                 owned: &OwnedLeafSet::new(Vec::<PathBuf>::new()).unwrap(),
                 intent: ListedIntent::CreateAbsent,
                 guard: &NoListedGuard,
+                retained_attributes: Default::default(),
             }],
         )
         .unwrap()
@@ -426,6 +551,7 @@ fn obsolete_only_never_touches_the_source_and_retains_empty_structural_directori
             owned: &owned,
             intent: ListedIntent::RenewOwned,
             guard: &NoListedGuard,
+            retained_attributes: Default::default(),
         }],
     )
     .unwrap()
@@ -585,6 +711,7 @@ fn late_guard_refusal_is_zero_effect_for_its_lane_and_peers_remain_independent()
             owned: &owned,
             intent: ListedIntent::CreateAbsent,
             guard: &guards[i],
+            retained_attributes: Default::default(),
         })
         .collect();
     let outcomes = reconcile_listed(&SourceSession::new(&f.source), &desired, &targets).unwrap().outcomes;
@@ -625,6 +752,7 @@ fn absent_retained_and_staged_lanes_share_real_source_lookup_once_with_zero_cach
             owned: &owned[i],
             intent: ListedIntent::RenewOwned,
             guard: &NoListedGuard,
+            retained_attributes: Default::default(),
         })
         .collect();
     let source = SourceSession::with_cache_limits(
@@ -696,6 +824,7 @@ fn actual_clone_failure_keeps_known_retirement_and_healthy_peer_complete() {
             owned: &owned,
             intent: ListedIntent::RenewOwned,
             guard: &NoListedGuard,
+            retained_attributes: Default::default(),
         })
         .collect();
     let report = reconcile_listed(&SourceSession::new(&f.source), &desired, &targets).unwrap();
@@ -775,6 +904,7 @@ fn cleanup_failure_cannot_complete_even_when_all_desired_renames_succeeded() {
             owned: &owned,
             intent: ListedIntent::CreateAbsent,
             guard: &guard,
+            retained_attributes: Default::default(),
         }],
     )
     .unwrap();
@@ -809,6 +939,7 @@ fn coupled_old_retirement_survives_later_publication_failure_without_postfailure
             owned: &owned,
             intent: ListedIntent::RenewOwned,
             guard: &guard,
+            retained_attributes: Default::default(),
         }],
     )
     .unwrap();
@@ -903,6 +1034,7 @@ fn restrictive_umask_preserves_one_created_scope_through_inspection_and_postorde
                 owned: &owned[i],
                 intent: ListedIntent::RenewOwned,
                 guard: &guard,
+                retained_attributes: Default::default(),
             })
             .collect();
         let source = SourceSession::new(&source_root);

@@ -20,7 +20,7 @@ pub use binding::{EffectBinding, Postcheck};
 pub use coordinated::{SyncCursor, SyncRuntime, SyncTarget};
 pub use listed::{
     DesiredLeaf, LeafExpectation, LeafKind, ListedCandidate, ListedGuard, ListedIntent, ListedMode, ListedOutcome, ListedRelation, ListedReport, ListedTarget,
-    ManifestCoverage, ManifestId, NoListedGuard, OwnedLeafSet, PreparedLeafList, reconcile_listed,
+    ManifestCoverage, ManifestId, NoListedGuard, OwnedLeafSet, PreparedLeafList, RetainedAttributes, reconcile_listed,
 };
 pub use model::{CopyPolicy, Failure, Issue, Policy, Progress, Report};
 pub use seed::seed_leaves;

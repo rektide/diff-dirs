@@ -150,6 +150,7 @@ where
             owned: &owned,
             intent: ListedIntent::CreateAbsent,
             guard: &guard,
+            retained_attributes: Default::default(),
         }],
     )
     .map_err(|error| {

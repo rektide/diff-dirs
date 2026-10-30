@@ -7,6 +7,8 @@ status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
 updated: { by: "model:openai/gpt-6.1-sol#high", at: 2026-10-30 }
 sources:
+  - resource: "opencode://ses_e74387c29ffep4tyaHAb72eQ86"
+    title: Adds explicit retained executable effects for the native consumer and separate listed-only metadata progress
   - resource: "opencode://ses_e744de129ffeJFNaoEhNajEXMV"
     title: Adds heuristic RefreshOwned coverage, configurable comparison and general optional installer postcheck with bound continuation
   - resource: /design/comparison/refresh0.sol61h.md
@@ -648,6 +650,21 @@ and vetoes unowned leaves or empty directories intact before dismantling. Expans
 stages only declared S children. Obsolete exact O leaves retire by removal or proved
 absence; O-only structural directories remain. There is no automatic empty-directory
 prune or source-absence inference from an unrequested source.
+
+`ListedTarget.retained_attributes` defaults by convention to
+`RetainedAttributes::Preserve` (the explicit struct field is required).
+`ManifestExecutable` opts into an additional **effect** on retained regular leaves
+with `LeafExpectation::Exact { executable: Some(..), .. }`. It never adds mode to
+the comparator, changes the selected action, or grants replacement authority.
+Already acquired target metadata determines whether any Unix `0o111` bit matches
+the expectation. Only a mismatch issues one in-place chmod, setting/clearing those
+bits while preserving other permission bits. No second metadata sweep, read-back,
+per-leaf handoff list, generic callback mutation or fresh inode is required.
+Source expectation validation and comparison/guard/manifest binding remain pure.
+The opt-in is part of the bound listed context; ordinary Applier retention does
+not acquire it. `ListedOutcome.retained_permissions_set` counts successful corrections,
+not installs or no-op permissions. Failed correction leaves that leaf uncredited
+and prevents complete coverage; earlier successful metadata work remains reported.
 
 `ListedReport` contains ordered independent lane outcomes and `ManifestCoverage`:
 desired, installed, retained, owned_obsolete, owned_retired and complete. Coverage is separate
