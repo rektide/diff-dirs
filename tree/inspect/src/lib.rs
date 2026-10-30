@@ -20,7 +20,7 @@ mod visitor;
 
 pub use acquire::{Available, Demand, EntryFacts, SideDemands, SideFacts};
 pub use check::{Check, CheckError, CheckRef, Entry, NoCheck, Purpose, Side};
-pub use comparison::{Comparator, Comparison, ComparisonInput, SemanticId, SizeAndLink, StatKey};
+pub use comparison::{Comparator, Comparison, ComparisonInput, SemanticId, SizeAndLink, StatChecks, StatComparator, StatKey};
 pub use declared::{
     DeclaredCandidate, DeclaredChoice, DeclaredEntryCandidate, DeclaredInspection, DeclaredName, DeclaredNames, DeclaredRequest, DeclaredRouteCandidate,
     DeclaredSelection, inspect_declared_group,

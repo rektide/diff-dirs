@@ -140,7 +140,7 @@ fn contextual_effect_worker() -> Result<()> {
         let (mut parts, _) = transport::read_context::<Context>(&saved)?;
         assert_eq!(parts.current.as_ref().unwrap().applications[0].state, ApplicationState::Accepted);
         assert_eq!(parts.current.as_ref().unwrap().applications[1].state, ApplicationState::Unstarted);
-        assert_eq!(parts.version, 3);
+        assert_eq!(parts.version, 4);
         assert_eq!(parts.lanes[0].additional_retained, 1, "already accepted opaque outside/keep preservation");
         assert_eq!(parts.lanes[0].opaque_deviated, 1);
         assert_eq!(parts.lanes[1].additional_retained, 0);

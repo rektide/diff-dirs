@@ -21,13 +21,24 @@ pub(super) struct Context {
 pub(super) struct Selector<'a, G: ListedGuard> {
     pub desired: &'a PreparedLeafList,
     pub target: &'a ListedTarget<'a, G>,
+    comparator: Option<StatComparator>,
 }
-impl<G: ListedGuard> Selector<'_, G> {
+impl<'a, G: ListedGuard> Selector<'a, G> {
+    pub fn new(desired: &'a PreparedLeafList, target: &'a ListedTarget<'a, G>) -> Self {
+        Self {
+            desired,
+            target,
+            comparator: match target.intent {
+                ListedIntent::RefreshOwned(checks) => Some(StatComparator::new(checks)),
+                _ => None,
+            },
+        }
+    }
     pub fn root(&self) -> Context {
         Context {
             intent: self.target.intent,
             desired_slice: NodeId(0),
-            owned_node: (self.target.intent == ListedIntent::RenewOwned).then_some(NodeId(0)),
+            owned_node: (self.target.intent != ListedIntent::CreateAbsent).then_some(NodeId(0)),
             mode: Mode::Declared,
         }
     }
@@ -81,7 +92,7 @@ impl<G: ListedGuard> Selector<'_, G> {
         }
         names
     }
-    fn guard_candidate<'a>(&self, context: &Context, observed: DeclaredCandidate<'a>) -> ListedCandidate<'a> {
+    fn guard_candidate<'b>(&self, context: &Context, observed: DeclaredCandidate<'b>) -> ListedCandidate<'b> {
         let path = match observed {
             DeclaredCandidate::Route(route) => route.relative.to_owned(),
             DeclaredCandidate::Entry(entry) => entry.coordinate.to_path_buf(),
@@ -140,6 +151,10 @@ impl<G: ListedGuard> Selector<'_, G> {
                     return Ok(choice);
                 }
                 Some(Kind::File | Kind::Symlink) if leaf_removal.is_some() => {
+                    if matches!(context.intent, ListedIntent::RefreshOwned(_)) && at.comparison == Comparison::Equal {
+                        choice.action = Action::KeepLeaf;
+                        return Ok(choice);
+                    }
                     choice.action = Action::InstallLeaf;
                     choice.install = renew(DestinationGrant::ReplaceLeaf);
                     choice.removal = leaf_removal;
@@ -230,6 +245,9 @@ impl<G: ListedGuard> DeclaredSelection for Selector<'_, G> {
     type Context = Context;
     fn identity(&self) -> &SemanticId {
         &ID
+    }
+    fn comparator(&self) -> Option<&dyn Comparator> {
+        self.comparator.as_ref().map(|c| c as &dyn Comparator)
     }
     fn validate_context(&self, at: ContextSite<'_>, context: &Context) -> Result<(), CheckError> {
         if at.structural_root || context.intent != self.target.intent {
@@ -330,7 +348,10 @@ pub(super) fn bind_listed_batch<'a, G: ListedGuard>(
         || selected.policy() != &*ID
         || selected.context_schema() != &*ID
         || selected.is_root()
-        || selected.comparator() != &SemanticId::new("diff-dirs.listed.not-assessed", 1, Vec::new())
+        || selected.comparator()
+            != &selector
+                .comparator()
+                .map_or_else(|| SemanticId::new("diff-dirs.listed.not-assessed", 1, Vec::new()), |c| c.identity().clone())
     {
         return Err(invalid());
     }
@@ -374,8 +395,8 @@ pub(super) fn bind_listed_batch<'a, G: ListedGuard>(
         structural_root: false,
         purpose: selected.purpose(),
     };
-    for entry in selected.entries() {
-        let candidate = DeclaredEntryCandidate {
+    for (slot, entry) in selected.entries().enumerate() {
+        let mut candidate = DeclaredEntryCandidate {
             info,
             domain: selected.domain(),
             coordinate: Coordinate {
@@ -385,7 +406,25 @@ pub(super) fn bind_listed_batch<'a, G: ListedGuard>(
             },
             desired: entry.desired,
             shape: entry.shape(),
+            comparison: Comparison::NotAssessed,
         };
+        if let Some(comparator) = selector.comparator()
+            && matches!(entry.desired, Some(DesiredInput::Leaf { .. }))
+            && entry.source.kind().is_some_and(Kind::is_leaf)
+            && entry.source.kind() == entry.target
+        {
+            candidate.comparison = comparator
+                .compare(ComparisonInput {
+                    shape: entry.shape(),
+                    facts: batch.facts(SlotId(slot)),
+                    source_path: &source.root().join(&scope.relative).join(entry.name()),
+                    target_path: &selector.target.binding.target().join(&scope.relative).join(entry.name()),
+                })
+                .map_err(|_| invalid())?;
+        }
+        if candidate.comparison != entry.comparison {
+            return Err(invalid());
+        }
         // One pure sync lowering owns authority; generic kind/action legality is
         // still exclusively inspect's common validator. Resolve real IDs/coords
         // and compare the weakest exact grants, not just digest equality.
@@ -500,10 +539,7 @@ mod tests {
                 intent: if alter == 3 { ListedIntent::CreateAbsent } else { ListedIntent::RenewOwned },
                 guard: &NoListedGuard,
             };
-            let selector = Selector {
-                desired: &desired,
-                target: &target,
-            };
+            let selector = Selector::new(&desired, &target);
             let context = selector.root();
             let mut declarations = selector.declarations(Path::new(""), &context);
             if alter == 0 {
@@ -586,10 +622,7 @@ mod tests {
             intent: ListedIntent::CreateAbsent,
             guard: &NoListedGuard,
         };
-        let selector = Selector {
-            desired: &desired,
-            target: &target,
-        };
+        let selector = Selector::new(&desired, &target);
         let context = selector.root();
         let declarations = selector.declarations(Path::new(""), &context);
         let names: Vec<_> = declarations.iter().map(|(name, desired)| DeclaredName { name, desired: *desired }).collect();

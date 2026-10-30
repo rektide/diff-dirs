@@ -16,7 +16,7 @@ mod visitor;
 
 pub use apply::{PhysicalExecutionDemand, clear, clear_with_visitor};
 pub use authority::{Absence, NeverRemove, RemoveAll};
-pub use binding::EffectBinding;
+pub use binding::{EffectBinding, Postcheck};
 pub use coordinated::{SyncCursor, SyncRuntime, SyncTarget};
 pub use listed::{
     DesiredLeaf, LeafExpectation, LeafKind, ListedCandidate, ListedGuard, ListedIntent, ListedMode, ListedOutcome, ListedRelation, ListedReport, ListedTarget,
@@ -52,6 +52,10 @@ impl<P, M> std::ops::Deref for Applier<P, M> {
     }
 }
 impl<P, M> Applier<P, M> {
+    pub fn with_postcheck(mut self, postcheck: Postcheck) -> Self {
+        self.binding.postcheck = postcheck;
+        self
+    }
     pub fn binding(&self) -> &EffectBinding {
         &self.binding
     }

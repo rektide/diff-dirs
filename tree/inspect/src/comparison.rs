@@ -72,6 +72,77 @@ impl<M: Comparator + ?Sized> Comparator for &M {
 pub struct StatKey;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SizeAndLink;
+/// Selected regular-file metadata checks. Links always use literal targets.
+/// Parsing rejects empty, duplicate and unknown names; display is canonical.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StatChecks(u8);
+impl StatChecks {
+    pub const MTIME: Self = Self(1);
+    pub const SIZE: Self = Self(2);
+    pub const MODE: Self = Self(4);
+    pub fn contains(self, check: Self) -> bool {
+        self.0 & check.0 == check.0
+    }
+}
+impl Default for StatChecks {
+    fn default() -> Self {
+        Self(3)
+    }
+}
+impl std::str::FromStr for StatChecks {
+    type Err = &'static str;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let mut bits = 0;
+        for name in value.split(',') {
+            let bit = match name {
+                "mtime" => 1,
+                "size" => 2,
+                "mode" => 4,
+                _ => return Err("checks must be a nonempty comma-separated selection of mtime,size,mode"),
+            };
+            if bits & bit != 0 {
+                return Err("duplicate stat check");
+            }
+            bits |= bit;
+        }
+        Ok(Self(bits))
+    }
+}
+impl std::fmt::Display for StatChecks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut separator = "";
+        for (check, name) in [(Self::MTIME, "mtime"), (Self::SIZE, "size"), (Self::MODE, "mode")] {
+            if self.contains(check) {
+                write!(f, "{separator}{name}")?;
+                separator = ",";
+            }
+        }
+        Ok(())
+    }
+}
+/// Metadata heuristic, not a content or storage-sharing proof. Unix mode checks
+/// compare permission and special bits (0o7777); other platforms use readonly.
+#[derive(Clone, Debug)]
+pub struct StatComparator {
+    checks: StatChecks,
+    identity: SemanticId,
+}
+impl StatComparator {
+    pub fn new(checks: StatChecks) -> Self {
+        Self {
+            checks,
+            identity: SemanticId::new("diff-dirs.stat-checks", 1, vec![checks.0]),
+        }
+    }
+    pub fn checks(&self) -> StatChecks {
+        self.checks
+    }
+}
+impl Default for StatComparator {
+    fn default() -> Self {
+        Self::new(StatChecks::default())
+    }
+}
 static STAT_ID: LazyLock<SemanticId> = LazyLock::new(|| SemanticId::new("diff-dirs.stat-key", 1, Vec::new()));
 static SIZE_ID: LazyLock<SemanticId> = LazyLock::new(|| SemanticId::new("diff-dirs.size-and-link", 1, Vec::new()));
 fn leaf_demand(shape: Shape) -> SideDemands {
@@ -99,7 +170,7 @@ impl Comparator for StatKey {
         leaf_demand(shape)
     }
     fn compare(&self, input: ComparisonInput<'_>) -> Result<Comparison, CheckError> {
-        compare_leaves(input, true)
+        compare_leaves(input, StatChecks::default())
     }
 }
 impl Comparator for SizeAndLink {
@@ -110,10 +181,21 @@ impl Comparator for SizeAndLink {
         leaf_demand(shape)
     }
     fn compare(&self, input: ComparisonInput<'_>) -> Result<Comparison, CheckError> {
-        compare_leaves(input, false)
+        compare_leaves(input, StatChecks::SIZE)
     }
 }
-fn compare_leaves(input: ComparisonInput<'_>, time: bool) -> Result<Comparison, CheckError> {
+impl Comparator for StatComparator {
+    fn identity(&self) -> &SemanticId {
+        &self.identity
+    }
+    fn demand(&self, shape: Shape) -> SideDemands {
+        leaf_demand(shape)
+    }
+    fn compare(&self, input: ComparisonInput<'_>) -> Result<Comparison, CheckError> {
+        compare_leaves(input, self.checks)
+    }
+}
+fn compare_leaves(input: ComparisonInput<'_>, checks: StatChecks) -> Result<Comparison, CheckError> {
     let source = input.facts.source.ok_or("missing compatible source facts")?;
     let target = input.facts.target.ok_or("missing compatible target facts")?;
     let equal = if source.kind == Kind::File {
@@ -121,12 +203,13 @@ fn compare_leaves(input: ComparisonInput<'_>, time: bool) -> Result<Comparison, 
         let t = target.attributes.known().ok_or("target attributes were not requested")?;
         // Preserve the legacy short circuit: timestamp extraction is not requested
         // by the stat-key predicate when size already establishes a difference.
-        s.len() == t.len()
-            && (!time
+        (!checks.contains(StatChecks::SIZE) || s.len() == t.len())
+            && (!checks.contains(StatChecks::MTIME)
                 || s.modified()
                     .map_err(|e| crate::Error::io(input.source_path.to_owned(), "read modification time", e))?
                     == t.modified()
                         .map_err(|e| crate::Error::io(input.target_path.to_owned(), "read modification time", e))?)
+            && (!checks.contains(StatChecks::MODE) || same_mode(s, t))
     } else {
         let (Available::Known(s), Available::Known(t)) = (source.literal_link, target.literal_link) else {
             return Err("literal link was not requested".into());
@@ -134,6 +217,18 @@ fn compare_leaves(input: ComparisonInput<'_>, time: bool) -> Result<Comparison, 
         s.as_os_str() == t.as_os_str()
     };
     Ok(if equal { Comparison::Equal } else { Comparison::Different })
+}
+
+fn same_mode(s: &std::fs::Metadata, t: &std::fs::Metadata) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        s.permissions().mode() & 0o7777 == t.permissions().mode() & 0o7777
+    }
+    #[cfg(not(unix))]
+    {
+        s.permissions().readonly() == t.permissions().readonly()
+    }
 }
 
 pub(crate) fn structural(shape: Shape) -> Option<Comparison> {

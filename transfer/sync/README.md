@@ -5,8 +5,12 @@ description: Root-bound record application, explicit copy policies, staged repla
 resource: /transfer/sync/README.md
 status: implemented-awaiting-parent-review
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-18 }
-updated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
+updated: { by: "model:openai/gpt-6.1-sol#high", at: 2026-10-30 }
 sources:
+  - resource: "opencode://ses_e744de129ffeJFNaoEhNajEXMV"
+    title: Adds heuristic RefreshOwned coverage, configurable comparison and general optional installer postcheck with bound continuation
+  - resource: /design/comparison/refresh0.sol61h.md
+    title: Commissioned seeded heuristic, native handoff checkpoint and provider verification
   - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
     title: Reviews and promotes the contextual production runtime, direct prepared effects, shared kernel and real fresh-process continuation checkpoint
   - resource: /design/architecture/execution2.sol61x.md
@@ -369,8 +373,9 @@ retained removal ancestors add distinct credits. Reports combine committed
 comparison choices with explicit returned opaque/necessary additions, including on
 failure. They no longer infer ownership by subtraction. `ApplicationNeed::None`
 autoaccepts with zero application/effect totals while preserving the control window
-and paired edges; consumers use `pending()` to select applications. Parts and the
-example codec are schema3, rejecting unrecoverable v2 aggregates.
+and paired edges; consumers use `pending()` to select applications. Sync parts and
+the example codec are version4: each lane also binds its selected installation
+postcheck. Old versions refuse rather than silently changing execution semantics.
 
 ```rust,no_run
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -620,12 +625,18 @@ lease through cleanup, postorder modes and exact mtime use the shared kernel.
 kind/executable expectations. `OwnedLeafSet` independently freezes previously owned
 leaf paths. Prepare each distinct input once and reuse its Arc-backed component
 index. Their platform-tagged ManifestIds identify declarations, not source contents
-or native ownership. `EffectBinding` owns validated physical roots and CopyPolicy
-without an ordinary policy/comparator.
+or native ownership. `EffectBinding` owns validated physical roots, CopyPolicy and
+optional Postcheck without an ordinary policy/comparator.
 
 `reconcile_listed(source_session, desired, targets)` runs one coarse, serial grouped
 call. `ListedIntent::CreateAbsent` ignores supplied O authority and never replaces
 or removes; `RenewOwned` permits occupied supported leaves only at exact O paths.
+Both intents still install every desired leaf. `RefreshOwned(StatChecks)` retains
+compatible owned leaves that compare equal: regular files use the selected metadata
+heuristic, symlinks use literal target equality. Size + exact mtime is the default;
+optional `mode` compares Unix `0o7777` (readonly on non-Unix). Parsed selections
+replace the default, and reject empty, duplicate or unknown names. This is neither
+a content proof nor a hardlink/private-inode check. Equality never supplies ownership.
 A pure `ListedGuard` can demand/check actual route and entry facts, but cannot drop
 obligations or widen authority. Inspect performs exact lookups and complete target
 census; sync binds actual manifest references, coordinates, expectations, scopes
@@ -639,9 +650,12 @@ absence; O-only structural directories remain. There is no automatic empty-direc
 prune or source-absence inference from an unrequested source.
 
 `ListedReport` contains ordered independent lane outcomes and `ManifestCoverage`:
-desired, installed, owned_obsolete, owned_retired and complete. Coverage is separate
+desired, installed, retained, owned_obsolete, owned_retired and complete. Coverage is separate
 from actual filesystem effects. Private installations become installed coverage
 only on publication; visible removals and confirmed absence survive later failure.
+Retained counts desired in-place acceptance, not actual installs or clones.
+Completion requires installed + retained == desired, complete obsolete retirement
+and successful scope cleanup; old intents always have retained == 0.
 Cleanup/permission failure leaves complete false. **Require both a successful lane
 outcome and complete coverage** before a native caller considers its separate
 state-adoption protocol; outer Ok alone is insufficient.
@@ -650,7 +664,7 @@ The [compiled API example](/transfer/sync/src/listed.rs) and
 [implementation receipt](/design/architecture/execution4.sol61x.md) show the native
 handoff. Source facts group before child inspection even with retention disabled.
 Listed work owns its runtime recursion and has no saved interior cursor; ordinary
-V3 paired continuation remains unchanged.
+paired continuation remains independently owned and binds postchecks in V4.
 
 `clear(target, scope, check)` binds an existing real directory and deletes its
 participating contents through the **same recursive remover** as sync. It never
@@ -830,13 +844,18 @@ before removing the old leaf; directory-to-leaf transitions first run the local
 read-only removability precheck, then prepare the leaf before removal. Once
 authorized removal starts these transitions are not transactions.
 
-Successful regular copies preserve permissions and exact supported `SystemTime`
-mtime. Copy and Linux clone/fallback retain usable source/output descriptors
+Regular installations always set source permissions and `SystemTime` mtime.
+`EffectBinding::with_postcheck(Postcheck::Mtime)` and
+`Applier::with_postcheck(Postcheck::Mtime)` optionally verify exact mtime read-back
+before publication. The default is `Postcheck::None`: no verification metadata
+syscall, and successful timestamp setting is not a claim of exact representability.
+The setting applies to both copy and reflink, including recursive/declared work.
+Copy and Linux clone/fallback retain usable source/output descriptors
 through metadata finalization and installation, avoiding clone chmod/reopen churn.
 Other platforms make privately owned clone/fallback outputs usable before
-reopening and retain that descriptor through final restrictive chmod. Exact timestamp
-readback is checked **before installation**: unrepresentable target timestamps
-fail rather than silently promise convergence. Directory permissions are applied
+reopening and retain that descriptor through final restrictive chmod. With Mtime
+selected, unrepresentable target timestamps fail before installation.
+Directory permissions are applied
 after all child work joins and arena cleanup finishes, including on failure.
 Successful empty arenas use direct removal; failed/stopped preparations retain
 robust recursive owned cleanup. Directory mtimes are not copied.

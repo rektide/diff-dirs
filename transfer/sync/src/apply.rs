@@ -381,6 +381,7 @@ pub fn clear_with_visitor<V: Visitor>(target: impl AsRef<Path>, visitor: V) -> R
             original: target.clone(),
             target: target.clone(),
             policy: CopyPolicy::Copy,
+            postcheck: crate::Postcheck::None,
         },
         selection: FullVisitor(visitor),
         comparator: diff_dirs_tree_inspect::StatKey,

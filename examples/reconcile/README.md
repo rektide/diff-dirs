@@ -6,6 +6,8 @@ resource: /examples/reconcile/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-28 }
 sources:
+  - resource: "opencode://ses_e744de129ffeJFNaoEhNajEXMV"
+    title: Adopts provider0.8 and version4 postcheck-bound continuation with explicit codec vocabulary
   - resource: opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4
     title: Promotes contextual selected semantics and resumed-effect evidence, then records the explicit schema3 retention-accounting correction
   - resource: /design/architecture/execution0.sol61x.md
@@ -120,7 +122,7 @@ can complete even when another lane failed, so `Done` alone does not mean succes
 ## Transport and effect boundaries
 
 [`transport.rs`](src/transport.rs) defines explicit application DTOs under
-`schema = "diff-dirs.reconcile-example", version = 3`. Field names and closed enum
+`schema = "diff-dirs.reconcile-example", version = 4`. Field names and closed enum
 spellings belong to this example, not to runtime Rust layout. Unknown fields,
 vocabulary, versions, incompatible policy descriptors and invalid saved state are
 refused before execution. Actual error causes are returned live; saved terminal
@@ -140,6 +142,9 @@ effects and rejected changed opaque residuals. Version3 additionally carries tru
 selected retention separately from action deviation and explicit opaque/necessary
 additions. All version2 documents refuse: their old mixed aggregates cannot recover
 the corrected meaning. No silent migration is provided.
+Version4 additionally stores one postcheck (`none` or `mtime`) per lane; runtime
+rebinding must match it. Version3 is refused rather than assigning an unstated
+installation-verification policy. Comparison-only parts retain their own version.
 
 The 0.2 library adoption adds `directory/create-if-needed/descend` to this
 vocabulary. Older readers reject unknown spellings; it is not a serialization

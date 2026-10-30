@@ -114,7 +114,9 @@ pub fn runtime(parts: &SyncParts, config: &[PolicyConfig], hooks: Arc<AtomicU64>
         targets.push(SyncTarget {
             id: b.id.clone(),
             descriptor: b.policy.clone(),
-            applier: Applier::new(&parts.comparison.bindings.source, &b.root, parts.copy_policies[i])?.visitor(Policy::new(&config[i].rules, hooks.clone())?),
+            applier: Applier::new(&parts.comparison.bindings.source, &b.root, parts.copy_policies[i])?
+                .with_postcheck(parts.postchecks[i])
+                .visitor(Policy::new(&config[i].rules, hooks.clone())?),
         });
     }
     Ok(SyncRuntime::new(targets))

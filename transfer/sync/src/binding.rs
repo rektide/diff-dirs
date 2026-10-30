@@ -2,11 +2,20 @@
 use crate::{CopyPolicy, Failure, paths};
 use std::path::{Path, PathBuf};
 
+/// Optional regular-install read-back. Attributes are always set, independently.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Postcheck {
+    #[default]
+    None,
+    Mtime,
+}
+
 #[derive(Clone, Debug)]
 pub struct EffectBinding {
     pub(crate) original: PathBuf,
     pub(crate) target: PathBuf,
     pub(crate) policy: CopyPolicy,
+    pub(crate) postcheck: Postcheck,
 }
 impl EffectBinding {
     pub fn new(source: impl AsRef<Path>, target: impl AsRef<Path>, policy: CopyPolicy) -> Result<Self, Failure> {
@@ -18,7 +27,12 @@ impl EffectBinding {
         if original.starts_with(&target) || target.starts_with(&original) {
             return Err(Failure::invalid("bind roots", &target, "source and target roots overlap"));
         }
-        Ok(Self { original, target, policy })
+        Ok(Self {
+            original,
+            target,
+            policy,
+            postcheck: Postcheck::None,
+        })
     }
     pub fn source(&self) -> &Path {
         &self.original
@@ -28,5 +42,12 @@ impl EffectBinding {
     }
     pub fn copy_policy(&self) -> CopyPolicy {
         self.policy
+    }
+    pub fn with_postcheck(mut self, postcheck: Postcheck) -> Self {
+        self.postcheck = postcheck;
+        self
+    }
+    pub fn postcheck(&self) -> Postcheck {
+        self.postcheck
     }
 }

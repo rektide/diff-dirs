@@ -223,6 +223,7 @@ pub struct Drive {
 pub struct SyncCursor<C = ()> {
     comparison: Coordinated<C>,
     copy_policies: Vec<CopyPolicy>,
+    postchecks: Vec<crate::Postcheck>,
     lanes: Vec<LaneTotals>,
     current: Option<Barrier<C>>,
     plans: Vec<Option<PreparedDirectory<C>>>,
@@ -237,9 +238,10 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
         let bindings = runtime.bindings()?;
         let n = bindings.targets.len();
         let parts = SyncParts {
-            version: 3,
+            version: 4,
             comparison: compare::Parts::fresh(bindings).map_err(Error::Comparison)?,
             copy_policies: runtime.targets.iter().map(|t| t.applier.policy).collect(),
+            postchecks: runtime.targets.iter().map(|t| t.applier.postcheck).collect(),
             lanes: vec![LaneTotals::default(); n],
             current: None,
         };
@@ -255,6 +257,7 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
         Ok(Self {
             comparison: Coordinated::from_parts(parts.comparison, execution).map_err(Error::Comparison)?,
             copy_policies: parts.copy_policies,
+            postchecks: parts.postchecks,
             lanes: parts.lanes,
             current: parts.current,
             plans: (0..n).map(|_| None).collect(),
@@ -265,18 +268,20 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
 
     pub fn parts(&self) -> SyncParts<C> {
         SyncParts {
-            version: 3,
+            version: 4,
             comparison: self.comparison.parts().clone(),
             copy_policies: self.copy_policies.clone(),
+            postchecks: self.postchecks.clone(),
             lanes: self.lanes.clone(),
             current: self.current.clone(),
         }
     }
     pub fn into_parts(self) -> SyncParts<C> {
         SyncParts {
-            version: 3,
+            version: 4,
             comparison: self.comparison.into_parts(),
             copy_policies: self.copy_policies,
+            postchecks: self.postchecks,
             lanes: self.lanes,
             current: self.current,
         }
@@ -324,6 +329,7 @@ impl<C: Clone + Eq + fmt::Debug + Send + Sync> SyncCursor<C> {
                 || t.applier.original() != bindings.source
                 || t.applier.target() != b.root
                 || t.applier.policy != self.copy_policies[i]
+                || t.applier.postcheck != self.postchecks[i]
             {
                 return Err(Error::RuntimeMismatch(t.id.clone()));
             }

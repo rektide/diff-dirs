@@ -574,7 +574,10 @@ pub(crate) fn validate_entry_at<C>(domain: SelectionDomain, e: &EntrySelection<C
         )?;
         require(e.desired.is_none(), "physical union contains desired reference")?;
     } else {
-        require(e.comparison == Comparison::NotAssessed, "listed work is not a physical-union comparison")?;
+        require(
+            e.comparison == Comparison::NotAssessed || (matches!(e.desired, Some(DesiredInput::Leaf { .. })) && sl && s == t),
+            "listed comparison requires compatible desired leaves",
+        )?;
         if let Some(desired) = e.desired {
             require(matches!(e.source, SourceObservation::Present(_)), "desired source obligation is missing")?;
             let expected = match desired {
@@ -606,8 +609,8 @@ pub(crate) fn validate_entry_at<C>(domain: SelectionDomain, e: &EntrySelection<C
             require(expected, "desired source kind mismatch")?;
             if matches!(desired, DesiredInput::Leaf { .. }) {
                 require(
-                    matches!(e.action, Action::InstallLeaf | Action::ReplaceWithLeaf),
-                    "desired leaf obligation must select installation",
+                    matches!(e.action, Action::InstallLeaf | Action::ReplaceWithLeaf) || (e.action == Action::KeepLeaf && e.comparison == Comparison::Equal),
+                    "desired leaf obligation must select installation or assessed equality",
                 )?;
             }
         } else {

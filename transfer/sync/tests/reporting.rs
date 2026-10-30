@@ -196,7 +196,7 @@ fn accepted_a_pending_b_restores_only_returned_additions_and_rejects_ambiguous_h
     let group = cursor.next_group(&runtime).unwrap().unwrap();
     cursor.apply(&runtime, &group.token, &"lane-0".into()).unwrap();
     let parts = cursor.into_parts();
-    assert_eq!(parts.version, 3);
+    assert_eq!(parts.version, 4);
     assert_eq!(parts.comparison.version, 3);
     assert_eq!(parts.lanes[0].additional_retained, 3);
     assert_eq!(parts.lanes[0].opaque_deviated, 1);

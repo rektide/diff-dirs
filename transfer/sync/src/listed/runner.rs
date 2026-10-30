@@ -50,12 +50,14 @@ impl<G: ListedGuard> Lane<'_, G> {
 struct Work {
     result: Result<Progress, Failure>,
     installed: u64,
+    retained: u64,
 }
 impl Default for Work {
     fn default() -> Self {
         Self {
             result: Ok(Progress::default()),
             installed: 0,
+            retained: 0,
         }
     }
 }
@@ -72,6 +74,7 @@ impl Work {
     }
     fn join(&mut self, mut other: Work) {
         self.installed += other.installed;
+        self.retained += other.retained;
         self.add(other.take());
     }
 }
@@ -128,7 +131,7 @@ pub(super) fn run<G: ListedGuard>(
     let mut lanes: Vec<_> = targets
         .iter()
         .map(|target| Lane {
-            selector: Selector { desired, target },
+            selector: Selector::new(desired, target),
             retired: HashSet::new(),
             planned: 0,
             policy: crate::Policy::default(),
@@ -164,11 +167,12 @@ pub(super) fn run<G: ListedGuard>(
             let mut coverage = ManifestCoverage {
                 desired: desired.len() as u64,
                 installed: work.installed,
+                retained: work.retained,
                 owned_obsolete,
                 owned_retired: lane.retired.len() as u64,
                 complete: false,
             };
-            if result.is_ok() && (coverage.installed != coverage.desired || coverage.owned_retired != coverage.owned_obsolete) {
+            if result.is_ok() && (coverage.installed + coverage.retained != coverage.desired || coverage.owned_retired != coverage.owned_obsolete) {
                 let missing = Failure::invalid(
                     "finish listed coverage",
                     lane.selector.target.binding.target(),
@@ -176,7 +180,8 @@ pub(super) fn run<G: ListedGuard>(
                 );
                 result = merge([result, Err(missing)]);
             }
-            coverage.complete = result.is_ok() && coverage.installed == coverage.desired && coverage.owned_retired == coverage.owned_obsolete;
+            coverage.complete =
+                result.is_ok() && coverage.installed + coverage.retained == coverage.desired && coverage.owned_retired == coverage.owned_obsolete;
             let mut policy = lane.policy;
             policy.satisfied = coverage.complete;
             let outcome = match result {
@@ -337,10 +342,20 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
                     },
                 };
                 match entry.action {
+                    Action::KeepLeaf => {
+                        frame.work.retained += 1;
+                    }
                     Action::ConfirmAbsent | Action::PreserveTree => {}
                     Action::InstallLeaf => {
                         let staged = frame.scope.stage_slot(slot, &output, epoch)?;
-                        let leaf = kernel::prepare_leaf(&from, facts.source.unwrap(), &staged, &output, state.selector.target.binding.copy_policy())?;
+                        let leaf = kernel::prepare_leaf(
+                            &from,
+                            facts.source.unwrap(),
+                            &staged,
+                            &output,
+                            state.selector.target.binding.copy_policy(),
+                            state.selector.target.binding.postcheck(),
+                        )?;
                         frame.work.add(kernel::publish_leaf(
                             leaf,
                             &staged,
@@ -441,7 +456,14 @@ fn group<G: ListedGuard>(source: &SourceSession, epoch: &InspectionEpoch, lanes:
                         preflight(source, epoch, lanes, frame.job.lane, &removal)?;
                         let state = &mut lanes[frame.job.lane];
                         let staged = frame.scope.stage_slot(slot, &output, epoch)?;
-                        let leaf = kernel::prepare_leaf(&from, facts.source.unwrap(), &staged, &output, state.selector.target.binding.copy_policy())?;
+                        let leaf = kernel::prepare_leaf(
+                            &from,
+                            facts.source.unwrap(),
+                            &staged,
+                            &output,
+                            state.selector.target.binding.copy_policy(),
+                            state.selector.target.binding.postcheck(),
+                        )?;
                         let removed = remove_tree(source, epoch, lanes, frame.job.lane, removal, &frame.scope);
                         frame.work.join(removed);
                         if !frame.work.good() {

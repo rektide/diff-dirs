@@ -9,7 +9,7 @@ fn install(source: &Path, target: &Path, scope: &DirectoryScope, index: usize, e
     let metadata = fs::symlink_metadata(source).map_err(|e| Failure::io("inspect source leaf", source, e))?;
     metadata.modified().map_err(|e| Failure::io("read source mtime", source, e))?;
     let slot = scope.stage_slot(SlotId(index), target, epoch)?;
-    let prepared = prepare_file(source, slot.path(), target, &metadata, policy)?;
+    let prepared = prepare_file(source, slot.path(), target, &metadata, policy, Postcheck::None)?;
     publish_leaf(
         prepared,
         &slot,
@@ -124,7 +124,7 @@ fn retained_output_finalizes_exact_mtime_and_mode000_before_installation() {
     let metadata = source_file.metadata().unwrap();
     let staged = owned.path().join("staged");
     let output = OpenOptions::new().create_new(true).read(true).write(true).open(&staged).unwrap();
-    preserve_file(&output, &metadata, &staged).unwrap();
+    preserve_file(&output, &metadata, &staged, Postcheck::Mtime).unwrap();
     fs::rename(&staged, owned.path().join("installed")).unwrap();
     assert_eq!(output.metadata().unwrap().mode() & 0o777, 0);
     assert_eq!(output.metadata().unwrap().modified().unwrap(), metadata.modified().unwrap());
@@ -140,11 +140,13 @@ fn descriptor_preparation_does_not_clobber_existing_slots_or_fallback_on_missing
     for policy in [CopyPolicy::Copy, CopyPolicy::ReflinkRequired, CopyPolicy::ReflinkOrCopy] {
         let staged = owned.path().join("existing");
         fs::write(&staged, b"sentinel").unwrap();
-        let f = prepare_file(&source, &staged, &staged, &metadata, policy).err().unwrap();
+        let f = prepare_file(&source, &staged, &staged, &metadata, policy, Postcheck::None).err().unwrap();
         assert_eq!(f.primary.cause.downcast_ref::<io::Error>().unwrap().kind(), io::ErrorKind::AlreadyExists);
         assert_eq!(fs::read(&staged).unwrap(), b"sentinel");
         fs::remove_file(&staged).unwrap();
-        let f = prepare_file(&owned.path().join("missing"), &staged, &staged, &metadata, policy).err().unwrap();
+        let f = prepare_file(&owned.path().join("missing"), &staged, &staged, &metadata, policy, Postcheck::None)
+            .err()
+            .unwrap();
         assert_eq!(f.primary.cause.downcast_ref::<io::Error>().unwrap().kind(), io::ErrorKind::NotFound);
         assert!(!staged.exists());
         assert_eq!(f.completed, Progress::default());
@@ -211,7 +213,7 @@ fn absent_only_publication_refuses_new_collisions_without_widening_grant() {
     let epoch = InspectionEpoch::new();
     let slot = scope.stage_slot(SlotId(0), &to, &epoch).unwrap();
     let metadata = fs::metadata(&source).unwrap();
-    let prepared = prepare_file(&source, slot.path(), &to, &metadata, CopyPolicy::Copy).unwrap();
+    let prepared = prepare_file(&source, slot.path(), &to, &metadata, CopyPolicy::Copy, Postcheck::None).unwrap();
     let destination = BoundDestination::new(&to, &scope, DestinationGrant::AbsentOnly, None).unwrap();
     fs::write(&to, b"collision").unwrap();
     let f = publish_leaf(prepared, &slot, &destination, &epoch).unwrap_err();

@@ -1,6 +1,6 @@
 //! Policy-free physical primitives. Only the runner enumerates user trees.
 
-use crate::{CopyPolicy, Failure, Progress, model::merge, platform};
+use crate::{CopyPolicy, Failure, Postcheck, Progress, model::merge, platform};
 use diff_dirs_tree_inspect::{DestinationGrant, InspectionEpoch, Kind, SideFacts, SlotId};
 use std::collections::HashSet;
 use std::ffi::OsStr;
@@ -99,7 +99,14 @@ pub(crate) struct PreparedLeaf {
     _output: Option<File>,
 }
 
-pub(crate) fn prepare_leaf(from: &Path, facts: SideFacts<'_>, slot: &StageSlot, to: &Path, policy: CopyPolicy) -> Result<PreparedLeaf, Failure> {
+pub(crate) fn prepare_leaf(
+    from: &Path,
+    facts: SideFacts<'_>,
+    slot: &StageSlot,
+    to: &Path,
+    policy: CopyPolicy,
+    postcheck: Postcheck,
+) -> Result<PreparedLeaf, Failure> {
     if facts.kind == Kind::Symlink {
         platform::symlink(
             facts.literal_link.known().expect("execution inputs checked"),
@@ -116,7 +123,14 @@ pub(crate) fn prepare_leaf(from: &Path, facts: SideFacts<'_>, slot: &StageSlot, 
             _output: None,
         })
     } else {
-        prepare_file(from, slot.path(), to, facts.attributes.known().expect("execution inputs checked"), policy)
+        prepare_file(
+            from,
+            slot.path(),
+            to,
+            facts.attributes.known().expect("execution inputs checked"),
+            policy,
+            postcheck,
+        )
     }
 }
 
@@ -339,26 +353,28 @@ fn remove_private(path: &Path, epoch: &InspectionEpoch) -> Result<(), Failure> {
     Ok(())
 }
 
-fn preserve_file(output: &File, metadata: &Metadata, to: &Path) -> Result<(), Failure> {
+fn preserve_file(output: &File, metadata: &Metadata, to: &Path, postcheck: Postcheck) -> Result<(), Failure> {
     let modified = metadata.modified().expect("whole-batch execution inputs checked before effects");
     output.set_modified(modified).map_err(|e| Failure::io("set file mtime", to, e))?;
-    let actual = output
-        .metadata()
-        .and_then(|m| m.modified())
-        .map_err(|e| Failure::io("verify file mtime", to, e))?;
-    if modified != actual {
-        return Err(Failure::io(
-            "verify file mtime",
-            to,
-            io::Error::new(io::ErrorKind::Unsupported, "target cannot represent exact source modification time"),
-        ));
+    if postcheck == Postcheck::Mtime {
+        let actual = output
+            .metadata()
+            .and_then(|m| m.modified())
+            .map_err(|e| Failure::io("verify file mtime", to, e))?;
+        if modified != actual {
+            return Err(Failure::io(
+                "verify file mtime",
+                to,
+                io::Error::new(io::ErrorKind::Unsupported, "target cannot represent exact source modification time"),
+            ));
+        }
     }
     output
         .set_permissions(metadata.permissions())
         .map_err(|e| Failure::io("set file permissions", to, e))
 }
 
-fn prepare_file(from: &Path, staged: &Path, to: &Path, metadata: &Metadata, policy: CopyPolicy) -> Result<PreparedLeaf, Failure> {
+fn prepare_file(from: &Path, staged: &Path, to: &Path, metadata: &Metadata, policy: CopyPolicy, postcheck: Postcheck) -> Result<PreparedLeaf, Failure> {
     let (copied, source, output) = match policy {
         policy if policy == CopyPolicy::Copy || cfg!(target_os = "linux") => {
             let operation = if policy == CopyPolicy::Copy { "copy file" } else { "prepare reflink" };
@@ -392,7 +408,7 @@ fn prepare_file(from: &Path, staged: &Path, to: &Path, metadata: &Metadata, poli
                 #[cfg(not(target_os = "linux"))]
                 unreachable!()
             };
-            preserve_file(&output, metadata, to)?;
+            preserve_file(&output, metadata, to, postcheck)?;
             (copied, Some(source), output)
         }
         policy => {
@@ -408,7 +424,7 @@ fn prepare_file(from: &Path, staged: &Path, to: &Path, metadata: &Metadata, poli
                 .write(true)
                 .open(staged)
                 .map_err(|e| Failure::io("open prepared file", to, e))?;
-            preserve_file(&output, metadata, to)?;
+            preserve_file(&output, metadata, to, postcheck)?;
             (copied, None, output)
         }
     };

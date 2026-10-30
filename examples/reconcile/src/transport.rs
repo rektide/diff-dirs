@@ -7,8 +7,8 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use diff_dirs_transfer_sync::CopyPolicy;
 use diff_dirs_transfer_sync::coordinated::{Application, ApplicationState, Barrier, DirectoryDecision, End, Kind, LaneTotals, SyncParts, WorkTotals};
+use diff_dirs_transfer_sync::{CopyPolicy, Postcheck};
 use diff_dirs_tree_compare::coordinated::{
     Bindings, ChildEdge, ChildMember, ControlWindow, GroupFrame, LaneFrame, LaneState, LaneStatus, Parts, TargetBinding,
 };
@@ -37,6 +37,7 @@ pub struct State<C = ()> {
     pub version: u32,
     pub comparison: Comparison<C>,
     pub copy_policies: Vec<String>,
+    pub postchecks: Vec<String>,
     pub lanes: Vec<Totals>,
     pub current: Option<PendingGroup<C>>,
 }
@@ -256,6 +257,7 @@ macro_rules! vocabulary {
 vocabulary!(status, parse_status, LaneStatus, { LaneStatus::Active => "active", LaneStatus::Complete => "complete", LaneStatus::Failed => "failed", LaneStatus::Stopped => "stopped" });
 vocabulary!(scan, parse_scan, ScanState, { ScanState::Incomplete => "incomplete", ScanState::Complete => "complete", ScanState::Failed => "failed" });
 vocabulary!(copy, parse_copy, CopyPolicy, { CopyPolicy::Copy => "copy", CopyPolicy::ReflinkRequired => "reflink-required", CopyPolicy::ReflinkOrCopy => "reflink-or-copy" });
+vocabulary!(postcheck, parse_postcheck, Postcheck, { Postcheck::None => "none", Postcheck::Mtime => "mtime" });
 vocabulary!(end, parse_end, End, { End::ComparisonFailed => "comparison-failed", End::ApplicationFailed => "application-failed", End::RefreshFailed => "refresh-failed", End::DecisionChanged => "decision-changed", End::Abandoned => "abandoned" });
 vocabulary!(application, parse_application, ApplicationState, { ApplicationState::Unstarted => "unstarted", ApplicationState::Accepted => "accepted", ApplicationState::Failed => "failed", ApplicationState::Abandoned => "abandoned" });
 vocabulary!(kind, parse_kind, Kind, { Kind::Directory => "directory", Kind::File => "file", Kind::Symlink => "symlink", Kind::Other => "other" });
@@ -713,11 +715,12 @@ impl<C: Clone + Eq> Snapshot<C> {
         let p = &parts.comparison;
         Ok(Self {
             schema: "diff-dirs.reconcile-example".into(),
-            version: 3,
+            version: 4,
             policies,
             state: State {
                 version: parts.version,
                 copy_policies: parts.copy_policies.iter().copied().map(copy).collect(),
+                postchecks: parts.postchecks.iter().copied().map(postcheck).collect(),
                 lanes: parts
                     .lanes
                     .iter()
@@ -749,7 +752,7 @@ impl<C: Clone + Eq> Snapshot<C> {
         })
     }
     pub fn decode(self) -> Result<(SyncParts<C>, Vec<PolicyConfig>)> {
-        if self.schema != "diff-dirs.reconcile-example" || self.version != 3 {
+        if self.schema != "diff-dirs.reconcile-example" || self.version != 4 {
             return Err("unsupported reconcile transport schema/version".into());
         }
         let s = self.state;
@@ -757,6 +760,7 @@ impl<C: Clone + Eq> Snapshot<C> {
         let parts = SyncParts {
             version: s.version,
             copy_policies: s.copy_policies.iter().map(|v| parse_copy(v)).collect::<Result<_>>()?,
+            postchecks: s.postchecks.iter().map(|v| parse_postcheck(v)).collect::<Result<_>>()?,
             lanes: s
                 .lanes
                 .into_iter()

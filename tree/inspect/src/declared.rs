@@ -46,6 +46,8 @@ pub struct DeclaredEntryCandidate<'a> {
     pub coordinate: Coordinate<'a>,
     pub desired: Option<DesiredInput>,
     pub shape: Shape,
+    /// NotAssessed during guard/demand; selected compatible-leaf assessment at select.
+    pub comparison: Comparison,
 }
 #[derive(Clone, Copy, Debug)]
 pub struct DeclaredRouteCandidate<'a> {
@@ -69,6 +71,10 @@ pub struct DeclaredChoice<C> {
 pub trait DeclaredSelection: Sync {
     type Context: Clone + Eq + std::fmt::Debug + Send + Sync;
     fn identity(&self) -> &SemanticId;
+    /// Optional compatible desired-leaf comparison; never confers ownership.
+    fn comparator(&self) -> Option<&dyn Comparator> {
+        None
+    }
     fn context_schema(&self) -> &SemanticId {
         self.identity()
     }
@@ -112,6 +118,7 @@ impl Slot {
             },
             desired: self.desired,
             shape: self.shape,
+            comparison: Comparison::NotAssessed,
         }
     }
     fn acquire(&self, demand: SideDemands, acquire: &impl Acquire) -> Result<EntryRuntime, Arc<Error>> {
@@ -289,13 +296,17 @@ fn inspect_using<L: DeclaredSelection, E: ExecutionDemand>(
                 .map(|s| lane.selection.demand(lane.context, DeclaredCandidate::Entry(s.candidate(info, domain))))
                 .collect();
             let facts = crate::visitor::shared::indexed_map(&slots.iter().zip(&masks).collect::<Vec<_>>(), execution, |(s, mask)| {
-                s.acquire(mask.union(expectation_demand(s.desired)), acquire)
+                s.acquire(
+                    mask.union(expectation_demand(s.desired))
+                        .union(comparison_demand(lane.selection.comparator(), s)),
+                    acquire,
+                )
             })
             .into_iter()
             .collect::<Result<Vec<_>, _>>()?;
             let mut entries = Vec::with_capacity(slots.len());
             for ((slot, mask), facts) in slots.iter().zip(&masks).zip(&facts) {
-                let candidate = slot.candidate(info, domain);
+                let mut candidate = slot.candidate(info, domain);
                 let entry_error = |cause: CheckError| match cause.downcast::<Error>() {
                     Ok(error) => Arc::new(*error),
                     Err(cause) => Arc::new(refusal(&lane.logical_root.join(at.relative).join(&slot.name), cause)),
@@ -304,6 +315,18 @@ fn inspect_using<L: DeclaredSelection, E: ExecutionDemand>(
                 lane.selection
                     .check(lane.context, DeclaredCandidate::Entry(candidate), facts.masked(*mask))
                     .map_err(entry_error)?;
+                if let Some(comparator) = lane.selection.comparator()
+                    && comparable(slot)
+                {
+                    candidate.comparison = comparator
+                        .compare(ComparisonInput {
+                            shape: slot.shape,
+                            facts: facts.masked(comparator.demand(slot.shape)),
+                            source_path: &source.root().join(at.relative).join(&slot.name),
+                            target_path: &lane.logical_root.join(at.relative).join(&slot.name),
+                        })
+                        .map_err(entry_error)?;
+                }
                 let choice = lane.selection.select(lane.context, candidate).map_err(entry_error)?;
                 if let Some(interior) = &choice.interior {
                     lane.selection
@@ -322,8 +345,8 @@ fn inspect_using<L: DeclaredSelection, E: ExecutionDemand>(
                     entry: EntrySelection {
                         source: slot.shape.source,
                         target: slot.shape.target,
-                        comparison: Comparison::NotAssessed,
-                        baseline: None,
+                        comparison: candidate.comparison,
+                        baseline: crate::selection::baseline_at(slot.shape, candidate.comparison, false),
                         desired: slot.desired,
                         action: choice.action,
                         install: choice.install,
@@ -340,7 +363,7 @@ fn inspect_using<L: DeclaredSelection, E: ExecutionDemand>(
                 input_context: lane.context.clone(),
                 policy: lane.selection.identity().clone(),
                 context_schema: lane.selection.context_schema().clone(),
-                comparator: OMITTED.clone(),
+                comparator: lane.selection.comparator().map_or_else(|| OMITTED.clone(), |c| c.identity().clone()),
                 scoped: true,
                 root_excluded: false,
                 excluded_names: Vec::new(),
@@ -380,6 +403,17 @@ fn inspect_using<L: DeclaredSelection, E: ExecutionDemand>(
             }),
         })
         .collect())
+}
+
+fn comparable(slot: &Slot) -> bool {
+    matches!(slot.desired, Some(DesiredInput::Leaf { .. }))
+        && slot.shape.source.kind().is_some_and(Kind::is_leaf)
+        && slot.shape.source.kind() == slot.shape.target
+}
+fn comparison_demand(comparator: Option<&dyn Comparator>, slot: &Slot) -> SideDemands {
+    comparator
+        .filter(|_| comparable(slot))
+        .map_or_else(SideDemands::default, |c| c.demand(slot.shape))
 }
 
 pub(crate) fn manifest_valid(id: ManifestId) -> bool {

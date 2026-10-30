@@ -236,9 +236,10 @@ fn generic_unstarted_barrier_transport_preserves_the_exact_selected_contexts() -
         })
         .collect();
     let parts = SyncParts {
-        version: 3,
+        version: 4,
         comparison: run.into_parts(),
         copy_policies: vec![diff_dirs_transfer_sync::CopyPolicy::Copy; 2],
+        postchecks: vec![diff_dirs_transfer_sync::Postcheck::None; 2],
         lanes: vec![LaneTotals::default(); 2],
         current: Some(Barrier { sequence: 1, applications }),
     };

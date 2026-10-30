@@ -88,16 +88,20 @@ pub struct SyncParts<C = ()> {
     pub version: u32,
     pub comparison: ComparisonParts<C>,
     pub copy_policies: Vec<CopyPolicy>,
+    pub postchecks: Vec<crate::Postcheck>,
     pub lanes: Vec<LaneTotals>,
     pub current: Option<Barrier<C>>,
 }
 
 impl<C: Clone + Eq> SyncParts<C> {
     pub fn validate(&self) -> Result<(), Error> {
-        require(self.version == 3, "unsupported sync parts version")?;
+        require(self.version == 4, "unsupported sync parts version")?;
         self.comparison.validate().map_err(Error::Comparison)?;
         let n = self.comparison.bindings.targets.len();
-        require(self.copy_policies.len() == n && self.lanes.len() == n, "sync binding/lane count mismatch")?;
+        require(
+            self.copy_policies.len() == n && self.postchecks.len() == n && self.lanes.len() == n,
+            "sync binding/lane count mismatch",
+        )?;
         super::disjoint(&self.comparison.bindings)?;
         for (i, totals) in self.lanes.iter().enumerate() {
             let lane = &self.comparison.lanes[i];

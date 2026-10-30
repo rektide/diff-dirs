@@ -5,12 +5,16 @@ description: Ownership of immediate name unions, acquisition demands, visitor po
 resource: /tree/inspect/README.md
 status: implemented
 generated: { by: "model:openai/gpt-6.1-sol#xhigh", at: 2026-10-22 }
-updated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-29 }
+updated: { by: "model:openai/gpt-6.1-sol#high", at: 2026-10-30 }
 verification:
   scope: Immediate source-once acquisition and pair/sync regressions; not coordinated traversal, resumable execution or performance
   method: Counted and faulted real-filesystem acquisition tests, pure-default owner and Linux nightly workspace default/all-features nextest, strict clippy, formatting, doctests and Rustdoc
   result: Baseline 2c29671b passed 123 pure-default owner/consumer tests, 172 default and 175 all-feature workspace tests and 18 doctests; the lowering/admission successor passed 27 default and 30 all-feature inspection tests
 sources:
+  - resource: "opencode://ses_e744de129ffeJFNaoEhNajEXMV"
+    title: Implements reusable selected stat comparison and compatible desired-leaf comparison for owned refresh
+  - resource: /design/comparison/refresh0.sol61h.md
+    title: Seeded heuristic and exact retention-accounting implementation account
   - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
     title: Reviews and promotes the shared selection, contextual inspection and finite acquisition foundation while preserving traversal/executor handoff boundaries
   - resource: /design/architecture/execution0.sol61x.md
@@ -84,6 +88,14 @@ without changing its comparison. `DirectoryCoverage` derives comparison gaps,
 action deviation and `ApplicationNeed` separately; zero immediate planned work
 does not suppress an opaque recursive obligation.
 
+`StatComparator::new(StatChecks)` selects the entire metadata check set. Parse
+`"mtime,size"` (default), `"size"`, `"mode"` or combinations; empty/unknown/duplicate
+names refuse. `mode` compares Unix permissions and special bits (`0o7777`), or
+readonly elsewhere. Its semantic identity records the mask. Literal links always
+compare by target spelling; no stat mask substitutes for their target. This
+comparator is a heuristic, not content/sharing/privacy verification. `StatKey` and
+`SizeAndLink` keep their existing public identities and delegate the same predicate.
+
 `DirectorySelection<C>` owns metadata-free semantics and compact names. Live plans,
 coordinated groups and application barriers share its immutable body. Decoded
 `SelectionParts<C>` use the same validator as live finalization; decoding supplies
@@ -133,6 +145,14 @@ with acquired-metadata provenance, without claiming complete source enumeration.
 Sync's separate manifest bind proves actual IDs, coordinates, scopes and complete
 declarations before effects. The [0.7 receipt](/design/architecture/execution4.sol61x.md)
 records grouped, corruption, failure and real-reflink checks.
+
+`DeclaredSelection::comparator()` optionally enables compatible desired-leaf
+comparison with the same demand/fact ownership. Guards still see only their own
+masked demand. Guard/demand candidates have NotAssessed; final select receives the
+actual comparison. Non-leaf, obsolete and mismatched-kind entries remain unassessed.
+The common validator permits a desired KeepLeaf only for assessed equality. Sync's
+exact manifest binding separately enforces owned refresh authority and credits
+retention; a decoded equality is not live evidence or native ownership.
 
 ## Shared immediate inspection
 

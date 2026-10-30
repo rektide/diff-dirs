@@ -58,6 +58,247 @@ fn clean(path: &Path) {
     );
 }
 
+#[cfg(unix)]
+fn stamp(from: &Path, to: &Path) {
+    fs::File::options()
+        .write(true)
+        .open(to)
+        .unwrap()
+        .set_modified(fs::metadata(from).unwrap().modified().unwrap())
+        .unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn refresh_is_an_owned_metadata_heuristic_not_a_private_inode_or_content_proof() {
+    use diff_dirs_tree_inspect::{Comparator, StatChecks, StatComparator};
+    use std::os::unix::fs::MetadataExt;
+    let f = Fixture::new(1);
+    file(f.source.join("same"), b"source");
+    file(f.targets[0].join("same"), b"target"); // deliberately different, same size
+    stamp(&f.source.join("same"), &f.targets[0].join("same"));
+    fs::hard_link(f.targets[0].join("same"), f.targets[0].join("alias")).unwrap();
+    let before = fs::metadata(f.targets[0].join("same")).unwrap().ino();
+    let desired = PreparedLeafList::new(["same"]).unwrap();
+    let intent = ListedIntent::RefreshOwned(StatChecks::default());
+    let unowned = run(&f, &desired, &OwnedLeafSet::new(Vec::<PathBuf>::new()).unwrap(), intent);
+    assert!(unowned.outcome.is_err());
+    let owned = OwnedLeafSet::new(["same"]).unwrap();
+    let done = run(&f, &desired, &owned, intent);
+    assert_eq!((done.coverage.installed, done.coverage.retained), (0, 1));
+    assert!(done.coverage.complete);
+    assert_eq!(done.outcome.unwrap().completed, Progress::default());
+    assert_eq!(fs::metadata(f.targets[0].join("same")).unwrap().ino(), before);
+    assert_eq!(fs::read(f.targets[0].join("same")).unwrap(), b"target");
+    assert_ne!(StatComparator::default().identity(), StatComparator::new(StatChecks::MODE).identity());
+    assert_eq!(
+        StatComparator::new("size,mtime".parse().unwrap()).identity(),
+        StatComparator::default().identity()
+    );
+    for malformed in ["", "mtime,", ",size", "size,size", "mtime,unknown", " size", "none"] {
+        assert!(malformed.parse::<StatChecks>().is_err(), "{malformed:?}");
+    }
+    assert_eq!("mode,size,mtime".parse::<StatChecks>().unwrap().to_string(), "mtime,size,mode");
+}
+
+#[cfg(unix)]
+#[test]
+fn refresh_selected_checks_replace_instead_of_extending_the_default() {
+    use diff_dirs_tree_inspect::StatChecks;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    for (change, checks, installed) in [
+        ("size", "mtime", false),
+        ("size", "size", true),
+        ("mtime", "size", false),
+        ("mtime", "mtime", true),
+        ("mode", "mtime,size", false),
+        ("mode", "mtime,size,mode", true),
+        ("special-mode", "mode", true),
+    ] {
+        let f = Fixture::new(1);
+        file(f.source.join("file"), b"source");
+        file(f.targets[0].join("file"), if change == "size" { b"longer target" } else { b"source" });
+        stamp(&f.source.join("file"), &f.targets[0].join("file"));
+        fs::set_permissions(f.source.join("file"), fs::Permissions::from_mode(0o640)).unwrap();
+        fs::set_permissions(
+            f.targets[0].join("file"),
+            fs::Permissions::from_mode(match change {
+                "mode" => 0o740,
+                "special-mode" => 0o1640,
+                _ => 0o640,
+            }),
+        )
+        .unwrap();
+        if change == "mtime" {
+            fs::File::options()
+                .write(true)
+                .open(f.targets[0].join("file"))
+                .unwrap()
+                .set_modified(std::time::SystemTime::UNIX_EPOCH)
+                .unwrap();
+        }
+        let before = fs::metadata(f.targets[0].join("file")).unwrap().ino();
+        let done = run(
+            &f,
+            &PreparedLeafList::new(["file"]).unwrap(),
+            &OwnedLeafSet::new(["file"]).unwrap(),
+            ListedIntent::RefreshOwned(checks.parse::<StatChecks>().unwrap()),
+        );
+        assert!(done.coverage.complete, "{change} {checks}: {:?}", done.outcome);
+        assert_eq!(done.coverage.installed, u64::from(installed), "{change} {checks}");
+        assert_eq!(done.coverage.retained, u64::from(!installed));
+        assert_eq!(fs::metadata(f.targets[0].join("file")).unwrap().ino() != before, installed);
+        assert_eq!(done.outcome.unwrap().completed.files_copied, u64::from(installed));
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn refresh_covers_literal_links_transitions_obsolete_leaves_and_preserved_directories() {
+    use diff_dirs_tree_inspect::StatChecks;
+    use std::os::unix::fs::{MetadataExt, symlink};
+    let f = Fixture::new(1);
+    for (name, s, t) in [("equal-link", "../literal", "../literal"), ("changed-link", "../source", "../target")] {
+        symlink(s, f.source.join(name)).unwrap();
+        symlink(t, f.targets[0].join(name)).unwrap();
+    }
+    file(f.source.join("collapse"), b"new leaf");
+    file(f.targets[0].join("collapse/old"), b"owned");
+    file(f.source.join("expand/new"), b"new child");
+    symlink("old", f.targets[0].join("expand")).unwrap();
+    file(f.source.join("kept/new"), b"new");
+    file(f.targets[0].join("kept/obsolete"), b"old");
+    file(f.source.join("kind"), b"file");
+    symlink("file", f.targets[0].join("kind")).unwrap();
+    let directory = fs::metadata(f.targets[0].join("kept")).unwrap().ino();
+    let link = fs::symlink_metadata(f.targets[0].join("equal-link")).unwrap().ino();
+    let done = run(
+        &f,
+        &PreparedLeafList::new(["equal-link", "changed-link", "collapse", "expand/new", "kept/new", "kind"]).unwrap(),
+        &OwnedLeafSet::new(["equal-link", "changed-link", "collapse/old", "expand", "kept/obsolete", "kind"]).unwrap(),
+        ListedIntent::RefreshOwned(StatChecks::default()),
+    );
+    assert!(done.coverage.complete, "{:?}", done.outcome);
+    assert_eq!((done.coverage.installed, done.coverage.retained, done.coverage.owned_retired), (5, 1, 3));
+    assert_eq!(fs::symlink_metadata(f.targets[0].join("equal-link")).unwrap().ino(), link);
+    assert_eq!(fs::read_link(f.targets[0].join("changed-link")).unwrap(), Path::new("../source"));
+    assert_eq!(fs::metadata(f.targets[0].join("kept")).unwrap().ino(), directory);
+    assert!(!f.targets[0].join("kept/obsolete").exists());
+    clean(&f.targets[0]);
+}
+
+#[cfg(unix)]
+#[test]
+fn refresh_retained_prefix_does_not_cover_a_later_unowned_collapse() {
+    use diff_dirs_tree_inspect::StatChecks;
+    let f = Fixture::new(1);
+    file(f.source.join("a"), b"retain");
+    file(f.targets[0].join("a"), b"retain");
+    stamp(&f.source.join("a"), &f.targets[0].join("a"));
+    file(f.source.join("z"), b"collapse");
+    file(f.targets[0].join("z/owned"), b"owned");
+    file(f.targets[0].join("z/local"), b"unowned");
+    let done = run(
+        &f,
+        &PreparedLeafList::new(["a", "z"]).unwrap(),
+        &OwnedLeafSet::new(["a", "z/owned"]).unwrap(),
+        ListedIntent::RefreshOwned(StatChecks::default()),
+    );
+    assert!(done.outcome.is_err());
+    assert!(!done.coverage.complete);
+    assert_eq!((done.coverage.installed, done.coverage.retained, done.coverage.owned_retired), (0, 1, 0));
+    assert_eq!(fs::read(f.targets[0].join("z/owned")).unwrap(), b"owned");
+    assert_eq!(fs::read(f.targets[0].join("z/local")).unwrap(), b"unowned");
+    clean(&f.targets[0]);
+}
+
+#[cfg(target_os = "linux")]
+fn postcheck_installer_probe(postcheck: Postcheck) {
+    let f = Fixture::new(2);
+    file(f.source.join("payload"), b"tiny installer payload");
+    fs::File::options()
+        .write(true)
+        .open(f.source.join("payload"))
+        .unwrap()
+        .set_modified(std::time::SystemTime::UNIX_EPOCH + std::time::Duration::new(12345, 6789))
+        .unwrap();
+    for (index, policy) in [CopyPolicy::Copy, CopyPolicy::ReflinkRequired].into_iter().enumerate() {
+        let binding = EffectBinding::new(&f.source, &f.targets[index], policy).unwrap().with_postcheck(postcheck);
+        let id = TargetId("probe".into());
+        let result = reconcile_listed(
+            &SourceSession::new(&f.source),
+            &PreparedLeafList::new(["payload"]).unwrap(),
+            &[ListedTarget {
+                id: &id,
+                binding: &binding,
+                owned: &OwnedLeafSet::new(Vec::<PathBuf>::new()).unwrap(),
+                intent: ListedIntent::CreateAbsent,
+                guard: &NoListedGuard,
+            }],
+        )
+        .unwrap()
+        .outcomes
+        .remove(0);
+        assert!(result.coverage.complete, "{:?}", result.outcome);
+        let progress = result.outcome.unwrap().completed;
+        assert_eq!(progress.files_reflinked, u64::from(policy == CopyPolicy::ReflinkRequired));
+        assert_eq!(progress.files_copied, u64::from(policy == CopyPolicy::Copy));
+        assert_eq!(
+            fs::metadata(f.targets[index].join("payload")).unwrap().modified().unwrap(),
+            fs::metadata(f.source.join("payload")).unwrap().modified().unwrap()
+        );
+    }
+}
+#[cfg(target_os = "linux")]
+#[test]
+fn install_postcheck_none_probe() {
+    postcheck_installer_probe(Postcheck::None);
+}
+#[cfg(target_os = "linux")]
+#[test]
+fn install_postcheck_mtime_probe() {
+    postcheck_installer_probe(Postcheck::Mtime);
+}
+
+#[cfg(unix)]
+#[test]
+fn ordinary_refresh_uses_the_same_mask_and_postcheck_is_a_saved_binding() {
+    use diff_dirs_tree_inspect::{Mirror, StatChecks, StatComparator};
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    let f = Fixture::new(1);
+    file(f.source.join("cache/deep/file"), b"source");
+    file(f.targets[0].join("cache/deep/file"), b"source");
+    stamp(&f.source.join("cache/deep/file"), &f.targets[0].join("cache/deep/file"));
+    fs::set_permissions(f.source.join("cache/deep/file"), fs::Permissions::from_mode(0o640)).unwrap();
+    fs::set_permissions(f.targets[0].join("cache/deep/file"), fs::Permissions::from_mode(0o740)).unwrap();
+    let before = fs::metadata(f.targets[0].join("cache/deep/file")).unwrap().ino();
+    let make = |checks, postcheck| {
+        Applier::new_policy(&f.source, &f.targets[0], CopyPolicy::ReflinkRequired, Mirror, StatComparator::new(checks))
+            .unwrap()
+            .with_postcheck(postcheck)
+    };
+    let retained = make(StatChecks::default(), Postcheck::Mtime).run().unwrap();
+    assert_eq!(retained.completed, Progress::default());
+    assert_eq!(fs::metadata(f.targets[0].join("cache/deep/file")).unwrap().ino(), before);
+    let renewed = make(StatChecks::MODE, Postcheck::Mtime).run().unwrap();
+    assert_eq!(renewed.completed.files_reflinked, 1);
+    assert_eq!(fs::metadata(f.targets[0].join("cache/deep/file")).unwrap().mode() & 0o7777, 0o640);
+    let runtime = |postcheck| {
+        SyncRuntime::new(vec![SyncTarget {
+            id: "target".into(),
+            descriptor: "test".into(),
+            applier: make(StatChecks::default(), postcheck),
+        }])
+    };
+    let cursor = SyncCursor::new(&runtime(Postcheck::Mtime), Default::default()).unwrap();
+    let parts = cursor.into_parts();
+    assert_eq!(parts.postchecks, [Postcheck::Mtime]);
+    assert_eq!(parts.version, 4);
+    let mut resumed = SyncCursor::from_parts(parts, Default::default()).unwrap();
+    assert!(resumed.bind(&runtime(Postcheck::None)).is_err());
+    resumed.bind(&runtime(Postcheck::Mtime)).unwrap();
+}
+
 #[test]
 fn preparation_is_canonical_filesystem_free_and_rejects_conflicting_obligations() {
     let a = PreparedLeafList::new(["z/a", "p/b"]).unwrap();

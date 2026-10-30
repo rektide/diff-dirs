@@ -53,5 +53,5 @@ pub use diff_dirs_tree_inspect::{
     LeafKind, ManifestId, Mirror, NativePlatform, NoExecutionDemand, NodeId, ObservationBackend, ObservationConfig, ObservationProfile, ObservationResources,
     Policy, PreparedDirectory, PreparedEntries, PreparedIter, PreparedOperation, PreparedOperations, RemovalAuthority, ResourceError, SelectionChoice,
     SelectionDomain, SelectionError, SelectionParts, SemanticId, Shape, ShapeChoice, ShapeChoices, SideDemands, SideFacts, SizeAndLink, SlotId,
-    SourceCacheLimits, SourceObservation, SourceSession, StatKey, TargetInspection, inspect_group,
+    SourceCacheLimits, SourceObservation, SourceSession, StatChecks, StatComparator, StatKey, TargetInspection, inspect_group,
 };

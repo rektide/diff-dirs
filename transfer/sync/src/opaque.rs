@@ -433,7 +433,14 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             Action::PreserveTree | Action::KeepLeaf => return Ok((Progress::default(), entry.target.is_some(), None)),
             Action::InstallLeaf => {
                 let staged = scope.stage_slot(slot, &to, call.epoch)?;
-                let leaf = kernel::prepare_leaf(from.as_deref().unwrap(), facts.source.unwrap(), &staged, &to, self.binding.policy)?;
+                let leaf = kernel::prepare_leaf(
+                    from.as_deref().unwrap(),
+                    facts.source.unwrap(),
+                    &staged,
+                    &to,
+                    self.binding.policy,
+                    self.binding.postcheck,
+                )?;
                 return kernel::publish_leaf(
                     leaf,
                     &staged,
@@ -449,7 +456,14 @@ impl<'a, P: SelectionPolicy, M: Comparator> LaneCall<'a, P, M> {
             Action::ReplaceWithLeaf => {
                 self.removable(call, &to, &relative, entry.interior.as_ref().unwrap())?;
                 let staged = scope.stage_slot(slot, &to, call.epoch)?;
-                let leaf = kernel::prepare_leaf(from.as_deref().unwrap(), facts.source.unwrap(), &staged, &to, self.binding.policy)?;
+                let leaf = kernel::prepare_leaf(
+                    from.as_deref().unwrap(),
+                    facts.source.unwrap(),
+                    &staged,
+                    &to,
+                    self.binding.policy,
+                    self.binding.postcheck,
+                )?;
                 ChildWork::Collapse {
                     slot: staged,
                     leaf,

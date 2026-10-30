@@ -5,8 +5,12 @@ description: Current library adoption, demonstrated help, sharing limits and arc
 resource: /doc/consumer/jj-waltz.md
 status: maintained-assessment
 generated: { by: "model:openai/gpt-6-astra#xhigh", at: 2026-10-28 }
-updated: { by: "model:openai/gpt-6-astra#medium", at: 2026-10-30 }
+updated: { by: "model:openai/gpt-6.1-sol#high", at: 2026-10-30 }
 sources:
+  - resource: "opencode://ses_e744de129ffeJFNaoEhNajEXMV"
+    title: Implements the separately commissioned seeded stat-refresh provider and raises the native executable handoff checkpoint
+  - resource: /design/comparison/refresh0.sol61h.md
+    title: User-selected default heuristic, provider0.8 implementation and pending JW handoff integration
   - resource: "opencode://ses_e74ed67f6ffeB43O854roApY4C"
     title: Connects the human-commissioned optional reflink-aware retention design to JW's churn-reduction needs
   - resource: "opencode://ses_e7a2771c3ffez3sv1oPgD5gPH4"
@@ -77,6 +81,16 @@ The [active delivery](/design/architecture/delivery0.gpt6ax.md) now owns the
 commissioned broader scope and actual implementation receipts.
 
 ## Current contextual adoption
+
+**New commission:** default seeded stat refresh, not the stricter storage-proof
+proposal below. Provider0.8 adds `RefreshOwned(StatChecks)` with separately reported
+retained desired coverage, and general optional installer postcheck (none by
+default). The user accepts size + exact mtime as a heuristic, optional full Unix
+mode comparison, literal-equal symlink retention and no private-inode gate for
+matches. [Implementation account](/design/comparison/refresh0.sol61h.md) records
+provider checks and the native executable-state normalization question before
+JW consumer integration. The JW0.11 statements below describe the predecessor,
+not a completed refresh/default cutover.
 
 An optional [donor-sharing retention design](/design/comparison/reflink0.gpt6a.md)
 addresses the later request to avoid replacing already-private, already-shared

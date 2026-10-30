@@ -19,6 +19,8 @@ pub struct DesiredLeaf {
 pub enum ListedIntent {
     CreateAbsent,
     RenewOwned,
+    /// Retain compatible owned leaves under this explicit metadata heuristic.
+    RefreshOwned(diff_dirs_tree_inspect::StatChecks),
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ListedMode {
@@ -68,6 +70,8 @@ pub struct ListedTarget<'a, G: ListedGuard> {
 pub struct ManifestCoverage {
     pub desired: u64,
     pub installed: u64,
+    /// Desired leaves accepted in place; never installation/clone effects.
+    pub retained: u64,
     pub owned_obsolete: u64,
     pub owned_retired: u64,
     pub complete: bool,

@@ -193,7 +193,7 @@ dependencies = [
 
 [[package]]
 name = "diff-dirs-transfer-sync"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "blake3",
  "diff-dirs-tree-compare",
@@ -206,7 +206,7 @@ dependencies = [
 
 [[package]]
 name = "diff-dirs-tree-compare"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "diff-dirs-tree-inspect",
  "rayon",
@@ -214,7 +214,7 @@ dependencies = [
 
 [[package]]
 name = "diff-dirs-tree-inspect"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "diff-dirs-tree-observe",
  "rayon",
@@ -222,7 +222,7 @@ dependencies = [
 
 [[package]]
 name = "diff-dirs-tree-observe"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "rustix",
 ]
